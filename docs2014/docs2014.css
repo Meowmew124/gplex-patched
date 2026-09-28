@@ -387,10 +387,14 @@ html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile.ph .pg { background: rgba(255,2
 html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile.ph::after { content: ""; display: block; height: 30px; }
 
 /* ---- the Slides list: the same strip, with Slides' landscape tiles, five to a row ---- */
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tiles { grid-template-columns: repeat(5, 160px); gap: 18px 20px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tiles,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tiles { grid-template-columns: repeat(5, 160px); gap: 18px 20px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .pg { width: 160px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .pg { height: 90px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .pg,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg { width: 160px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .pg,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg { height: 90px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .plus { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .plus::before,
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .plus::after { background: #f4b400; }
@@ -399,14 +403,22 @@ html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .plus::a
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #f4b400; }
 /* the period's rhythm, measured from the 2016 gallery: label 19px under the slide, a
    46px label block (room for a "by ..." credit), 26px to the next row: 162px a row */
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tiles { row-gap: 26px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile { min-height: 136px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .lb { margin-top: 12px; font-size: 13px; line-height: 16px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .st { margin-top: 3px; font-size: 13px; line-height: 16px; color: rgba(255,255,255,.7); }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .cat { margin: 8px 0 22px; font-size: 18px; line-height: 24px; color: rgba(255,255,255,.87); }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .cat.first { margin-top: 6px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile.ph::after { height: 28px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tiles,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tiles { row-gap: 26px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile { min-height: 136px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .lb,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .lb { margin-top: 12px; font-size: 13px; line-height: 16px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .st,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .st { margin-top: 3px; font-size: 13px; line-height: 16px; color: rgba(255,255,255,.7); }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl:not(.open) .tile,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .cat,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .cat { margin: 8px 0 22px; font-size: 18px; line-height: 24px; color: rgba(255,255,255,.87); }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .cat.first,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .cat.first { margin-top: 6px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile.ph::after,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile.ph::after { height: 28px; }
 
 /* ---- Slides' gallery as its own page: "← Start a new presentation" and the gallery alone ---- */
 /* the Google bar slides up out of sight (and back); the list stays under the growing band
@@ -433,10 +445,33 @@ html[gplex-docs-home="d2014"] #ugf-d14-galbar .back:hover { background-color: rg
 html[gplex-docs-home="d2014"] #ugf-d14-galbar .t { margin-left: 16px; font-size: 20px; color: #fff; }
 
 /* ---- the Slides list's cards: four landscape slides to a row, as the 2016 list had them ---- */
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .cards { grid-template-columns: repeat(4, 201px) !important; gap: 20px !important; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card { width: 201px !important; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card .th { width: auto !important; height: 113px !important; overflow: hidden !important; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card .th img { width: 100% !important; height: 100% !important; object-fit: cover !important; object-position: top center !important; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .cards,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .cards { grid-template-columns: repeat(4, 201px) !important; gap: 20px !important; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card { width: 201px !important; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card .th,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card .th { width: auto !important; height: 113px !important; overflow: hidden !important; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card .th img,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card .th img { width: 100% !important; height: 100% !important; object-fit: cover !important; object-position: top center !important; }
+
+/* ---- the Sheets list: Slides' strip, gallery page and cards (above), with Sheets' own
+   4:3 tiles, green + and slate band, measured from the 2016 list at 2.04x ---- */
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"][ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #394242; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .thead { height: 54px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tt { font-size: 16px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tin { padding-bottom: 32px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg { height: 120px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile { min-height: 166px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .lb { margin-top: 10px; font-size: 14px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::before,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::after { background: #1ba866; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::before { width: 44px; height: 5px; margin: -2.5px 0 0 -22px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::after { width: 5px; height: 44px; margin: -22px 0 0 -2.5px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #1ba866; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-galbar { background: #0f9d58; }
 
 /* ==== the Slides editor: the same 2014 frame as Docs (header 0-59, toolbar 59-96,
    buttons on a 26px pitch from x 57), with Slides' own toolbar ==== */
@@ -528,3 +563,92 @@ html[gplex-docs="d2014"][gplex-docs-app="slides"] #viewModeButton .goog-toolbar-
 html[gplex-docs="d2014"][gplex-docs-app="slides"] #content-library-rail-server-rendered-refreshed,
 html[gplex-docs="d2014"][gplex-docs-app="slides"] [class*="ContentLibraryRail"] { display: none !important; }
 html[gplex-docs="d2014"][gplex-docs-app="slides"] #docs-editor { width: 100% !important; }
+
+/* ==== the Sheets editor: the same 2014 frame (header 0-59, toolbar 59-96, buttons on a
+   26px pitch from x 57), measured against the 2016 editor ==== */
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-header { height: 30px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar { height: 30px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar-container { margin-left: 53px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #ugf-docs-logo.square {
+    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;
+    background: #0f9d58 !important; display: flex !important; align-items: center !important; justify-content: center !important;
+}
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar .docs-title-untitled,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar .docs-titlebar-badges .docs-star-container,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar #docs-star,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar #docs-folder { display: inline-block !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #ugf-docs-saved { position: relative !important; top: -3px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }
+/* Comments and Share: top at 26, 10px apart, right edge 50px in */
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-titlebar-share-client-button .scb-button-icon {
+    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;
+}
+
+/* the toolbar band */
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {
+    display: flex !important; align-items: center !important; min-height: 0 !important; width: auto !important; margin-right: 0 !important;
+    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;
+    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;
+}
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar > .goog-toolbar-button,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar > .goog-toolbar-menu-button,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar > .goog-toolbar-button:not(.docs-toolbar-text-button) { width: 24px !important; min-width: 0 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar > * .goog-toolbar-button-outer-box,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-menu-button-outer-box,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-menu-button-inner-box,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-combo-button-outer-box,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-combo-button-inner-box {
+    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;
+}
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-menu-button-caption,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-combo-button-caption {
+    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 5px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;
+}
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-menu-button-caption,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-combo-button-input,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .docs-toolbar-text-button .goog-toolbar-button-inner-box { font: bold 11px Arial, sans-serif !important; color: #444 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-menu-button-dropdown,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar .docs-toolbar-text-button { width: auto !important; padding: 0 8px !important; }
+/* the green block carries the period's white grid, not the 2013 square's + */
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #ugf-docs-logo.square img { visibility: hidden !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #ugf-docs-logo.square { background: #0f9d58 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16' fill='none' stroke='%23fff' stroke-width='2'%3E%3Crect x='1' y='1' width='18' height='14'/%3E%3Cpath d='M1 5.5h18M1 10.5h18M7 1v14'/%3E%3C/svg%3E") center / 20px 16px no-repeat !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar #docs-font-family { width: 100px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar #fontSizeSelect { width: 56px !important; }
+/* the period's order: print, undo, redo, paint format | $ % .0 .00 123 | ... | link, comment, chart, filter, functions */
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar > * { order: 20 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #t-print { order: 1 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #t-undo { order: 2 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #t-redo { order: 3 !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #t-paintformat { order: 4 !important; }
+/* the link button, which 2016 had before comment */
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar #t-insert-link[ugf-hide] { display: inline-flex !important; }
+/* the filter's ▾ beside the funnel, not today's "Filter views" table icon */
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar #t-autofilter-menu { width: 15px !important; min-width: 0 !important; margin-left: -1px !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar #t-autofilter-menu .goog-toolbar-menu-button-caption { display: none !important; }
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-toolbar #t-autofilter-menu .goog-toolbar-menu-button-dropdown { margin: 0 3px !important; }
+/* today's side-panel rail's room given back to the grid */
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-editor,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-additional-bars,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #formula-bar,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #grid-bottom-bar,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-feature-level-banner,
+html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-inset-notification-banner { width: 100% !important; }

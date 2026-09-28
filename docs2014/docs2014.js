@@ -4,7 +4,7 @@
 // Both drive Google's own menus out of sight, so every command is still Google's.
 (function ugfDocs2014Fixes() {
     "use strict";
-    if (window.location.host !== "docs.google.com" || !/^\/(document|presentation)\//.test(window.location.pathname) || window.top !== window.self) {
+    if (window.location.host !== "docs.google.com" || !/^\/(document|spreadsheets|presentation)\//.test(window.location.pathname) || window.top !== window.self) {
         return;
     }
     const CSS = /*__UGF_DOCS2014_CSS__*/ null;
@@ -14,9 +14,10 @@
         return html.getAttribute("gplex-docs") === "d2014" && /^\/document\//.test(window.location.pathname);
     };
     // the Docs list (Gplex draws it as #ugf-docs-home)
-    // the Slides editor: only put back in the middle once the rail's room is given back
+    // the Slides and Sheets editors: laid out again once the side rail's room is given back
+    // and the 2014 frame's shorter header is in
     const slidesWanted = function() {
-        return html.getAttribute("gplex-docs") === "d2014" && /^\/presentation\//.test(window.location.pathname);
+        return html.getAttribute("gplex-docs") === "d2014" && /^\/(presentation|spreadsheets)\//.test(window.location.pathname);
     };
     // the Docs or Slides list (Gplex draws both as #ugf-docs-home)
     const homeWanted = function() {
@@ -26,6 +27,7 @@
     // Slides' landscape slides five
     const HOME_APPS = {
         docs: { noun: "document", create: "https://docs.google.com/document/create", recent: 6 },
+        sheets: { noun: "spreadsheet", create: "https://docs.google.com/spreadsheets/create", recent: 4, recentTitle: "Recently used", fullPage: true },
         slides: { noun: "presentation", create: "https://docs.google.com/presentation/create", recent: 4, recentTitle: "Recently used", fullPage: true }
     };
 
@@ -500,9 +502,11 @@
 
     const relayout = function() {
         const ed = document.getElementById("docs-editor");
-        const w = ed ? ed.getBoundingClientRect().width : 0;
-        if (w && w !== laidOutAt) {
-            laidOutAt = w;
+        const r = ed ? ed.getBoundingClientRect() : null;
+        // its width (the rail's room given back) and its top (the 2014 frame's shorter header)
+        const at = r && r.width ? r.width + "/" + r.top : "";
+        if (at && at !== laidOutAt) {
+            laidOutAt = at;
             window.dispatchEvent(new Event("resize"));
         }
     };

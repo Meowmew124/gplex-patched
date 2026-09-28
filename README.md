@@ -1,4 +1,4 @@
-# Gplex Extended, with the Google+ link fix and 2014–2016 Docs and Slides fixes
+# Gplex Extended, with the Google+ link fix and 2014–2016 Docs, Sheets and Slides fixes
 
 An automatically patched copy of [Gplex Extended](https://github.com/Ziptino9098/Gplex-Fixed) by Ziptino9098 and lightbeam24.
 
@@ -17,6 +17,10 @@ And Google Slides, on the same layouts:
 - the editor in the same 2014 frame as Docs (the yellow app block, the header and toolbar at the period's sizes, the toolbar in the period's order with Background beside Layout, Theme and Transition, ︽ at the right), without today's content-library rail
 - the Slides list's "Start a new presentation" strip (from late 2015): Blank and Google's own templates as landscape slides, five to a row; MORE opens the whole gallery as its own page ("← Start a new presentation"), sliding open like a drawer as 2016's did
 - the list's presentations as landscape cards, four to a row, and the working "Owned by anyone ▾"
+
+And Google Sheets, on the same layouts:
+- the editor in the same 2014 frame (the green block with the period's grid mark, the header and toolbar at the period's sizes), the toolbar in 2016's order (print, undo, redo, paint format first; link, comment, chart, filter ▾ and Σ at the end), without today's side-panel gutter
+- the Sheets list's "Start a new spreadsheet" strip: Blank and Google's own templates, five to a row, on the period's slate band; MORE opens the whole gallery as its own page, like Slides; the list's spreadsheets as landscape cards and a working "Owned by anyone ▾"
 
 The alignment buttons and the Table menu work Google's own menus behind the scenes, so every command is still Google's.
 
