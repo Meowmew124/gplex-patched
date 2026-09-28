@@ -324,8 +324,15 @@ html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-wid
 html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container { padding: 0 6px 0 8px !important; }
 
 /* ---- the Docs list: "Start a new document", as the list had it from autumn 2015 ------ */
-html[gplex-docs-home="d2014"] #ugf-d14-tpl { flex: 0 0 auto; background: #434448; color: #fff; font-family: Roboto, Arial, sans-serif; position: relative; z-index: 1; }
-html[gplex-docs-home="d2014"] #ugf-d14-tpl .tin { width: 880px; max-width: calc(100% - 48px); margin: 0 auto; padding: 0 0 18px; }
+/* it sits at the top of the scrolling list, stretched back out over the list's side and top
+   padding (24px calc(50% - 440px)) to the full width: cqw is the list page's width */
+html[gplex-docs-home="d2014"] #ugf-docs-home { container-type: inline-size; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl {
+    background: #434448; color: #fff; font-family: Roboto, Arial, sans-serif; position: relative;
+    margin: -24px min(0px, calc(440px - 50cqw)) 16px;
+}
+/* on the list's own left edge (its padding is calc(50% - 440px)), like "Recent documents" */
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tin { width: 880px; max-width: calc(100% - 48px); margin: 0 0 0 max(24px, calc(50cqw - 440px)); padding: 0 0 18px; }
 html[gplex-docs-home="d2014"] #ugf-d14-tpl .thead { display: flex; align-items: center; height: 44px; }
 html[gplex-docs-home="d2014"] #ugf-d14-tpl .tt { font-size: 14px; color: rgba(255,255,255,.87); }
 html[gplex-docs-home="d2014"] #ugf-d14-tpl .more { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: rgba(255,255,255,.87); font-size: 12px; font-weight: 500; letter-spacing: .5px; text-decoration: none; }
@@ -334,7 +341,7 @@ html[gplex-docs-home="d2014"] #ugf-d14-tpl .more .ar {
     display: inline-block; width: 10px; height: 14px;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%23ddd' stroke-width='1.5'%3E%3Cpath d='M2 5l3-3 3 3M2 9l3 3 3-3'/%3E%3C/svg%3E") center / 10px 14px no-repeat;
 }
-html[gplex-docs-home="d2014"] #ugf-d14-tpl .tiles { display: grid; grid-template-columns: repeat(7, 112px); gap: 0 16px; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tiles { display: grid; grid-template-columns: repeat(7, 112px); gap: 18px 16px; }
 html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile { display: block; width: 112px; color: #fff; text-decoration: none; cursor: pointer; }
 html[gplex-docs-home="d2014"] #ugf-d14-tpl .pg { display: block; position: relative; width: 112px; height: 142px; background: #fff; overflow: hidden; }
 html[gplex-docs-home="d2014"] #ugf-d14-tpl .pg img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
@@ -348,3 +355,33 @@ html[gplex-docs-home="d2014"] #ugf-d14-tpl .lb { display: block; margin-top: 10p
 html[gplex-docs-home="d2014"] #ugf-d14-tpl .st { display: block; margin-top: 1px; font-size: 11px; color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* with Blank on the strip, the list had no round "+" (it stays for search results, where the strip isn't) */
 html[gplex-docs-home="d2014"] #ugf-docs-home:has(#ugf-d14-tpl) .fab { display: none !important; }
+
+/* "Owned by anyone ▾" on the right of "Recent documents", and its menu */
+html[gplex-docs-home="d2014"] #ugf-docs-home .rhead .ugf-d14-own {
+    margin-left: auto; display: inline-flex; align-items: center; height: 24px; padding: 0 6px 0 10px; border-radius: 4px;
+    cursor: pointer; user-select: none; font: 14px Roboto, Arial, sans-serif; color: #444746;
+}
+html[gplex-docs-home="d2014"] #ugf-docs-home .rhead .ugf-d14-own:hover { background: rgba(0,0,0,.05); }
+html[gplex-docs-home="d2014"] #ugf-docs-home .rhead .ugf-d14-own.open { background: #d6e3fb; }
+html[gplex-docs-home="d2014"] #ugf-docs-home .rhead .ugf-d14-own .ar { width: 0; height: 0; margin: 0 4px 0 10px; border-style: solid; border-width: 5px 5px 0; border-color: currentColor transparent transparent; }
+html[gplex-docs-home="d2014"] .ugf-d14-ownmenu {
+    position: fixed; z-index: 60; min-width: 200px; padding: 6px 0; background: #fff; border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 4px 12px rgba(0,0,0,.15); font: 14px Roboto, Arial, sans-serif; color: #1f1f1f;
+}
+html[gplex-docs-home="d2014"] .ugf-d14-ownmenu .it { position: relative; height: 34px; line-height: 34px; padding: 0 24px 0 47px; cursor: pointer; white-space: nowrap; }
+html[gplex-docs-home="d2014"] .ugf-d14-ownmenu .it:hover { background: #f1f1f1; }
+html[gplex-docs-home="d2014"] .ugf-d14-ownmenu .it.on { font-weight: 700; color: #333; }
+html[gplex-docs-home="d2014"] .ugf-d14-ownmenu .it.on::before {
+    content: ""; position: absolute; left: 18px; top: 50%; width: 14px; height: 11px; margin-top: -6px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='11' viewBox='0 0 14 11' fill='none' stroke='%23000' stroke-width='1.8'%3E%3Cpath d='M1 5.5l4 4 8-8.5'/%3E%3C/svg%3E") center / 14px 11px no-repeat;
+}
+
+/* MORE: the whole gallery, by category, in the band; LESS folds it back */
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .cat { margin: 26px 0 14px; font-size: 14px; color: rgba(255,255,255,.87); }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl.open .tin { padding-bottom: 28px; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl.open .more .ar {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%23ddd' stroke-width='1.5'%3E%3Cpath d='M2 2l3 3 3-3M2 12l3-3 3 3'/%3E%3C/svg%3E");
+}
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile.ph { cursor: default; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile.ph .pg { background: rgba(255,255,255,.08); }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile.ph::after { content: ""; display: block; height: 30px; }

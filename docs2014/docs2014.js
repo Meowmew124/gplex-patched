@@ -500,62 +500,83 @@
     // The templates are the ones Google's page offers (hidden under Gplex's list); a click opens
     // one the way a click on Google's own tile does.
     const TEMPLATE_GALLERY = "https://docs.google.com/templates";
-    const googleTemplates = function() {
-        const out = [];
-        document.querySelectorAll(".docs-homescreen-templates-templateview").forEach(function(t) {
-            if (t.closest("#ugf-docs-home")) {
+    // Google's own gallery, read from its page under Gplex's list: its categories in order,
+    // each with its templates (the first, "Recently used", is the collapsed row). Add-on
+    // templates (other companies', which the period's gallery didn't have) are left out.
+    const googleGallery = function() {
+        const cats = [];
+        document.querySelectorAll(".docs-homescreen-templates-gallery .docs-homescreen-grid-container").forEach(function(sec) {
+            if (sec.closest("#ugf-docs-home")) {
                 return;
             }
-            const title = ((t.querySelector("[class*='templateview-title']") || {}).textContent || "").trim();
-            if (!title || /^blank/i.test(title) || out.some(function(x) {
-                return x.title === title;
-            })) {
-                return;
+            const name = ((sec.querySelector(".docs-homescreen-grid-header-title") || {}).textContent || "").trim();
+            const items = [];
+            sec.querySelectorAll(".docs-homescreen-templates-templateview").forEach(function(t) {
+                const title = ((t.querySelector("[class*='templateview-title']") || {}).textContent || "").trim();
+                const style = ((t.querySelector("[class*='templateview-style']") || {}).textContent || "").trim();
+                if (!title || /^blank/i.test(title) || /add-on/i.test(t.textContent || "") || /^by /i.test(style)) {
+                    return;
+                }
+                const img = t.querySelector("img");
+                items.push({ el: t, title: title, style: style, img: img ? img.src : "" });
+            });
+            if (items.length) {
+                cats.push({ name: name, items: items });
             }
-            const img = t.querySelector("img");
-            out.push({ title: title, style: ((t.querySelector("[class*='templateview-style']") || {}).textContent || "").trim(), img: img ? img.src : "" });
         });
-        return out;
+        return cats;
     };
-    const openTemplate = function(title) {
-        const t = [].find.call(document.querySelectorAll(".docs-homescreen-templates-templateview"), function(x) {
-            return !x.closest("#ugf-docs-home") && ((x.querySelector("[class*='templateview-title']") || {}).textContent || "").trim() === title;
-        });
-        if (!t) {
+    const openTemplate = function(t) {
+        let target = t.el && t.el.isConnected ? t.el : null;
+        if (!target) {
+            target = [].find.call(document.querySelectorAll(".docs-homescreen-templates-templateview"), function(x) {
+                return !x.closest("#ugf-docs-home") &&
+                    ((x.querySelector("[class*='templateview-title']") || {}).textContent || "").trim() === t.title &&
+                    ((x.querySelector("[class*='templateview-style']") || {}).textContent || "").trim() === t.style;
+            });
+        }
+        if (!target) {
             window.location.href = TEMPLATE_GALLERY;
             return;
         }
         try {
-            t.focus();
+            target.focus();
         } catch (e) {}
-        press(t);
+        press(target);
         // and the keyboard's way in, which the list also answers
         setTimeout(function() {
             if (document.visibilityState === "visible" && document.getElementById("ugf-docs-home")) {
                 ["keydown", "keyup"].forEach(function(type) {
-                    t.dispatchEvent(new KeyboardEvent(type, { bubbles: true, cancelable: true, key: "Enter", code: "Enter", keyCode: 13, which: 13 }));
+                    target.dispatchEvent(new KeyboardEvent(type, { bubbles: true, cancelable: true, key: "Enter", code: "Enter", keyCode: 13, which: 13 }));
                 });
             }
         }, 400);
     };
     let stripKey = "";
+    let galleryOpen = false;
     const templateStrip = function() {
         const shell = document.getElementById("ugf-docs-home");
         const content = shell && shell.querySelector(".content");
         let strip = document.getElementById("ugf-d14-tpl");
-        // not over search results, as the period's list had it
-        if (!content || new URLSearchParams(window.location.search).get("q")) {
+        // only from autumn 2015, when the strip came: Gplex's list then carries the Google
+        // logo of 1 September 2015 (late 2015 and 2016); not over search results either
+        const late2015 = !!(shell && shell.querySelector(".gtop .glogo img.n"));
+        if (!content || !late2015 || new URLSearchParams(window.location.search).get("q")) {
             if (strip) {
                 strip.remove();
             }
             return;
         }
-        const tpls = googleTemplates().slice(0, 6);
-        const key = tpls.map(function(t) {
-            return t.title + "|" + t.img;
+        const cats = googleGallery();
+        const recent = (cats[0] ? cats[0].items : []).slice(0, 6);
+        const more = galleryOpen ? cats.slice(1) : [];
+        const key = (galleryOpen ? "open" : "shut") + "/" + [{ items: recent }].concat(more).map(function(c) {
+            return (c.name || "") + ":" + c.items.map(function(t) {
+                return t.title + "|" + t.style + "|" + t.img;
+            }).join(",");
         }).join("/");
         // Gplex redraws its list: put the strip back when it goes, rebuild when the templates change
-        if (strip && strip.parentNode === shell && strip.nextElementSibling === content && key === stripKey) {
+        if (strip && strip.parentNode === content && content.firstElementChild === strip && key === stripKey) {
             return;
         }
         stripKey = key;
@@ -564,54 +585,189 @@
         }
         strip = el("div");
         strip.id = "ugf-d14-tpl";
+        strip.classList.toggle("open", galleryOpen);
         const inner = el("div", "tin");
         const head = el("div", "thead");
         const title = el("span", "tt");
         title.textContent = "Start a new document";
-        const more = el("a", "more");
-        more.href = TEMPLATE_GALLERY;
-        more.textContent = "MORE";
-        more.appendChild(el("span", "ar"));
-        head.append(title, more);
-        const tiles = el("div", "tiles");
-        const tile = function(label, style, cls) {
-            const a = el("a", "tile" + (cls ? " " + cls : ""));
+        const toggle = el("a", "more");
+        toggle.href = "#";
+        toggle.textContent = galleryOpen ? "LESS" : "MORE";
+        toggle.appendChild(el("span", "ar"));
+        toggle.addEventListener("click", function(e) {
+            e.preventDefault();
+            galleryOpen = !galleryOpen;
+            stripKey = "";
+            templateStrip();
+        });
+        head.append(title, toggle);
+        const tile = function(t) {
+            const a = el("a", "tile");
             const pg = el("span", "pg");
             const lb = el("span", "lb");
-            lb.textContent = label;
+            lb.textContent = t.title;
             a.append(pg, lb);
-            if (style) {
+            if (t.style) {
                 const st = el("span", "st");
-                st.textContent = style;
+                st.textContent = t.style;
                 a.appendChild(st);
             }
-            return a;
-        };
-        const blank = tile("Blank", "", "blank");
-        blank.href = "https://docs.google.com/document/create";
-        blank.target = "_blank";
-        blank.firstChild.appendChild(el("span", "plus"));
-        tiles.appendChild(blank);
-        tpls.forEach(function(t) {
-            const a = tile(t.title, t.style);
             a.href = "#";
             a.title = t.title + (t.style ? " (" + t.style + ")" : "");
             if (t.img) {
                 const img = el("img");
                 img.src = t.img;
                 img.alt = "";
-                a.firstChild.appendChild(img);
+                pg.appendChild(img);
             }
             a.addEventListener("click", function(e) {
                 e.preventDefault();
-                openTemplate(t.title);
+                openTemplate(t);
             });
-            tiles.appendChild(a);
+            return a;
+        };
+        const row = function(items, withBlank) {
+            const tiles = el("div", "tiles");
+            if (withBlank) {
+                const blank = el("a", "tile blank");
+                blank.href = "https://docs.google.com/document/create";
+                blank.target = "_blank";
+                const pg = el("span", "pg");
+                pg.appendChild(el("span", "plus"));
+                const lb = el("span", "lb");
+                lb.textContent = "Blank";
+                blank.append(pg, lb);
+                tiles.appendChild(blank);
+            }
+            items.forEach(function(t) {
+                tiles.appendChild(tile(t));
+            });
+            // Google's templates come a moment after the page: keep their places meanwhile,
+            // so the strip doesn't grow under the pointer when they arrive
+            if (withBlank) {
+                for (let i = items.length; i < 6; i++) {
+                    const ph = el("span", "tile ph");
+                    ph.appendChild(el("span", "pg"));
+                    tiles.appendChild(ph);
+                }
+            }
+            return tiles;
+        };
+        inner.append(head, row(recent, true));
+        more.forEach(function(c) {
+            const h = el("div", "cat");
+            h.textContent = c.name;
+            inner.append(h, row(c.items, false));
         });
-        inner.append(head, tiles);
         strip.appendChild(inner);
-        shell.insertBefore(strip, content);
+        // inside the list, so it scrolls away with it under the blue bar
+        content.insertBefore(strip, content.firstChild);
     };
+
+    // ---- the list's "Owned by anyone ▾": Google's own owner filter, from the list's header --
+    const OWNERS = ["Owned by anyone", "Owned by me", "Not owned by me"];
+    const googleOwnerButton = function() {
+        return [].find.call(document.querySelectorAll(".docs-homescreen-owner-filter-button"), function(b) {
+            return !b.closest("#ugf-docs-home");
+        }) || null;
+    };
+    // what Google's filter is set to (its menu keeps the ticked option once built)
+    let ownerNow = OWNERS[0];
+    const readOwner = function() {
+        const picked = [].find.call(document.querySelectorAll(".goog-menu .goog-option-selected"), function(it) {
+            return OWNERS.indexOf((it.textContent || "").trim()) > -1;
+        });
+        if (picked) {
+            ownerNow = picked.textContent.trim();
+        }
+        return ownerNow;
+    };
+    const setOwner = async function(label, anchorEl) {
+        const button = googleOwnerButton();
+        if (!button) {
+            note("Google Docs' owner filter isn't on this page", anchorEl);
+            return;
+        }
+        busy(true);
+        try {
+            const before = openMenus();
+            pressOpen(button);
+            const item = await until(function() {
+                return findItem(label, openMenus().filter(function(m) {
+                    return before.indexOf(m) === -1;
+                }));
+            }, 1200);
+            if (item) {
+                release(item);
+                ownerNow = label;
+            } else {
+                note("Google Docs' owner filter didn't open", anchorEl);
+            }
+            await wait(60);
+            closeMenus();
+        } finally {
+            busy(false);
+        }
+    };
+    let ownerMenu = null;
+    const closeOwnerMenu = function() {
+        if (ownerMenu) {
+            ownerMenu.remove();
+            ownerMenu = null;
+        }
+        document.querySelectorAll(".ugf-d14-own.open").forEach(function(b) {
+            b.classList.remove("open");
+        });
+    };
+    const ownerFilter = function() {
+        const head = document.querySelector("#ugf-docs-home .content .rhead");
+        if (!head || !googleOwnerButton()) {
+            return;
+        }
+        const now = readOwner();
+        let own = head.querySelector(".ugf-d14-own");
+        if (!own) {
+            own = el("span", "ugf-d14-own");
+            own.setAttribute("role", "button");
+            own.appendChild(el("span", "tx"));
+            own.appendChild(el("span", "ar"));
+            own.addEventListener("click", function(e) {
+                e.stopPropagation();
+                if (ownerMenu) {
+                    closeOwnerMenu();
+                    return;
+                }
+                ownerMenu = el("div", "ugf-d14-ownmenu");
+                OWNERS.forEach(function(label) {
+                    const it = el("div", "it" + (label === readOwner() ? " on" : ""));
+                    it.textContent = label;
+                    it.addEventListener("click", function(ev) {
+                        ev.stopPropagation();
+                        closeOwnerMenu();
+                        own.firstChild.textContent = label;
+                        setOwner(label, own);
+                    });
+                    ownerMenu.appendChild(it);
+                });
+                // inside Gplex's list, which lies over Google's page (as its own sort menu does)
+                const r = own.getBoundingClientRect();
+                ownerMenu.style.top = Math.round(r.bottom + 6) + "px";
+                ownerMenu.style.right = Math.round(window.innerWidth - r.right) + "px";
+                (document.getElementById("ugf-docs-home") || document.body).appendChild(ownerMenu);
+                own.classList.add("open");
+            });
+            head.appendChild(own);
+        }
+        if (own.firstChild.textContent !== now) {
+            own.firstChild.textContent = now;
+        }
+    };
+    // a click anywhere else shuts the menu (the button itself toggles it)
+    document.addEventListener("click", function(e) {
+        if (ownerMenu && !ownerMenu.contains(e.target) && !(e.target.closest && e.target.closest(".ugf-d14-own"))) {
+            closeOwnerMenu();
+        }
+    }, true);
 
     const start = function() {
         if (CSS && !document.getElementById("ugf-d14-styles")) {
@@ -626,7 +782,7 @@
                 document.head.appendChild(style);
             }
         };
-        const steps = homeWanted() ? [["style", keepLast], ["templates", templateStrip]] :
+        const steps = homeWanted() ? [["style", keepLast], ["templates", templateStrip], ["owner", ownerFilter]] :
             [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["tabs", docTabs], ["relayout", relayout]];
         const tick = function() {
             steps.forEach(function(step) {
@@ -639,14 +795,36 @@
         };
         tick();
         setInterval(tick, 1000);
+        // on the list, at once whenever Gplex draws it (so nothing appears a beat late)
+        if (homeWanted()) {
+            let queued = false;
+            new MutationObserver(function() {
+                if (queued) {
+                    return;
+                }
+                queued = true;
+                requestAnimationFrame(function() {
+                    queued = false;
+                    tick();
+                });
+            }).observe(document.documentElement, { childList: true, subtree: true });
+        }
     };
-    const t = setInterval(function() {
-        if (wanted() || homeWanted()) {
+    let started = false;
+    const tryStart = function() {
+        if (!started && (wanted() || homeWanted())) {
+            started = true;
+            watch.disconnect();
             clearInterval(t);
             start();
         }
-    }, 300);
+    };
+    const watch = new MutationObserver(tryStart);
+    watch.observe(html, { attributes: true, attributeFilter: ["gplex-docs", "gplex-docs-home"] });
+    const t = setInterval(tryStart, 300);
     setTimeout(function() {
         clearInterval(t);
+        watch.disconnect();
     }, 60000);
+    tryStart();
 })();
