@@ -388,13 +388,17 @@ html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile.ph::after { content: ""; displa
 
 /* ---- the Slides list: the same strip, with Slides' landscape tiles, five to a row ---- */
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tiles,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tiles { grid-template-columns: repeat(5, 160px); gap: 18px 20px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tiles,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tiles { grid-template-columns: repeat(5, 160px); gap: 18px 20px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile,
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tile,
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .pg,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg { width: 160px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .pg { width: 160px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .pg,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg { height: 90px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .pg { height: 90px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .plus { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .plus::before,
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .plus::after { background: #f4b400; }
@@ -404,21 +408,29 @@ html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile:ho
 /* the period's rhythm, measured from the 2016 gallery: label 19px under the slide, a
    46px label block (room for a "by ..." credit), 26px to the next row: 162px a row */
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tiles,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tiles { row-gap: 26px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tiles,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tiles { row-gap: 26px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile { min-height: 136px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tile { min-height: 136px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .lb,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .lb { margin-top: 12px; font-size: 13px; line-height: 16px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .lb,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .lb { margin-top: 12px; font-size: 13px; line-height: 16px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .st,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .st { margin-top: 3px; font-size: 13px; line-height: 16px; color: rgba(255,255,255,.7); }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .st,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .st { margin-top: 3px; font-size: 13px; line-height: 16px; color: rgba(255,255,255,.7); }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl:not(.open) .tile,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tile,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .cat,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .cat { margin: 8px 0 22px; font-size: 18px; line-height: 24px; color: rgba(255,255,255,.87); }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .cat,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .cat { margin: 8px 0 22px; font-size: 18px; line-height: 24px; color: rgba(255,255,255,.87); }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .cat.first,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .cat.first { margin-top: 6px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .cat.first,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .cat.first { margin-top: 6px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile.ph::after,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile.ph::after { height: 28px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile.ph::after,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tile.ph::after { height: 28px; }
 
 /* ---- Slides' gallery as its own page: "← Start a new presentation" and the gallery alone ---- */
 /* the Google bar slides up out of sight (and back); the list stays under the growing band
@@ -446,32 +458,60 @@ html[gplex-docs-home="d2014"] #ugf-d14-galbar .t { margin-left: 16px; font-size:
 
 /* ---- the Slides list's cards: four landscape slides to a row, as the 2016 list had them ---- */
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .cards,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .cards { grid-template-columns: repeat(4, 201px) !important; gap: 20px !important; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .cards,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] .cards { grid-template-columns: repeat(4, 201px) !important; gap: 20px !important; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card { width: 201px !important; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] .card { width: 201px !important; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card .th,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card .th { width: auto !important; height: 113px !important; overflow: hidden !important; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card .th,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] .card .th { width: auto !important; height: 113px !important; overflow: hidden !important; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] .card .th img,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card .th img { width: 100% !important; height: 100% !important; object-fit: cover !important; object-position: top center !important; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] .card .th img,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] .card .th img { width: 100% !important; height: 100% !important; object-fit: cover !important; object-position: top center !important; }
 
 /* ---- the Sheets list: Slides' strip, gallery page and cards (above), with Sheets' own
    4:3 tiles, green + and slate band, measured from the 2016 list at 2.04x ---- */
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"][ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #394242; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .thead { height: 54px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tt { font-size: 16px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tin { padding-bottom: 32px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg { height: 120px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile { min-height: 166px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .lb { margin-top: 10px; font-size: 14px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"][ugf-d14-gallery]:not(.ugf-d14-anim) .content,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"][ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #394242; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .thead,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .thead { height: 54px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tt,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tt { font-size: 16px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tin,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl:not(.open) .tin { padding-bottom: 32px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .pg,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .pg { height: 120px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tile { min-height: 166px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl:not(.open) .tile,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .lb,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .lb { margin-top: 10px; font-size: 14px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .plus { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::before,
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::after { background: #1ba866; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::before { width: 44px; height: 5px; margin: -2.5px 0 0 -22px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::after { width: 5px; height: 44px; margin: -22px 0 0 -2.5px; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #1ba866; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-galbar { background: #0f9d58; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .plus::before,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::after,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .plus::after { background: #1ba866; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::before,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .plus::before { width: 44px; height: 5px; margin: -2.5px 0 0 -22px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .plus::after,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .plus::after { width: 5px; height: 44px; margin: -22px 0 0 -2.5px; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-tpl .tile:hover .pg,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #1ba866; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="sheets"] #ugf-d14-galbar,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-galbar { background: #0f9d58; }
+
+/* ---- the Forms list: the Sheets strip (4:3 tiles), gallery page and cards, in Forms' purple ---- */
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"][ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #434448; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .plus::before,
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .plus::after { background: #673ab7; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #7e57c2; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[app="forms"] #ugf-d14-galbar { background: #673ab7; }
 
 /* ==== the Slides editor: the same 2014 frame as Docs (header 0-59, toolbar 59-96,
    buttons on a 26px pitch from x 57), with Slides' own toolbar ==== */
@@ -652,3 +692,25 @@ html[gplex-docs="d2014"][gplex-docs-app="sheets"] #formula-bar,
 html[gplex-docs="d2014"][gplex-docs-app="sheets"] #grid-bottom-bar,
 html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-feature-level-banner,
 html[gplex-docs="d2014"][gplex-docs-app="sheets"] #docs-inset-notification-banner { width: 100% !important; }
+
+/* ==== the Forms editor (Gplex's, over Google's): 2016's Add-ons and Colour palette ==== */
+#ugf-fe .ugf-d14-feb { cursor: pointer; }
+#ugf-fe .ugf-d14-feb.open { background: rgba(0,0,0,.08); }
+#ugf-fe .ugf-d14-feb svg { fill: currentColor; display: block; }
+#ugf-d14-fepop {
+    position: fixed; z-index: 80; background: #fff; border-radius: 2px; font: 14px Roboto, Arial, sans-serif; color: #212121;
+    box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.12), 0 1px 5px 0 rgba(0,0,0,.2);
+}
+#ugf-d14-fepop.palette { padding: 16px; }
+#ugf-d14-fepop .sw { display: grid; grid-template-columns: repeat(4, 32px); gap: 12px; }
+#ugf-d14-fepop .c { width: 32px; height: 32px; border-radius: 50% !important; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); }
+#ugf-d14-fepop .c:hover { box-shadow: inset 0 0 0 1px rgba(0,0,0,.1), 0 1px 3px rgba(0,0,0,.35); }
+#ugf-d14-fepop .c svg { fill: #fff; display: block; }
+#ugf-d14-fepop.addons { min-width: 200px; padding: 8px 0; }
+#ugf-d14-fepop .it { height: 32px; line-height: 32px; padding: 0 24px; cursor: pointer; white-space: nowrap; }
+#ugf-d14-fepop .it:hover { background: #eee; }
+#ugf-d14-fepop .sep { height: 1px; margin: 8px 0; background: #e0e0e0; }
+#ugf-d14-fenote { position: fixed; z-index: 80; display: none; max-width: 320px; padding: 8px 12px; background: #323232; color: #fff; font: 13px Roboto, Arial, sans-serif; border-radius: 2px; }
+/* an add-on's dialog (or the add-ons store) over Gplex's editor, on a scrim */
+html[ugf-d14-fe-lift] #ugf-fe::after { content: ""; position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.5); }
+html[ugf-d14-fe-lift] [role="dialog"]:not(#ugf-fe *) { z-index: 2147483300 !important; }

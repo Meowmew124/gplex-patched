@@ -4,7 +4,7 @@
 // Both drive Google's own menus out of sight, so every command is still Google's.
 (function ugfDocs2014Fixes() {
     "use strict";
-    if (window.location.host !== "docs.google.com" || !/^\/(document|spreadsheets|presentation)\//.test(window.location.pathname) || window.top !== window.self) {
+    if (window.location.host !== "docs.google.com" || !/^\/(document|spreadsheets|presentation|forms)\//.test(window.location.pathname) || window.top !== window.self) {
         return;
     }
     const CSS = /*__UGF_DOCS2014_CSS__*/ null;
@@ -28,6 +28,7 @@
     const HOME_APPS = {
         docs: { noun: "document", create: "https://docs.google.com/document/create", recent: 6 },
         sheets: { noun: "spreadsheet", create: "https://docs.google.com/spreadsheets/create", recent: 4, recentTitle: "Recently used", fullPage: true },
+        forms: { noun: "form", create: "https://docs.google.com/forms/create", recent: 4, recentTitle: "Recently used", fullPage: true },
         slides: { noun: "presentation", create: "https://docs.google.com/presentation/create", recent: 4, recentTitle: "Recently used", fullPage: true }
     };
 
@@ -907,6 +908,340 @@
         }
     }, true);
 
+    // ---- the Forms editor (Gplex's own, over Google's): the 2016 header's Add-ons and
+    // Colour palette buttons, before Preview. Both work Google's own editor underneath.
+    const feWanted = function() {
+        return /^(fk|fm)$/.test(html.getAttribute("gplex-fe") || "") && !!document.getElementById("ugf-fe");
+    };
+    const SVGNS = "http://www.w3.org/2000/svg";
+    // Material's filled icons, as the Forms of 2016 drew them
+    const FE_ICONS = {
+        extension: "M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z",
+        palette: "M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z",
+        check: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+    };
+    const feIcon = function(name, size) {
+        const i = el("i", "mi");
+        const svg = document.createElementNS(SVGNS, "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("width", String(size || 24));
+        svg.setAttribute("height", String(size || 24));
+        const p = document.createElementNS(SVGNS, "path");
+        p.setAttribute("d", FE_ICONS[name]);
+        svg.appendChild(p);
+        i.appendChild(svg);
+        return i;
+    };
+    // the colours of the 2016 palette (Google's theme colours to this day)
+    const FE_COLOURS = [["Red", "#db4437"], ["Purple", "#673ab7"], ["Indigo", "#3f51b5"], ["Blue", "#4285f4"],
+        ["Light blue", "#03a9f4"], ["Cyan", "#00bcd4"], ["Orange", "#ff5722"], ["Amber", "#ff9800"],
+        ["Teal", "#009688"], ["Green", "#4caf50"], ["Blue grey", "#607d8b"], ["Grey", "#9e9e9e"]];
+    const rgbOf = function(c) {
+        const m = String(c || "").trim();
+        if (/^#[0-9a-f]{6}$/i.test(m)) {
+            return [1, 3, 5].map(function(i) {
+                return parseInt(m.substr(i, 2), 16);
+            });
+        }
+        const n = (m.match(/\d+(\.\d+)?/g) || []).map(Number);
+        return n.length >= 3 ? n.slice(0, 3) : null;
+    };
+    const sameColour = function(a, b) {
+        const x = rgbOf(a);
+        const y = rgbOf(b);
+        return !!x && !!y && x.every(function(v, i) {
+            return Math.abs(v - y[i]) <= 2;
+        });
+    };
+    // Google's controls, never Gplex's
+    const googleControl = function(re) {
+        return Array.prototype.slice.call(document.querySelectorAll("[aria-label], [data-tooltip]")).filter(function(b) {
+            return !b.closest("#ugf-fe") && re.test(norm(b.getAttribute("aria-label") || b.getAttribute("data-tooltip")));
+        })[0] || null;
+    };
+    const googleMenuItems = function() {
+        return Array.prototype.slice.call(document.querySelectorAll("[role='menuitem']")).filter(function(m) {
+            return !m.closest("#ugf-fe") && shown(m);
+        });
+    };
+    const escape = function() {
+        ["keydown", "keyup"].forEach(function(type) {
+            (document.activeElement || document.body).dispatchEvent(new KeyboardEvent(type, { bubbles: true, cancelable: true, key: "Escape", code: "Escape", keyCode: 27, which: 27 }));
+        });
+    };
+    // the editor's colour, as Gplex drew it (its styles carry it), and a new one put in its place
+    const feAccent = function() {
+        const st = document.getElementById("ugf-fe-styles");
+        const t = st ? st.textContent : "";
+        const main = (t.match(/\.ccard\.ctc \{ border-top: 10px solid ([^;]+);/) || [])[1];
+        const light = (t.match(/\{ background: ([^;]+); font: 14px Roboto/) || [])[1];
+        return main ? { main: main.trim(), light: (light || "").trim() } : null;
+    };
+    const feRecolour = function(hex) {
+        const st = document.getElementById("ugf-fe-styles");
+        const now = feAccent();
+        if (!st || !now) {
+            return;
+        }
+        const rgb = rgbOf(hex);
+        const light = "rgb(" + rgb.map(function(v) {
+            return Math.round(v + (255 - v) * 0.88);
+        }).join(", ") + ")";
+        let t = st.textContent.split(now.main).join(hex);
+        if (now.light) {
+            t = t.split(now.light).join(light);
+        }
+        st.textContent = t;
+    };
+    // a Google dialog or sidebar an add-on (or the add-ons store) opens: lifted over Gplex's editor
+    let liftTimer = 0;
+    const feLift = function() {
+        clearInterval(liftTimer);
+        const started = Date.now();
+        liftTimer = setInterval(function() {
+            const open = Array.prototype.slice.call(document.querySelectorAll("[role='dialog'], iframe[src*='marketplace'], iframe[src*='script.google']")).some(function(d) {
+                return !d.closest("#ugf-fe") && shown(d);
+            });
+            html.toggleAttribute("ugf-d14-fe-lift", open);
+            if (!open && Date.now() - started > 8000) {
+                clearInterval(liftTimer);
+            }
+        }, 250);
+    };
+    const feNote = function(text, near) {
+        const shell = document.getElementById("ugf-fe");
+        if (!shell) {
+            return;
+        }
+        let n = document.getElementById("ugf-d14-fenote");
+        if (!n) {
+            n = el("div");
+            n.id = "ugf-d14-fenote";
+            shell.appendChild(n);
+        }
+        const r = near.getBoundingClientRect();
+        n.textContent = text;
+        n.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + "px";
+        n.style.top = Math.round(r.bottom + 6) + "px";
+        n.style.display = "block";
+        clearTimeout(noteTimer);
+        noteTimer = setTimeout(function() {
+            n.style.display = "none";
+        }, 3500);
+    };
+    // one popup at a time, shut by a click elsewhere or Esc
+    const fePopClose = function() {
+        const p = document.getElementById("ugf-d14-fepop");
+        if (p) {
+            if (p.getAttribute("data-kind") === "addons" && p.hasAttribute("data-google")) {
+                escape();
+            }
+            p.remove();
+        }
+        document.querySelectorAll(".ugf-d14-feb.open").forEach(function(b) {
+            b.classList.remove("open");
+        });
+    };
+    const fePop = function(btn, kind) {
+        fePopClose();
+        const shell = document.getElementById("ugf-fe");
+        const p = el("div", "ugf-d14-fepop " + kind);
+        p.id = "ugf-d14-fepop";
+        p.setAttribute("data-kind", kind);
+        const r = btn.getBoundingClientRect();
+        p.style.top = Math.round(r.bottom + 4) + "px";
+        p.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + "px";
+        shell.appendChild(p);
+        btn.classList.add("open");
+        return p;
+    };
+    document.addEventListener("mousedown", function(e) {
+        const p = document.getElementById("ugf-d14-fepop");
+        // (not the presses this script gives Google's own buttons)
+        if (e.isTrusted && p && !p.contains(e.target) && !e.target.closest(".ugf-d14-feb")) {
+            fePopClose();
+        }
+    }, true);
+    document.addEventListener("keydown", function(e) {
+        if (e.isTrusted && e.key === "Escape" && document.getElementById("ugf-d14-fepop")) {
+            fePopClose();
+        }
+    }, true);
+    // Colour palette: the colour at once in the editor, and saved to the form through Google's
+    // own theme panel (opened, the colour picked, and shut again, all under Gplex's editor)
+    const feSetColour = async function(hex, btn) {
+        feRecolour(hex);
+        const open = googleControl(/customi[sz]e theme|^theme( options)?$|^change theme$/);
+        if (!open) {
+            feNote("Only this view changed: the form's theme button wasn't found", btn);
+            return;
+        }
+        press(open);
+        const swatch = await until(function() {
+            return Array.prototype.slice.call(document.querySelectorAll("[role='radio'], [role='option'], [role='button'], [data-color], [aria-label]")).filter(function(x) {
+                if (x.closest("#ugf-fe") || !shown(x)) {
+                    return false;
+                }
+                const r = x.getBoundingClientRect();
+                if (r.width > 64 || r.height > 64) {
+                    return false;
+                }
+                const label = norm(x.getAttribute("aria-label") || x.getAttribute("data-color"));
+                return label.indexOf(hex) > -1 || sameColour(getComputedStyle(x).backgroundColor, hex) ||
+                    [].some.call(x.querySelectorAll("*"), function(c) {
+                        return sameColour(getComputedStyle(c).backgroundColor, hex) && c.getBoundingClientRect().width <= 64;
+                    });
+            })[0];
+        }, 3000);
+        if (!swatch) {
+            escape();
+            feNote("Only this view changed: that colour wasn't in the form's theme panel", btn);
+            return;
+        }
+        press(swatch);
+        await wait(400);
+        const panel = swatch.closest("[role='dialog'], [role='complementary'], aside") || document;
+        const close = Array.prototype.slice.call(panel.querySelectorAll("[aria-label]")).filter(function(x) {
+            return !x.closest("#ugf-fe") && /^close/.test(norm(x.getAttribute("aria-label"))) && shown(x);
+        })[0];
+        if (close) {
+            press(close);
+        } else {
+            escape();
+        }
+    };
+    const fePalette = function(btn) {
+        if (btn.classList.contains("open")) {
+            fePopClose();
+            return;
+        }
+        const p = fePop(btn, "palette");
+        const now = feAccent();
+        const grid = el("div", "sw");
+        FE_COLOURS.forEach(function(c) {
+            const b = el("span", "c");
+            b.setAttribute("role", "button");
+            b.setAttribute("title", c[0]);
+            b.style.background = c[1];
+            if (now && sameColour(now.main, c[1])) {
+                b.classList.add("on");
+                b.appendChild(feIcon("check", 18));
+            }
+            b.addEventListener("click", function() {
+                fePopClose();
+                feSetColour(c[1], btn).catch(function(e) {
+                    report("fe-colour", e);
+                });
+            });
+            grid.appendChild(b);
+        });
+        p.appendChild(grid);
+    };
+    // Add-ons: the add-ons Google's editor offers, in the period's menu, and "Get add-ons..."
+    const feAddons = async function(btn) {
+        if (btn.classList.contains("open")) {
+            fePopClose();
+            return;
+        }
+        const p = fePop(btn, "addons");
+        const g = googleControl(/^add-ons$|^extensions$/);
+        let items = [];
+        if (g) {
+            press(g);
+            items = (await until(function() {
+                const m = googleMenuItems();
+                return m.length ? m : null;
+            }, 1500)) || [];
+            if (items.length) {
+                p.setAttribute("data-google", "");
+            }
+        }
+        if (!p.isConnected) {
+            return;
+        }
+        let store = null;
+        items.forEach(function(m) {
+            const label = (m.textContent || "").replace(/\s+/g, " ").trim();
+            if (!label) {
+                return;
+            }
+            if (/get add-ons|add-ons store|marketplace/i.test(label)) {
+                store = m;
+                return;
+            }
+            const it = el("div", "it");
+            it.textContent = label;
+            it.addEventListener("click", function() {
+                p.removeAttribute("data-google");
+                fePopClose();
+                release(m);
+                feLift();
+            });
+            p.appendChild(it);
+        });
+        if (p.children.length) {
+            p.appendChild(el("div", "sep"));
+        }
+        const get = el("div", "it");
+        get.textContent = "Get add-ons...";
+        get.addEventListener("click", async function() {
+            p.removeAttribute("data-google");
+            fePopClose();
+            if (store) {
+                release(store);
+                feLift();
+                return;
+            }
+            // Google's "More" menu has it when there's no add-ons button
+            const more = googleControl(/^more( options)?$/);
+            if (more) {
+                press(more);
+                const it2 = await until(function() {
+                    return googleMenuItems().filter(function(m) {
+                        return /add-ons/i.test(m.textContent || "");
+                    })[0];
+                }, 1500);
+                if (it2) {
+                    release(it2);
+                    feLift();
+                    return;
+                }
+                escape();
+            }
+            window.open("https://workspace.google.com/marketplace/search/forms", "_blank");
+        });
+        p.appendChild(get);
+    };
+    const feButtons = function() {
+        if (!feWanted()) {
+            return;
+        }
+        const preview = document.querySelector("#ugf-fe [data-act='preview']");
+        if (!preview || (preview.previousElementSibling && preview.previousElementSibling.id === "ugf-d14-fe-theme")) {
+            return;
+        }
+        [["ugf-d14-fe-addons", "Add-ons", "extension", feAddons], ["ugf-d14-fe-theme", "Color palette", "palette", fePalette]].forEach(function(b) {
+            const old = document.getElementById(b[0]);
+            if (old) {
+                old.remove();
+            }
+            const n = el("span", "ib hb ugf-d14-feb");
+            n.id = b[0];
+            n.setAttribute("role", "button");
+            n.setAttribute("title", b[1]);
+            n.setAttribute("aria-label", b[1]);
+            n.appendChild(feIcon(b[2], 24));
+            n.addEventListener("click", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                Promise.resolve(b[3](n)).catch(function(err) {
+                    report(b[0], err);
+                });
+            });
+            preview.parentNode.insertBefore(n, preview);
+        });
+    };
+
     const start = function() {
         if (CSS && !document.getElementById("ugf-d14-styles")) {
             const style = document.createElement("style");
@@ -920,7 +1255,8 @@
                 document.head.appendChild(style);
             }
         };
-        const steps = homeWanted() ? [["style", keepLast], ["templates", templateStrip], ["owner", ownerFilter]] :
+        const steps = feWanted() ? [["style", keepLast], ["forms", feButtons]] :
+            homeWanted() ? [["style", keepLast], ["templates", templateStrip], ["owner", ownerFilter]] :
             slidesWanted() ? [["style", keepLast], ["relayout", relayout]] :
             [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["tabs", docTabs], ["relayout", relayout]];
         const tick = function() {
@@ -934,8 +1270,9 @@
         };
         tick();
         setInterval(tick, 1000);
-        // on the list, at once whenever Gplex draws it (so nothing appears a beat late)
-        if (homeWanted()) {
+        // on the list and in the Forms editor, at once whenever Gplex draws them (so nothing
+        // appears a beat late)
+        if (homeWanted() || feWanted()) {
             let queued = false;
             new MutationObserver(function() {
                 if (queued) {
@@ -951,7 +1288,7 @@
     };
     let started = false;
     const tryStart = function() {
-        if (!started && (wanted() || homeWanted() || slidesWanted())) {
+        if (!started && (wanted() || homeWanted() || slidesWanted() || feWanted())) {
             started = true;
             watch.disconnect();
             clearInterval(t);
@@ -959,7 +1296,7 @@
         }
     };
     const watch = new MutationObserver(tryStart);
-    watch.observe(html, { attributes: true, attributeFilter: ["gplex-docs", "gplex-docs-home"] });
+    watch.observe(html, { attributes: true, attributeFilter: ["gplex-docs", "gplex-docs-home", "gplex-fe"] });
     const t = setInterval(tryStart, 300);
     setTimeout(function() {
         clearInterval(t);
