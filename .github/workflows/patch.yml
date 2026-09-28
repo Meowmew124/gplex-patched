@@ -1,0 +1,60 @@
+name: Patch latest Gplex
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"   # every 6 hours
+  workflow_dispatch:          # "Run workflow" button on the Actions tab
+  push:
+    branches: [main]
+    paths:
+      - gplex-plus-link-patch.py
+      - .github/workflows/patch.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patch
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM: https://raw.githubusercontent.com/Ziptino9098/Gplex-Fixed/main/main.user.js
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the latest Gplex
+        run: curl -fsSL "$UPSTREAM" -o upstream.user.js
+
+      # Rebuild only when upstream or the patch script changed.
+      - name: Check for changes
+        id: state
+        run: |
+          key=$(cat upstream.user.js gplex-plus-link-patch.py | sha256sum | cut -d' ' -f1)
+          if [ -f main.user.js ] && [ "$key" = "$(cat .state 2>/dev/null)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "$key" > .state
+          fi
+
+      - name: Apply the Google+ link fix
+        if: steps.state.outputs.changed == 'true'
+        run: >
+          python3 gplex-plus-link-patch.py upstream.user.js --out main.user.js --strict
+          --update-url "https://raw.githubusercontent.com/${{ github.repository }}/main/main.user.js"
+          --version-suffix "${{ github.run_number }}"
+
+      - name: Syntax check
+        if: steps.state.outputs.changed == 'true'
+        run: node --check main.user.js
+
+      - name: Publish
+        if: steps.state.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add main.user.js .state
+          git commit -m "Patch Gplex $(grep -m1 '@version' main.user.js | awk '{print $3}')"
+          git push
