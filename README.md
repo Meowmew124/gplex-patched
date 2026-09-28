@@ -1,4 +1,4 @@
-# Gplex Extended, with the Google+ link fix and 2014–2016 Docs, Sheets, Slides and Forms fixes
+# Gplex Extended, with the Google+ link fix and 2014–2016 Docs, Sheets, Slides, Forms and Drive fixes
 
 An automatically patched copy of [Gplex Extended](https://github.com/Ziptino9098/Gplex-Fixed) by Ziptino9098 and lightbeam24.
 
@@ -25,6 +25,8 @@ And Google Sheets, on the same layouts:
 And Google Forms, on the same layouts:
 - the Forms list's "Start a new form" strip: Blank and Google's own templates, five to a row; MORE opens the whole gallery as its own page, like Slides and Sheets; the list's forms as landscape cards and a working "Owned by anyone ▾"
 - in the form editor, 2016's Add-ons and Colour palette buttons beside Preview: Add-ons lists your add-ons (and "Get add-ons..."), the palette's colours recolour the form (saved through Google's own theme panel)
+
+And Google Drive, on the 2016 layouts: the Drive triangle of 2014-2016 back beside "Drive" in the header.
 
 The alignment buttons and the Table menu work Google's own menus behind the scenes, so every command is still Google's.
 

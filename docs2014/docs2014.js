@@ -4,7 +4,9 @@
 // Both drive Google's own menus out of sight, so every command is still Google's.
 (function ugfDocs2014Fixes() {
     "use strict";
-    if (window.location.host !== "docs.google.com" || !/^\/(document|spreadsheets|presentation|forms)\//.test(window.location.pathname) || window.top !== window.self) {
+    // (and Drive, for its 2016 header)
+    const onDrive = window.location.host === "drive.google.com";
+    if (!(onDrive || (window.location.host === "docs.google.com" && /^\/(document|spreadsheets|presentation|forms)\//.test(window.location.pathname))) || window.top !== window.self) {
         return;
     }
     const CSS = /*__UGF_DOCS2014_CSS__*/ null;
@@ -18,6 +20,10 @@
     // and the 2014 frame's shorter header is in
     const slidesWanted = function() {
         return html.getAttribute("gplex-docs") === "d2014" && /^\/(presentation|spreadsheets)\//.test(window.location.pathname);
+    };
+    // Drive in the 2014-2016 look (Gplex draws it as #ugf-drive): only the header's logo is added, in the CSS
+    const driveWanted = function() {
+        return onDrive && html.getAttribute("gplex-dv") === "dv14";
     };
     // the Docs or Slides list (Gplex draws both as #ugf-docs-home)
     const homeWanted = function() {
@@ -1255,7 +1261,8 @@
                 document.head.appendChild(style);
             }
         };
-        const steps = feWanted() ? [["style", keepLast], ["forms", feButtons]] :
+        const steps = driveWanted() ? [["style", keepLast]] :
+            feWanted() ? [["style", keepLast], ["forms", feButtons]] :
             homeWanted() ? [["style", keepLast], ["templates", templateStrip], ["owner", ownerFilter]] :
             slidesWanted() ? [["style", keepLast], ["relayout", relayout]] :
             [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["tabs", docTabs], ["relayout", relayout]];
@@ -1288,7 +1295,7 @@
     };
     let started = false;
     const tryStart = function() {
-        if (!started && (wanted() || homeWanted() || slidesWanted() || feWanted())) {
+        if (!started && (wanted() || homeWanted() || slidesWanted() || feWanted() || driveWanted())) {
             started = true;
             watch.disconnect();
             clearInterval(t);
@@ -1296,7 +1303,7 @@
         }
     };
     const watch = new MutationObserver(tryStart);
-    watch.observe(html, { attributes: true, attributeFilter: ["gplex-docs", "gplex-docs-home", "gplex-fe"] });
+    watch.observe(html, { attributes: true, attributeFilter: ["gplex-docs", "gplex-docs-home", "gplex-fe", "gplex-dv"] });
     const t = setInterval(tryStart, 300);
     setTimeout(function() {
         clearInterval(t);
