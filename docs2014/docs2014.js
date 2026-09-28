@@ -30,7 +30,8 @@
             d.style.display = "none";
             (document.body || html).appendChild(d);
         }
-        d.setAttribute("data-tooltip", (where + ": " + (e && e.message || e)).slice(0, 200));
+        const line = (where + ": " + (e && e.message || e)).slice(0, 240);
+        d.setAttribute("data-tooltip", [line].concat((d.getAttribute("data-tooltip") || "").split(" || ")).slice(0, 3).join(" || "));
     };
 
     // ---- driving Google's menus ------------------------------------------------------
@@ -72,6 +73,16 @@
         fire(el, ["pointerover", "mouseover", "pointerdown", "mousedown"], { buttons: 1 });
         fire(el, ["pointerup", "mouseup", "click"], { buttons: 0 });
     };
+    // a menu bar name opens on the mouse going down, and a menu item acts on it coming up
+    // over the item: press-drag-release, as a hand does it. (A full click on the name opens
+    // its menu and shuts it again.)
+    const pressOpen = function(el) {
+        fire(el, ["pointerover", "mouseover", "pointerdown", "mousedown"], { buttons: 1 });
+    };
+    const release = function(el) {
+        fire(el, ["pointerover", "mouseover", "mouseenter", "pointermove", "mousemove"], { buttons: 1 });
+        fire(el, ["pointerup", "mouseup", "click"], { buttons: 0 });
+    };
     const hover = function(el) {
         fire(el, ["pointerover", "mouseover", "mouseenter", "pointermove", "mousemove"], { buttons: 0 });
     };
@@ -92,16 +103,20 @@
             return m.id !== "ugf-d14-table-dd" && shown(m);
         });
     };
-    // an item of the open menus by its words (newest menu first)
-    const findItem = function(label) {
+    // an item of the open menus by its words (newest menu first). A shown item is preferred;
+    // failing that, one the period's menus hide (Gplex drops today's extras from them), which
+    // Google still carries out when pressed.
+    const findItem = function(label, within) {
         const want = norm(label);
-        const menus = openMenus();
-        for (let i = menus.length - 1; i >= 0; i--) {
-            const hit = [].find.call(menus[i].querySelectorAll(".goog-menuitem"), function(it) {
-                return shown(it) && labelOf(it).indexOf(want) === 0;
-            });
-            if (hit) {
-                return hit;
+        const menus = within || openMenus();
+        for (const visibleOnly of [true, false]) {
+            for (let i = menus.length - 1; i >= 0; i--) {
+                const hit = [].find.call(menus[i].querySelectorAll(".goog-menuitem"), function(it) {
+                    return (!visibleOnly || shown(it)) && labelOf(it).indexOf(want) === 0;
+                });
+                if (hit) {
+                    return hit;
+                }
             }
         }
         return null;
@@ -123,7 +138,7 @@
         }
         busy(true);
         try {
-            press(button);
+            pressOpen(button);
             for (let i = 0; i < path.length; i++) {
                 const item = await until(function() {
                     return findItem(path[i]);
@@ -140,7 +155,7 @@
                 if (!last || leaveOpen) {
                     const before = openMenus();
                     hover(item);
-                    press(item);
+                    release(item);
                     const sub = await until(function() {
                         return openMenus().find(function(m) {
                             return before.indexOf(m) === -1;
@@ -150,7 +165,7 @@
                         return sub || "missing";
                     }
                 } else {
-                    press(item);
+                    release(item);
                 }
             }
             await wait(60);
@@ -415,8 +430,58 @@
         }, true);
     };
 
-    // ---- the page back in the middle once the gutter is gone ------------------------
     let laidOutAt = 0;
+    // ---- document tabs: today's feature, kept for documents that have more than one ------
+    // (the period had no tabs, so a one-tab document keeps the period's editor). Google's tabs
+    // panel is shown as it stands, in the grey beside the page, under a plain button of the
+    // period's kind that shows and hides it (Gplex hides today's floating tab switcher, and
+    // Google won't expand its docked panel from here).
+    const TABS_KEY = "ugf-d14-tabs-hidden";
+    const tabsHidden = function() {
+        try {
+            return window.localStorage.getItem(TABS_KEY) === "1";
+        } catch (e) {
+            return false;
+        }
+    };
+    const docTabs = function() {
+        const n = document.querySelectorAll(".left-sidebar-container .chapter-container").length;
+        const many = n > 1;
+        if (html.hasAttribute("ugf-d14-tabs") !== many) {
+            html.toggleAttribute("ugf-d14-tabs", many);
+            laidOutAt = 0;
+        }
+        html.toggleAttribute("ugf-d14-tabs-hidden", many && tabsHidden());
+        let b = document.getElementById("ugf-d14-tabs-btn");
+        if (!many) {
+            if (b) {
+                b.remove();
+            }
+            return;
+        }
+        const host = document.querySelector(".kix-appview-editor-container");
+        if (!b && host) {
+            b = el("div", "ugf-d14-tabs-btn");
+            b.id = "ugf-d14-tabs-btn";
+            b.setAttribute("role", "button");
+            b.addEventListener("mousedown", function(e) {
+                e.preventDefault();
+            });
+            b.addEventListener("click", function() {
+                try {
+                    window.localStorage.setItem(TABS_KEY, tabsHidden() ? "0" : "1");
+                } catch (e) {}
+                docTabs();
+            });
+            host.appendChild(b);
+        }
+        if (b) {
+            const hidden = tabsHidden();
+            b.textContent = "Tabs (" + n + ")";
+            b.setAttribute("data-tooltip", hidden ? "Show this document's tabs" : "Hide the tabs");
+        }
+    };
+
     const relayout = function() {
         const ed = document.getElementById("docs-editor");
         const w = ed ? ed.getBoundingClientRect().width : 0;
@@ -440,7 +505,7 @@
             }
         };
         const tick = function() {
-            [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["relayout", relayout]].forEach(function(step) {
+            [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["tabs", docTabs], ["relayout", relayout]].forEach(function(step) {
                 try {
                     step[1]();
                 } catch (e) {

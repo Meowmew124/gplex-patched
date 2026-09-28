@@ -220,3 +220,105 @@ html[gplex-docs="d2014"] #ugf-d14-table-dd .goog-menuitem { cursor: default !imp
 html[gplex-docs="d2014"] #ugf-d14-table-dd .ugf-d14-subarrow { position: absolute; right: 10px; color: #999; font-size: 11px; }
 html[gplex-docs="d2014"] #ugf-d14-table-menu { cursor: default !important; }
 #ugf-d14-note { position: fixed; z-index: 1005; display: none; padding: 5px 8px; background: #2d2d2d; color: #fff; font: 12px Arial, sans-serif; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+
+/* ---- v6: document tabs (today's), only for documents that have more than one ------ */
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container { display: block !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container *,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container * { letter-spacing: normal !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container { background: #ebebeb !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-label-content { font-size: 13px !important; color: #333 !important; }
+/* today's "this document has content in multiple tabs" pop-up: the panel says as much */
+html[gplex-docs="d2014"] [class*="ChapterTooltipPromo"] { display: none !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .navigation-widget { background: transparent !important; }
+/* the period's plain grey button, in place of today's floating tab switcher */
+html[gplex-docs="d2014"] #ugf-d14-tabs-btn {
+    position: absolute; left: 16px; top: 16px; z-index: 101; height: 27px; line-height: 25px; padding: 0 10px; box-sizing: border-box;
+    background: linear-gradient(#f5f5f5, #f1f1f1); border: 1px solid rgba(0,0,0,.1); border-radius: 2px; color: #444;
+    font: bold 11px Arial, sans-serif; cursor: default; user-select: none;
+}
+html[gplex-docs="d2014"] #ugf-d14-tabs-btn:hover { border-color: #c6c6c6; color: #222; box-shadow: 0 1px 1px rgba(0,0,0,.1); }
+
+/* ---- v7: the tabs panel shown as it stands (Google keeps it collapsed and unseen) ---- */
+html[gplex-docs="d2014"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container-content { overflow: visible !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget {
+    display: block !important; opacity: 1 !important; pointer-events: auto !important; top: 40px !important; bottom: auto !important;
+    height: auto !important; max-height: calc(100% - 56px) !important; overflow-y: auto !important; width: 240px !important;
+}
+html[gplex-docs="d2014"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget * { pointer-events: auto !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget-content { visibility: visible !important; opacity: 1 !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs][ugf-d14-tabs-hidden] .left-sidebar-container { display: none !important; }
+
+/* ---- v8: the tabs panel in the period's dress: a white card like the menus, a grey
+   header like the toolbar, plain Arial rows, a flat grey highlight for the open tab ---- */
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .navigation-widget {
+    background: #fff !important; border: 1px solid rgba(0,0,0,.2) !important; border-radius: 0 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,.2) !important; padding: 0 0 6px !important;
+}
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-hat,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-shadow,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-resizer-drag-handle { display: none !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-container,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents {
+    height: 36px !important; min-height: 0 !important; background: #f5f5f5 !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; width: auto !important;
+}
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents { border-bottom: 1px solid #e5e5e5 !important; padding: 0 8px 0 12px !important; align-items: center !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-text-chaptered { font: bold 13px Arial, sans-serif !important; color: #222 !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-chapter-count { font: 12px Arial, sans-serif !important; color: #777 !important; }
+/* + (add tab): the period's small grey button */
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .jfk-button {
+    width: 24px !important; height: 24px !important; min-width: 0 !important; padding: 0 !important; margin: 0 !important; border-radius: 2px !important;
+    background: linear-gradient(#f5f5f5, #f1f1f1) !important; border: 1px solid rgba(0,0,0,.1) !important; box-shadow: none !important;
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+}
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .jfk-button:hover { border-color: #c6c6c6 !important; box-shadow: 0 1px 1px rgba(0,0,0,.1) !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .docs-icon { transform: scale(.8) !important; opacity: .7 !important; }
+/* the rows */
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item { padding: 0 !important; margin: 0 !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container {
+    border-radius: 0 !important; background: transparent !important; height: 28px !important; min-height: 0 !important; margin: 0 !important; padding: 0 6px 0 12px !important; box-shadow: none !important; outline: 0 !important;
+}
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:hover { background: #eee !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:not([class="chapter-item-label-and-buttons-container"]) { background: #e5e5e5 !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:not([class="chapter-item-label-and-buttons-container"]) .chapter-label-content { font-weight: bold !important; color: #222 !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-label-content,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-label-container {
+    font: 13px Arial, sans-serif !important; color: #333 !important; letter-spacing: normal !important; border-radius: 0 !important; background: transparent !important;
+}
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-icon .docs-icon { transform: scale(.85) !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-icon .docs-icon-img { filter: grayscale(1) !important; opacity: .55 !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-overflow-menu-button { border-radius: 2px !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-overflow-menu-button .docs-icon-img { opacity: .5 !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-doco-indicator,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-doco-indicator * { background: transparent !important; color: #999 !important; font: 11px Arial, sans-serif !important; border-radius: 0 !important; }
+/* the headings under each tab (the outline) in the same type */
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .navigation-item-content,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-empty-content { font: 12px Arial, sans-serif !important; color: #777 !important; }
+
+/* ---- v9: the button above the panel, the card fitted to its tabs ---- */
+html[gplex-docs="d2014"] #ugf-d14-tabs-btn {
+    left: 16px !important; top: 16px !important; width: 240px !important; height: 27px !important;
+    display: flex !important; align-items: center !important; justify-content: center !important; line-height: normal !important; padding: 0 !important; text-align: center !important;
+}
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container { left: 16px !important; width: 240px !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget {
+    left: 0 !important; top: 51px !important; width: 240px !important; box-sizing: border-box !important; max-height: calc(100% - 67px) !important;
+}
+/* everything inside at the card's full width (today's panel is laid out 208px wide) */
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-content,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .outlines-widget,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .outlines-widget-chaptered,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-container,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .topLevelChapterContainerChaptered,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-container,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container {
+    width: auto !important; max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; left: auto !important;
+}
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-content,
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .updating-navigation-item-list { height: auto !important; max-height: none !important; overflow: visible !important; position: static !important; }
+/* the header on one line, its words where the rows' words begin */
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents { display: flex !important; justify-content: space-between !important; padding: 0 8px 0 12px !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-text-chaptered { white-space: nowrap !important; margin: 0 !important; padding: 0 !important; flex: 1 1 auto !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-chapter-count:empty { display: none !important; }
+html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container { padding: 0 6px 0 8px !important; }
