@@ -4,17 +4,29 @@
 // Both drive Google's own menus out of sight, so every command is still Google's.
 (function ugfDocs2014Fixes() {
     "use strict";
-    if (window.location.host !== "docs.google.com" || !/^\/document\//.test(window.location.pathname) || window.top !== window.self) {
+    if (window.location.host !== "docs.google.com" || !/^\/(document|presentation)\//.test(window.location.pathname) || window.top !== window.self) {
         return;
     }
     const CSS = /*__UGF_DOCS2014_CSS__*/ null;
     const html = document.documentElement;
+    // the Docs editor (the Slides editor is left as Gplex draws it)
     const wanted = function() {
-        return html.getAttribute("gplex-docs") === "d2014";
+        return html.getAttribute("gplex-docs") === "d2014" && /^\/document\//.test(window.location.pathname);
     };
     // the Docs list (Gplex draws it as #ugf-docs-home)
+    // the Slides editor: only put back in the middle once the rail's room is given back
+    const slidesWanted = function() {
+        return html.getAttribute("gplex-docs") === "d2014" && /^\/presentation\//.test(window.location.pathname);
+    };
+    // the Docs or Slides list (Gplex draws both as #ugf-docs-home)
     const homeWanted = function() {
         return html.getAttribute("gplex-docs-home") === "d2014";
+    };
+    // what the list's strip says and makes, per app: Docs' portrait pages seven to a row,
+    // Slides' landscape slides five
+    const HOME_APPS = {
+        docs: { noun: "document", create: "https://docs.google.com/document/create", recent: 6 },
+        slides: { noun: "presentation", create: "https://docs.google.com/presentation/create", recent: 4, recentTitle: "Recently used", fullPage: true }
     };
 
     const el = function(tag, cls) {
@@ -554,6 +566,59 @@
     };
     let stripKey = "";
     let galleryOpen = false;
+    const setGallery = function(open) {
+        galleryOpen = open;
+        stripKey = "";
+        templateStrip();
+        const content = document.querySelector("#ugf-docs-home .content");
+        if (content) {
+            content.scrollTop = 0;
+        }
+    };
+    // Slides' unfolded gallery took the whole page: a "← Start a new presentation" bar in
+    // place of the Google bar and the app bar, and nothing but the gallery under it
+    const galleryPage = function(shell, app) {
+        const on = !!(shell && app && app.fullPage && galleryOpen);
+        let bar = document.getElementById("ugf-d14-galbar");
+        if (shell) {
+            shell.toggleAttribute("ugf-d14-gallery", on);
+        }
+        if (!on) {
+            if (bar) {
+                bar.remove();
+            }
+            return;
+        }
+        const appbar = shell.querySelector(".appbar");
+        if (bar && bar.parentNode === shell && (!appbar || appbar.nextElementSibling === bar)) {
+            return;
+        }
+        if (bar) {
+            bar.remove();
+        }
+        bar = el("div");
+        bar.id = "ugf-d14-galbar";
+        const back = el("span", "back");
+        back.setAttribute("role", "button");
+        back.setAttribute("aria-label", "Back");
+        back.setAttribute("data-tooltip", "Back");
+        back.addEventListener("click", function() {
+            setGallery(false);
+        });
+        const t = el("span", "t");
+        t.textContent = "Start a new " + app.noun;
+        bar.append(back, t);
+        if (appbar) {
+            appbar.after(bar);
+        } else {
+            shell.insertBefore(bar, shell.firstChild);
+        }
+    };
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape" && galleryOpen && document.getElementById("ugf-d14-galbar")) {
+            setGallery(false);
+        }
+    });
     const templateStrip = function() {
         const shell = document.getElementById("ugf-docs-home");
         const content = shell && shell.querySelector(".content");
@@ -561,14 +626,17 @@
         // only from autumn 2015, when the strip came: Gplex's list then carries the Google
         // logo of 1 September 2015 (late 2015 and 2016); not over search results either
         const late2015 = !!(shell && shell.querySelector(".gtop .glogo img.n"));
-        if (!content || !late2015 || new URLSearchParams(window.location.search).get("q")) {
+        const app = HOME_APPS[shell ? shell.getAttribute("app") : ""];
+        if (!content || !late2015 || !app || new URLSearchParams(window.location.search).get("q")) {
             if (strip) {
                 strip.remove();
             }
+            galleryPage(shell, null);
             return;
         }
+        galleryPage(shell, app);
         const cats = googleGallery();
-        const recent = (cats[0] ? cats[0].items : []).slice(0, 6);
+        const recent = (cats[0] ? cats[0].items : []).slice(0, app.recent);
         const more = galleryOpen ? cats.slice(1) : [];
         const key = (galleryOpen ? "open" : "shut") + "/" + [{ items: recent }].concat(more).map(function(c) {
             return (c.name || "") + ":" + c.items.map(function(t) {
@@ -589,16 +657,14 @@
         const inner = el("div", "tin");
         const head = el("div", "thead");
         const title = el("span", "tt");
-        title.textContent = "Start a new document";
+        title.textContent = "Start a new " + app.noun;
         const toggle = el("a", "more");
         toggle.href = "#";
         toggle.textContent = galleryOpen ? "LESS" : "MORE";
         toggle.appendChild(el("span", "ar"));
         toggle.addEventListener("click", function(e) {
             e.preventDefault();
-            galleryOpen = !galleryOpen;
-            stripKey = "";
-            templateStrip();
+            setGallery(!galleryOpen);
         });
         head.append(title, toggle);
         const tile = function(t) {
@@ -630,7 +696,7 @@
             const tiles = el("div", "tiles");
             if (withBlank) {
                 const blank = el("a", "tile blank");
-                blank.href = "https://docs.google.com/document/create";
+                blank.href = app.create;
                 blank.target = "_blank";
                 const pg = el("span", "pg");
                 pg.appendChild(el("span", "plus"));
@@ -645,7 +711,7 @@
             // Google's templates come a moment after the page: keep their places meanwhile,
             // so the strip doesn't grow under the pointer when they arrive
             if (withBlank) {
-                for (let i = items.length; i < 6; i++) {
+                for (let i = items.length; i < app.recent; i++) {
                     const ph = el("span", "tile ph");
                     ph.appendChild(el("span", "pg"));
                     tiles.appendChild(ph);
@@ -653,7 +719,14 @@
             }
             return tiles;
         };
-        inner.append(head, row(recent, true));
+        inner.append(head);
+        // unfolded, Slides' gallery names its first row too
+        if (galleryOpen && app.recentTitle) {
+            const h = el("div", "cat first");
+            h.textContent = app.recentTitle;
+            inner.appendChild(h);
+        }
+        inner.appendChild(row(recent, true));
         more.forEach(function(c) {
             const h = el("div", "cat");
             h.textContent = c.name;
@@ -783,6 +856,7 @@
             }
         };
         const steps = homeWanted() ? [["style", keepLast], ["templates", templateStrip], ["owner", ownerFilter]] :
+            slidesWanted() ? [["style", keepLast], ["relayout", relayout]] :
             [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["tabs", docTabs], ["relayout", relayout]];
         const tick = function() {
             steps.forEach(function(step) {
@@ -812,7 +886,7 @@
     };
     let started = false;
     const tryStart = function() {
-        if (!started && (wanted() || homeWanted())) {
+        if (!started && (wanted() || homeWanted() || slidesWanted())) {
             started = true;
             watch.disconnect();
             clearInterval(t);
