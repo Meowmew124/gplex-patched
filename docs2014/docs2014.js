@@ -575,6 +575,63 @@
             content.scrollTop = 0;
         }
     };
+    // Slides' gallery opened like a drawer: the dark band grew down over the list while the
+    // Google bar slid up out of sight (and back again on ←), in about a third of a second
+    const DRAWER_MS = 350;
+    let collapsedHeight = 0;
+    const animateGallery = function(open) {
+        const shell = document.getElementById("ugf-docs-home");
+        const content = shell && shell.querySelector(".content");
+        const app = HOME_APPS[shell ? shell.getAttribute("app") : ""];
+        const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        let strip = document.getElementById("ugf-d14-tpl");
+        if (!content || !app || !app.fullPage || !strip || reduce || galleryAnimating) {
+            setGallery(open);
+            return;
+        }
+        content.scrollTop = 0;
+        const grow = function(from, to, done) {
+            strip.style.overflow = "hidden";
+            strip.style.maxHeight = from + "px";
+            strip.getBoundingClientRect();
+            strip.style.transition = "max-height " + DRAWER_MS + "ms cubic-bezier(.4, 0, .2, 1)";
+            strip.style.maxHeight = to + "px";
+            setTimeout(function() {
+                strip.style.overflow = "";
+                strip.style.maxHeight = "";
+                strip.style.transition = "";
+                done();
+            }, DRAWER_MS + 40);
+        };
+        if (open) {
+            collapsedHeight = strip.getBoundingClientRect().height;
+            galleryOpen = true;
+            stripKey = "";
+            templateStrip();
+            strip = document.getElementById("ugf-d14-tpl");
+            shell.classList.add("ugf-d14-anim");
+            galleryAnimating = true;
+            grow(collapsedHeight, content.clientHeight, function() {
+                galleryAnimating = false;
+                shell.classList.remove("ugf-d14-anim");
+            });
+        } else {
+            galleryAnimating = true;
+            shell.classList.add("ugf-d14-anim");
+            shell.removeAttribute("ugf-d14-gallery");
+            const bar = document.getElementById("ugf-d14-galbar");
+            if (bar) {
+                bar.remove();
+            }
+            grow(content.clientHeight, collapsedHeight || 242, function() {
+                galleryAnimating = false;
+                shell.classList.remove("ugf-d14-anim");
+                galleryOpen = false;
+                stripKey = "";
+                templateStrip();
+            });
+        }
+    };
     // Slides' unfolded gallery took the whole page: a "← Start a new presentation" bar in
     // place of the Google bar and the app bar, and nothing but the gallery under it
     const galleryPage = function(shell, app) {
@@ -603,7 +660,7 @@
         back.setAttribute("aria-label", "Back");
         back.setAttribute("data-tooltip", "Back");
         back.addEventListener("click", function() {
-            setGallery(false);
+            animateGallery(false);
         });
         const t = el("span", "t");
         t.textContent = "Start a new " + app.noun;
@@ -616,10 +673,14 @@
     };
     document.addEventListener("keydown", function(e) {
         if (e.key === "Escape" && galleryOpen && document.getElementById("ugf-d14-galbar")) {
-            setGallery(false);
+            animateGallery(false);
         }
     });
+    let galleryAnimating = false;
     const templateStrip = function() {
+        if (galleryAnimating) {
+            return;
+        }
         const shell = document.getElementById("ugf-docs-home");
         const content = shell && shell.querySelector(".content");
         let strip = document.getElementById("ugf-d14-tpl");
@@ -664,7 +725,7 @@
         toggle.appendChild(el("span", "ar"));
         toggle.addEventListener("click", function(e) {
             e.preventDefault();
-            setGallery(!galleryOpen);
+            animateGallery(!galleryOpen);
         });
         head.append(title, toggle);
         const tile = function(t) {

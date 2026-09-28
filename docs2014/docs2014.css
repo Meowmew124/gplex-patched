@@ -409,11 +409,15 @@ html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .cat.fir
 html[gplex-docs-home="d2014"] #ugf-docs-home[app="slides"] #ugf-d14-tpl .tile.ph::after { height: 28px; }
 
 /* ---- Slides' gallery as its own page: "← Start a new presentation" and the gallery alone ---- */
-html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] .gtop,
+/* the Google bar slides up out of sight (and back); the list stays under the growing band
+   while the drawer moves (.ugf-d14-anim), and goes once it has filled the page */
+html[gplex-docs-home="d2014"] #ugf-docs-home .gtop { transition: margin-top .35s cubic-bezier(.4, 0, .2, 1); }
+html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] { overflow: hidden; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] .gtop { margin-top: -60px; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] .appbar,
-html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] .content > :not(#ugf-d14-tpl),
+html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery]:not(.ugf-d14-anim) .content > :not(#ugf-d14-tpl),
 html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl .thead { display: none !important; }
-html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] .content { background: #434448; }
+html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #434448; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl { margin-bottom: 0; }
 html[gplex-docs-home="d2014"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl .tin { padding: 22px 0 60px; }
 html[gplex-docs-home="d2014"] #ugf-d14-galbar {
