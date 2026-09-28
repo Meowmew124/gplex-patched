@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Re-apply Akhil's Google+ link fix to a new Gplex Extended release.
+"""Re-apply Akhil's changes to a new Gplex Extended release: the Google+ link fix and
+the Docs 2014 fixes (docs2014/: the editor's layout, menus, Table menu and alignment
+buttons, appended as their own block).
 
 Makes every Google+ button honour the "Custom link for Google+ buttons" setting
 (UGF_PLUS_LINK): the waffle menu's Google+ tile and the hardcoded +You links,
@@ -16,11 +18,25 @@ appends ".N" to @version so every published build is newer than the last.
 Line endings (Gplex ships CRLF) are preserved.
 """
 import argparse
+import json
+import os
 import re
 import shutil
 import sys
 
 DEFAULT = "https://plus.google.com/"
+HERE = os.path.dirname(os.path.abspath(__file__))
+DOCS_MARK = "ugfDocs2014Fixes"
+
+
+def docs2014_block():
+    """The Docs 2014 module with its stylesheet baked in."""
+    js = open(os.path.join(HERE, "docs2014", "docs2014.js")).read().replace("\r\n", "\n")
+    css = open(os.path.join(HERE, "docs2014", "docs2014.css")).read().replace("\r\n", "\n")
+    placeholder = "/*__UGF_DOCS2014_CSS__*/ null"
+    if placeholder not in js:
+        sys.exit("docs2014.js has lost its CSS placeholder")
+    return js.replace(placeholder, json.dumps(css))
 
 EDITS = [
     ("waffle Google+ tile",
@@ -111,6 +127,11 @@ def main():
             else:
                 ok = False
                 print(("NOT FOUND " if count == 0 else "AMBIGUOUS ") + name + " (" + str(count) + " matches)")
+    if DOCS_MARK in text:
+        print("already has the Docs 2014 fixes; not appended again")
+    else:
+        text = text.rstrip("\n") + "\n\n" + docs2014_block().rstrip("\n") + "\n"
+        print("appended  Docs 2014 fixes (layout, menus, Table menu, alignment buttons)")
     leftover = text.count('href="' + DEFAULT + '"')
     if leftover:
         print("note: %d other hardcoded href=\"%s\" left; check whether they're new Google+ buttons" % (leftover, DEFAULT))

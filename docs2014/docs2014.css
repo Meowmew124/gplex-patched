@@ -1,0 +1,222 @@
+/* Gplex Docs 2014 fixes: geometry from the 2014 reference, in CSS px at 100%. Appended to Gplex by gplex-plus-link-patch.py. */
+
+/* ---- header: title row 0-30, menu row 30-59 --------------------------------- */
+html[gplex-docs="d2014"] #docs-header { height: 30px !important; }
+html[gplex-docs="d2014"] #docs-titlebar { height: 30px !important; }
+html[gplex-docs="d2014"] #docs-titlebar-container { margin-left: 53px !important; }
+html[gplex-docs="d2014"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }
+
+/* the app's square: a full-height blue block in the corner */
+html[gplex-docs="d2014"] #ugf-docs-logo.square {
+    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;
+    background: #4285f4 !important; display: flex !important; align-items: center !important; justify-content: center !important;
+}
+html[gplex-docs="d2014"] #ugf-docs-logo.square img { width: 40px !important; height: 40px !important; }
+
+/* "Untitled document": grey italic until named */
+html[gplex-docs="d2014"] #docs-titlebar .docs-title-untitled,
+html[gplex-docs="d2014"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }
+
+/* star and folder beside the title */
+html[gplex-docs="d2014"] #docs-titlebar .docs-titlebar-badges .docs-star-container,
+html[gplex-docs="d2014"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }
+html[gplex-docs="d2014"] #docs-titlebar #docs-star,
+html[gplex-docs="d2014"] #docs-titlebar #docs-folder { display: inline-block !important; }
+
+/* menus: text starts at x 60, baseline ~47 */
+html[gplex-docs="d2014"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }
+html[gplex-docs="d2014"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }
+
+/* account, Comments and Share: right edge 50px in, Share's top at 26 */
+html[gplex-docs="d2014"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }
+html[gplex-docs="d2014"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }
+html[gplex-docs="d2014"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }
+html[gplex-docs="d2014"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }
+html[gplex-docs="d2014"] #ugf-docs-saved { position: relative !important; top: -3px !important; }
+html[gplex-docs="d2014"] #docs-titlebar-share-client-button .scb-button-icon {
+    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;
+}
+
+/* ---- toolbar: 59-96, grey, buttons on a 26px pitch from x 57 ----------------- */
+html[gplex-docs="d2014"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {
+    display: flex !important; align-items: center !important; min-height: 0 !important;
+    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;
+    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;
+}
+html[gplex-docs="d2014"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }
+/* Editing and the menus' ︽ live in Google's side toolbar, which Gplex hides whole: show it, with just those two */
+html[gplex-docs="d2014"] #docs-toolbar-wrapper #docs-side-toolbar { display: flex !important; align-items: center !important; flex: 0 0 auto !important; height: 35px !important; margin: 0 37px 0 0 !important; padding: 0 !important; }
+html[gplex-docs="d2014"] #docs-side-toolbar > :not(#docs-toolbar-mode-switcher):not(#viewModeButton) { display: none !important; }
+html[gplex-docs="d2014"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }
+
+html[gplex-docs="d2014"] #docs-toolbar > .goog-toolbar-button,
+html[gplex-docs="d2014"] #docs-toolbar > .goog-toolbar-menu-button,
+html[gplex-docs="d2014"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }
+html[gplex-docs="d2014"] #docs-toolbar > .goog-toolbar-button { width: 24px !important; min-width: 0 !important; }
+html[gplex-docs="d2014"] #docs-toolbar > * .goog-toolbar-button-outer-box,
+html[gplex-docs="d2014"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+
+/* the drop-downs' captions: bold 11px, as then */
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-menu-button-caption,
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-combo-button-input { font: bold 11px Arial, sans-serif !important; color: #444 !important; }
+
+/* 2014's order: print, undo, redo, paint | zoom | style | font | size | B I U A | link comment | align | spacing | numbered bulleted | outdent indent | clear */
+html[gplex-docs="d2014"] #printButton { order: 1 !important; }
+html[gplex-docs="d2014"] #undoButton { order: 2 !important; }
+html[gplex-docs="d2014"] #redoButton { order: 3 !important; }
+html[gplex-docs="d2014"] #formatPainterButton { order: 4 !important; margin-right: 11px !important; }
+html[gplex-docs="d2014"] #zoomSelect { order: 5 !important; }
+html[gplex-docs="d2014"] #headingStyleSeparator { order: 6 !important; }
+html[gplex-docs="d2014"] #headingStyleSelect { order: 7 !important; }
+html[gplex-docs="d2014"] #fontFamilySelectSeparator { order: 8 !important; }
+html[gplex-docs="d2014"] #docs-font-family { order: 9 !important; }
+html[gplex-docs="d2014"] #fontSizeSelectSeparator { order: 10 !important; }
+html[gplex-docs="d2014"] #fontSizeSelect { order: 11 !important; }
+html[gplex-docs="d2014"] #textControlsInsertSeparator { order: 12 !important; }
+html[gplex-docs="d2014"] #boldButton { order: 13 !important; }
+html[gplex-docs="d2014"] #italicButton { order: 14 !important; }
+html[gplex-docs="d2014"] #underlineButton { order: 15 !important; }
+html[gplex-docs="d2014"] #textColorButton { order: 16 !important; }
+html[gplex-docs="d2014"] #commentSeparator { order: 17 !important; }
+html[gplex-docs="d2014"] #insertLinkButton { order: 18 !important; }
+html[gplex-docs="d2014"] #insertCommentButton { order: 19 !important; }
+html[gplex-docs="d2014"] #alignSeparator { order: 20 !important; }
+html[gplex-docs="d2014"] #alignButton { order: 21 !important; display: none !important; }
+html[gplex-docs="d2014"] #docs-toolbar > .ugf-d14-button { order: 21 !important; }
+html[gplex-docs="d2014"] #ugf-d14-align-justify { margin-right: 11px !important; }
+html[gplex-docs="d2014"] #lineSpacingMenuButton { order: 22 !important; margin-right: 11px !important; }
+html[gplex-docs="d2014"] #addNumberedBulletButton { order: 23 !important; }
+html[gplex-docs="d2014"] #numberedListPresetMenuButton { order: 24 !important; }
+html[gplex-docs="d2014"] #addBulletButton { order: 25 !important; }
+html[gplex-docs="d2014"] #bulletedListPresetMenuButton { order: 26 !important; }
+html[gplex-docs="d2014"] #outdentButton { order: 27 !important; }
+html[gplex-docs="d2014"] #indentButton { order: 28 !important; margin-right: 11px !important; }
+html[gplex-docs="d2014"] #clearFormattingButton { order: 29 !important; }
+html[gplex-docs="d2014"] #docs-toolbar > :not([id]) { order: 99 !important; }
+
+/* the separators 2014 had where today's toolbar has none */
+html[gplex-docs="d2014"] #formatPainterButton::after,
+html[gplex-docs="d2014"] #ugf-d14-align-justify::after,
+html[gplex-docs="d2014"] #lineSpacingMenuButton::after,
+html[gplex-docs="d2014"] #indentButton::after {
+    content: "" !important; position: absolute !important; right: -7px !important; top: 3px !important; width: 1px !important; height: 21px !important; background: #ddd !important;
+}
+
+/* what 2014 didn't have */
+html[gplex-docs="d2014"] #bgColorButton,
+html[gplex-docs="d2014"] #insertImageButton { display: none !important; }
+
+/* the list buttons' own drop-down arrows */
+html[gplex-docs="d2014"] #numberedListPresetMenuButton,
+html[gplex-docs="d2014"] #bulletedListPresetMenuButton { display: inline-flex !important; width: 13px !important; min-width: 0 !important; margin: 0 1px 0 -1px !important; }
+
+/* Editing ▾ and the ︽ that hides the menus, at the toolbar's right */
+html[gplex-docs="d2014"] #docs-side-toolbar #docs-toolbar-mode-switcher { display: inline-flex !important; align-items: center !important; width: 120px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 !important; }
+html[gplex-docs="d2014"] #docs-side-toolbar #viewModeButton { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 24px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 0 0 11px !important; }
+
+/* ---- the page: no vertical ruler --------------------------------------------- */
+html[gplex-docs="d2014"] #kix-vertical-ruler,
+html[gplex-docs="d2014"] #kix-vertical-ruler-container { display: none !important; }
+
+/* today's empty Meet / side-panel slots add extra gaps between Comments and Share */
+html[gplex-docs="d2014"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,
+html[gplex-docs="d2014"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }
+
+/* ---- v3 ----------------------------------------------------------------------- */
+/* the side panel's rail is hidden, but Docs still keeps its 56px: give it back */
+html[gplex-docs="d2014"] #docs-editor.companion-enabled { width: 100% !important; }
+html[gplex-docs="d2014"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper { width: auto !important; margin-right: 0 !important; }
+
+/* Gemini's "write a document about..." bar at the bottom */
+html[gplex-docs="d2014"] .kixWizBarkickContainer,
+html[gplex-docs="d2014"] [class*="SidekickBarkick"] { display: none !important; }
+
+/* the ruler sits on the grey */
+html[gplex-docs="d2014"] #kix-horizontal-ruler { background: transparent !important; }
+
+/* every drop-down caption on one line, centred in the 27px button */
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-menu-button-outer-box,
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-menu-button-inner-box,
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-combo-button-outer-box,
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-combo-button-inner-box {
+    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;
+}
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-menu-button-caption,
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-combo-button-caption {
+    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 7px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;
+}
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-menu-button-dropdown,
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }
+/* icon-only drop-downs (text colour, align, spacing, list arrows): no caption padding */
+html[gplex-docs="d2014"] #textColorButton .goog-toolbar-menu-button-caption,
+html[gplex-docs="d2014"] #alignButton .goog-toolbar-menu-button-caption,
+html[gplex-docs="d2014"] #lineSpacingMenuButton .goog-toolbar-menu-button-caption { padding: 0 0 0 4px !important; flex: 0 0 auto !important; }
+html[gplex-docs="d2014"] #numberedListPresetMenuButton .goog-toolbar-menu-button-dropdown,
+html[gplex-docs="d2014"] #bulletedListPresetMenuButton .goog-toolbar-menu-button-dropdown { margin: 0 2px !important; }
+/* the widths they had */
+html[gplex-docs="d2014"] #docs-toolbar #zoomSelect { width: 56px !important; }
+html[gplex-docs="d2014"] #docs-toolbar #headingStyleSelect { width: 95px !important; }
+html[gplex-docs="d2014"] #docs-toolbar #docs-font-family { width: 92px !important; }
+html[gplex-docs="d2014"] #docs-toolbar #fontSizeSelect { width: 56px !important; }
+
+/* Editing ▾: 12px, its arrow back inside the button */
+html[gplex-docs="d2014"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-outer-box,
+html[gplex-docs="d2014"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-inner-box {
+    display: flex !important; align-items: center !important; width: 100% !important; height: 25px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
+}
+html[gplex-docs="d2014"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-caption {
+    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; height: 25px !important; line-height: 25px !important; font: 12px Arial, sans-serif !important; color: #444 !important; padding: 0 0 0 4px !important;
+}
+html[gplex-docs="d2014"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-icon { margin: 0 6px 0 0 !important; filter: grayscale(1) brightness(.4) !important; }
+html[gplex-docs="d2014"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-label { font: 12px Arial, sans-serif !important; color: #444 !important; }
+html[gplex-docs="d2014"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown { position: static !important; flex: 0 0 9px !important; margin: 0 6px 0 0 !important; align-self: center !important; top: 0 !important; }
+
+/* ︽ in place of today's single chevron */
+html[gplex-docs="d2014"] #viewModeButton .docs-icon { visibility: hidden !important; }
+html[gplex-docs="d2014"] #viewModeButton .goog-toolbar-button-inner-box {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23666' stroke-width='1.6'%3E%3Cpath d='M2 6.5l4-4 4 4M2 10.5l4-4 4 4'/%3E%3C/svg%3E") center / 12px 12px no-repeat !important;
+}
+
+/* ---- v4 ----------------------------------------------------------------------- */
+/* drop-down arrows: the box as tall as its 16px icon, so the ▾ sits beside the text */
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-menu-button-dropdown,
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-combo-button-dropdown { height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; }
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,
+html[gplex-docs="d2014"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }
+/* Editing's ▾ is drawn with borders: a real triangle, not a 9px bar */
+html[gplex-docs="d2014"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown {
+    width: 0 !important; height: 0 !important; flex: 0 0 0 !important; border-style: solid !important; border-width: 4px 4px 0 !important;
+    border-color: #444 transparent transparent !important; background: none !important; margin: 0 8px 0 0 !important;
+}
+/* the doc mark inside the blue block at the period's size */
+html[gplex-docs="d2014"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }
+
+/* ---- v5: menus: icons in the gutter, words at 30px, no "New"/"Updated" badges ---- */
+/* icons in the left gutter, clear of the words (they were crowding them) */
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem-icon {
+    display: block !important; position: absolute !important; left: 5px !important; top: 50% !important; margin: -10px 0 0 0 !important;
+    width: 20px !important; height: 20px !important; opacity: .6 !important;
+}
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem-content { position: static !important; }
+html[gplex-docs="d2014"] .goog-menu .docs-action-badge,
+html[gplex-docs="d2014"] .goog-menu .docs-new-badge { display: none !important; }
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem { padding: 6px 7em 6px 30px !important; min-height: 0 !important; }
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem-content,
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem-label { font: 13px Arial, sans-serif !important; line-height: 17px !important; color: #333 !important; }
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem-disabled .goog-menuitem-content,
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem-disabled .goog-menuitem-label { color: #ccc !important; }
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem-accel { color: #999 !important; font: 13px Arial, sans-serif !important; }
+html[gplex-docs="d2014"] .goog-menu .goog-menuitem-checkbox { left: 8px !important; }
+html[gplex-docs="d2014"] .goog-menu .goog-menuseparator { border-top: 1px solid #ebebeb !important; margin: 6px 0 !important; }
+
+/* Google's menus, while the 2014 buttons work them, stay out of sight */
+html.ugf-d14-busy[gplex-docs="d2014"] .goog-menu:not(.ugf-d14-keep):not(#ugf-d14-table-dd) { opacity: 0 !important; pointer-events: none !important; }
+html.ugf-d14-busy[gplex-docs="d2014"] .goog-menu.ugf-d14-keep { position: fixed !important; z-index: 1004 !important; }
+
+/* the Table menu */
+html[gplex-docs="d2014"] #ugf-d14-table-dd { position: fixed !important; z-index: 1003 !important; min-width: 190px !important; }
+html[gplex-docs="d2014"] #ugf-d14-table-dd .goog-menuitem { cursor: default !important; position: relative !important; }
+html[gplex-docs="d2014"] #ugf-d14-table-dd .ugf-d14-subarrow { position: absolute; right: 10px; color: #999; font-size: 11px; }
+html[gplex-docs="d2014"] #ugf-d14-table-menu { cursor: default !important; }
+#ugf-d14-note { position: fixed; z-index: 1005; display: none; padding: 5px 8px; background: #2d2d2d; color: #fff; font: 12px Arial, sans-serif; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
