@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      6.1.0.1
+// @version      6.1.0.2
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -53986,3 +53986,467 @@ html[gplex-gmail] body {
     ugfRetroExtras();
 })();
 });
+
+// ---- Gplex Docs 2014 fixes (gplex-patched) ----------------------------------------
+// The 2014 editor over today's: the Table menu between Tools and Add-ons, the four
+// alignment buttons, and a relayout once the side panel's empty gutter is given back.
+// Both drive Google's own menus out of sight, so every command is still Google's.
+(function ugfDocs2014Fixes() {
+    "use strict";
+    if (window.location.host !== "docs.google.com" || !/^\/document\//.test(window.location.pathname) || window.top !== window.self) {
+        return;
+    }
+    const CSS = "/* Gplex Docs 2014 fixes: geometry from the 2014 reference, in CSS px at 100%. Appended to Gplex by gplex-plus-link-patch.py. */\n\n/* ---- header: title row 0-30, menu row 30-59 --------------------------------- */\nhtml[gplex-docs=\"d2014\"] #docs-header { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-titlebar { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-titlebar-container { margin-left: 53px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }\n\n/* the app's square: a full-height blue block in the corner */\nhtml[gplex-docs=\"d2014\"] #ugf-docs-logo.square {\n    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;\n    background: #4285f4 !important; display: flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"] #ugf-docs-logo.square img { width: 40px !important; height: 40px !important; }\n\n/* \"Untitled document\": grey italic until named */\nhtml[gplex-docs=\"d2014\"] #docs-titlebar .docs-title-untitled,\nhtml[gplex-docs=\"d2014\"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }\n\n/* star and folder beside the title */\nhtml[gplex-docs=\"d2014\"] #docs-titlebar .docs-titlebar-badges .docs-star-container,\nhtml[gplex-docs=\"d2014\"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-titlebar #docs-star,\nhtml[gplex-docs=\"d2014\"] #docs-titlebar #docs-folder { display: inline-block !important; }\n\n/* menus: text starts at x 60, baseline ~47 */\nhtml[gplex-docs=\"d2014\"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }\n\n/* account, Comments and Share: right edge 50px in, Share's top at 26 */\nhtml[gplex-docs=\"d2014\"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"] #ugf-docs-saved { position: relative !important; top: -3px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-titlebar-share-client-button .scb-button-icon {\n    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;\n}\n\n/* ---- toolbar: 59-96, grey, buttons on a 26px pitch from x 57 ----------------- */\nhtml[gplex-docs=\"d2014\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {\n    display: flex !important; align-items: center !important; min-height: 0 !important;\n    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;\n    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;\n}\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }\n/* Editing and the menus' \ufe3d live in Google's side toolbar, which Gplex hides whole: show it, with just those two */\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-wrapper #docs-side-toolbar { display: flex !important; align-items: center !important; flex: 0 0 auto !important; height: 35px !important; margin: 0 37px 0 0 !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"] #docs-side-toolbar > :not(#docs-toolbar-mode-switcher):not(#viewModeButton) { display: none !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }\n\nhtml[gplex-docs=\"d2014\"] #docs-toolbar > .goog-toolbar-button,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar > .goog-toolbar-menu-button,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar > .goog-toolbar-button { width: 24px !important; min-width: 0 !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar > * .goog-toolbar-button-outer-box,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }\n\n/* the drop-downs' captions: bold 11px, as then */\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-combo-button-input { font: bold 11px Arial, sans-serif !important; color: #444 !important; }\n\n/* 2014's order: print, undo, redo, paint | zoom | style | font | size | B I U A | link comment | align | spacing | numbered bulleted | outdent indent | clear */\nhtml[gplex-docs=\"d2014\"] #printButton { order: 1 !important; }\nhtml[gplex-docs=\"d2014\"] #undoButton { order: 2 !important; }\nhtml[gplex-docs=\"d2014\"] #redoButton { order: 3 !important; }\nhtml[gplex-docs=\"d2014\"] #formatPainterButton { order: 4 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"] #zoomSelect { order: 5 !important; }\nhtml[gplex-docs=\"d2014\"] #headingStyleSeparator { order: 6 !important; }\nhtml[gplex-docs=\"d2014\"] #headingStyleSelect { order: 7 !important; }\nhtml[gplex-docs=\"d2014\"] #fontFamilySelectSeparator { order: 8 !important; }\nhtml[gplex-docs=\"d2014\"] #docs-font-family { order: 9 !important; }\nhtml[gplex-docs=\"d2014\"] #fontSizeSelectSeparator { order: 10 !important; }\nhtml[gplex-docs=\"d2014\"] #fontSizeSelect { order: 11 !important; }\nhtml[gplex-docs=\"d2014\"] #textControlsInsertSeparator { order: 12 !important; }\nhtml[gplex-docs=\"d2014\"] #boldButton { order: 13 !important; }\nhtml[gplex-docs=\"d2014\"] #italicButton { order: 14 !important; }\nhtml[gplex-docs=\"d2014\"] #underlineButton { order: 15 !important; }\nhtml[gplex-docs=\"d2014\"] #textColorButton { order: 16 !important; }\nhtml[gplex-docs=\"d2014\"] #commentSeparator { order: 17 !important; }\nhtml[gplex-docs=\"d2014\"] #insertLinkButton { order: 18 !important; }\nhtml[gplex-docs=\"d2014\"] #insertCommentButton { order: 19 !important; }\nhtml[gplex-docs=\"d2014\"] #alignSeparator { order: 20 !important; }\nhtml[gplex-docs=\"d2014\"] #alignButton { order: 21 !important; display: none !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar > .ugf-d14-button { order: 21 !important; }\nhtml[gplex-docs=\"d2014\"] #ugf-d14-align-justify { margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"] #lineSpacingMenuButton { order: 22 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"] #addNumberedBulletButton { order: 23 !important; }\nhtml[gplex-docs=\"d2014\"] #numberedListPresetMenuButton { order: 24 !important; }\nhtml[gplex-docs=\"d2014\"] #addBulletButton { order: 25 !important; }\nhtml[gplex-docs=\"d2014\"] #bulletedListPresetMenuButton { order: 26 !important; }\nhtml[gplex-docs=\"d2014\"] #outdentButton { order: 27 !important; }\nhtml[gplex-docs=\"d2014\"] #indentButton { order: 28 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"] #clearFormattingButton { order: 29 !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar > :not([id]) { order: 99 !important; }\n\n/* the separators 2014 had where today's toolbar has none */\nhtml[gplex-docs=\"d2014\"] #formatPainterButton::after,\nhtml[gplex-docs=\"d2014\"] #ugf-d14-align-justify::after,\nhtml[gplex-docs=\"d2014\"] #lineSpacingMenuButton::after,\nhtml[gplex-docs=\"d2014\"] #indentButton::after {\n    content: \"\" !important; position: absolute !important; right: -7px !important; top: 3px !important; width: 1px !important; height: 21px !important; background: #ddd !important;\n}\n\n/* what 2014 didn't have */\nhtml[gplex-docs=\"d2014\"] #bgColorButton,\nhtml[gplex-docs=\"d2014\"] #insertImageButton { display: none !important; }\n\n/* the list buttons' own drop-down arrows */\nhtml[gplex-docs=\"d2014\"] #numberedListPresetMenuButton,\nhtml[gplex-docs=\"d2014\"] #bulletedListPresetMenuButton { display: inline-flex !important; width: 13px !important; min-width: 0 !important; margin: 0 1px 0 -1px !important; }\n\n/* Editing \u25be and the \ufe3d that hides the menus, at the toolbar's right */\nhtml[gplex-docs=\"d2014\"] #docs-side-toolbar #docs-toolbar-mode-switcher { display: inline-flex !important; align-items: center !important; width: 120px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"] #docs-side-toolbar #viewModeButton { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 24px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 0 0 11px !important; }\n\n/* ---- the page: no vertical ruler --------------------------------------------- */\nhtml[gplex-docs=\"d2014\"] #kix-vertical-ruler,\nhtml[gplex-docs=\"d2014\"] #kix-vertical-ruler-container { display: none !important; }\n\n/* today's empty Meet / side-panel slots add extra gaps between Comments and Share */\nhtml[gplex-docs=\"d2014\"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,\nhtml[gplex-docs=\"d2014\"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }\n\n/* ---- v3 ----------------------------------------------------------------------- */\n/* the side panel's rail is hidden, but Docs still keeps its 56px: give it back */\nhtml[gplex-docs=\"d2014\"] #docs-editor.companion-enabled { width: 100% !important; }\nhtml[gplex-docs=\"d2014\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper { width: auto !important; margin-right: 0 !important; }\n\n/* Gemini's \"write a document about...\" bar at the bottom */\nhtml[gplex-docs=\"d2014\"] .kixWizBarkickContainer,\nhtml[gplex-docs=\"d2014\"] [class*=\"SidekickBarkick\"] { display: none !important; }\n\n/* the ruler sits on the grey */\nhtml[gplex-docs=\"d2014\"] #kix-horizontal-ruler { background: transparent !important; }\n\n/* every drop-down caption on one line, centred in the 27px button */\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-menu-button-inner-box,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-combo-button-outer-box,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-combo-button-inner-box {\n    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-combo-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 7px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }\n/* icon-only drop-downs (text colour, align, spacing, list arrows): no caption padding */\nhtml[gplex-docs=\"d2014\"] #textColorButton .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"] #alignButton .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"] #lineSpacingMenuButton .goog-toolbar-menu-button-caption { padding: 0 0 0 4px !important; flex: 0 0 auto !important; }\nhtml[gplex-docs=\"d2014\"] #numberedListPresetMenuButton .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"] #bulletedListPresetMenuButton .goog-toolbar-menu-button-dropdown { margin: 0 2px !important; }\n/* the widths they had */\nhtml[gplex-docs=\"d2014\"] #docs-toolbar #zoomSelect { width: 56px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar #headingStyleSelect { width: 95px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar #docs-font-family { width: 92px !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar #fontSizeSelect { width: 56px !important; }\n\n/* Editing \u25be: 12px, its arrow back inside the button */\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-inner-box {\n    display: flex !important; align-items: center !important; width: 100% !important; height: 25px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; height: 25px !important; line-height: 25px !important; font: 12px Arial, sans-serif !important; color: #444 !important; padding: 0 0 0 4px !important;\n}\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-icon { margin: 0 6px 0 0 !important; filter: grayscale(1) brightness(.4) !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-label { font: 12px Arial, sans-serif !important; color: #444 !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown { position: static !important; flex: 0 0 9px !important; margin: 0 6px 0 0 !important; align-self: center !important; top: 0 !important; }\n\n/* \ufe3d in place of today's single chevron */\nhtml[gplex-docs=\"d2014\"] #viewModeButton .docs-icon { visibility: hidden !important; }\nhtml[gplex-docs=\"d2014\"] #viewModeButton .goog-toolbar-button-inner-box {\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23666' stroke-width='1.6'%3E%3Cpath d='M2 6.5l4-4 4 4M2 10.5l4-4 4 4'/%3E%3C/svg%3E\") center / 12px 12px no-repeat !important;\n}\n\n/* ---- v4 ----------------------------------------------------------------------- */\n/* drop-down arrows: the box as tall as its 16px icon, so the \u25be sits beside the text */\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; }\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,\nhtml[gplex-docs=\"d2014\"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }\n/* Editing's \u25be is drawn with borders: a real triangle, not a 9px bar */\nhtml[gplex-docs=\"d2014\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown {\n    width: 0 !important; height: 0 !important; flex: 0 0 0 !important; border-style: solid !important; border-width: 4px 4px 0 !important;\n    border-color: #444 transparent transparent !important; background: none !important; margin: 0 8px 0 0 !important;\n}\n/* the doc mark inside the blue block at the period's size */\nhtml[gplex-docs=\"d2014\"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }\n\n/* ---- v5: menus: icons in the gutter, words at 30px, no \"New\"/\"Updated\" badges ---- */\n/* icons in the left gutter, clear of the words (they were crowding them) */\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem-icon {\n    display: block !important; position: absolute !important; left: 5px !important; top: 50% !important; margin: -10px 0 0 0 !important;\n    width: 20px !important; height: 20px !important; opacity: .6 !important;\n}\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem-content { position: static !important; }\nhtml[gplex-docs=\"d2014\"] .goog-menu .docs-action-badge,\nhtml[gplex-docs=\"d2014\"] .goog-menu .docs-new-badge { display: none !important; }\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem { padding: 6px 7em 6px 30px !important; min-height: 0 !important; }\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem-content,\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem-label { font: 13px Arial, sans-serif !important; line-height: 17px !important; color: #333 !important; }\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem-disabled .goog-menuitem-content,\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem-disabled .goog-menuitem-label { color: #ccc !important; }\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem-accel { color: #999 !important; font: 13px Arial, sans-serif !important; }\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuitem-checkbox { left: 8px !important; }\nhtml[gplex-docs=\"d2014\"] .goog-menu .goog-menuseparator { border-top: 1px solid #ebebeb !important; margin: 6px 0 !important; }\n\n/* Google's menus, while the 2014 buttons work them, stay out of sight */\nhtml.ugf-d14-busy[gplex-docs=\"d2014\"] .goog-menu:not(.ugf-d14-keep):not(#ugf-d14-table-dd) { opacity: 0 !important; pointer-events: none !important; }\nhtml.ugf-d14-busy[gplex-docs=\"d2014\"] .goog-menu.ugf-d14-keep { position: fixed !important; z-index: 1004 !important; }\n\n/* the Table menu */\nhtml[gplex-docs=\"d2014\"] #ugf-d14-table-dd { position: fixed !important; z-index: 1003 !important; min-width: 190px !important; }\nhtml[gplex-docs=\"d2014\"] #ugf-d14-table-dd .goog-menuitem { cursor: default !important; position: relative !important; }\nhtml[gplex-docs=\"d2014\"] #ugf-d14-table-dd .ugf-d14-subarrow { position: absolute; right: 10px; color: #999; font-size: 11px; }\nhtml[gplex-docs=\"d2014\"] #ugf-d14-table-menu { cursor: default !important; }\n#ugf-d14-note { position: fixed; z-index: 1005; display: none; padding: 5px 8px; background: #2d2d2d; color: #fff; font: 12px Arial, sans-serif; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.3); }\n";
+    const html = document.documentElement;
+    const wanted = function() {
+        return html.getAttribute("gplex-docs") === "d2014";
+    };
+
+    const el = function(tag, cls) {
+        const n = document.createElement(tag);
+        if (cls) {
+            n.className = cls;
+        }
+        return n;
+    };
+    // the last error, where the lab's probe (and the console) can see it
+    const report = function(where, e) {
+        console.warn("[Gplex Docs 2014] " + where + ":", e);
+        let d = document.getElementById("ugf-d14-debug");
+        if (!d) {
+            d = el("div");
+            d.id = "ugf-d14-debug";
+            d.style.display = "none";
+            (document.body || html).appendChild(d);
+        }
+        d.setAttribute("data-tooltip", (where + ": " + (e && e.message || e)).slice(0, 200));
+    };
+
+    // ---- driving Google's menus ------------------------------------------------------
+    const wait = function(ms) {
+        return new Promise(function(r) {
+            setTimeout(r, ms);
+        });
+    };
+    const until = async function(fn, ms) {
+        const end = Date.now() + (ms || 1500);
+        while (Date.now() < end) {
+            const v = fn();
+            if (v) {
+                return v;
+            }
+            await wait(40);
+        }
+        return null;
+    };
+    const shown = function(el) {
+        if (!el || !el.isConnected) {
+            return false;
+        }
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none";
+    };
+    const fire = function(el, types, extra) {
+        const r = el.getBoundingClientRect();
+        const at = Object.assign({ bubbles: true, cancelable: true, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, extra);
+        types.forEach(function(t) {
+            try {
+                el.dispatchEvent(/^pointer/.test(t) && typeof PointerEvent === "function" ?
+                    new PointerEvent(t, Object.assign({ pointerType: "mouse", isPrimary: true }, at)) : new MouseEvent(t, at));
+            } catch (e) {}
+        });
+    };
+    const press = function(el) {
+        fire(el, ["pointerover", "mouseover", "pointerdown", "mousedown"], { buttons: 1 });
+        fire(el, ["pointerup", "mouseup", "click"], { buttons: 0 });
+    };
+    const hover = function(el) {
+        fire(el, ["pointerover", "mouseover", "mouseenter", "pointermove", "mousemove"], { buttons: 0 });
+    };
+    const norm = function(s) {
+        return String(s || "").replace(/…/g, "...").replace(/\s+/g, " ").trim().toLowerCase();
+    };
+    const labelOf = function(item) {
+        const l = item.querySelector(".goog-menuitem-label");
+        let t = l ? l.textContent : item.textContent;
+        const accel = item.querySelector(".goog-menuitem-accel");
+        if (!l && accel) {
+            t = t.replace(accel.textContent, "");
+        }
+        return norm(t);
+    };
+    const openMenus = function() {
+        return [].filter.call(document.querySelectorAll(".goog-menu"), function(m) {
+            return m.id !== "ugf-d14-table-dd" && shown(m);
+        });
+    };
+    // an item of the open menus by its words (newest menu first)
+    const findItem = function(label) {
+        const want = norm(label);
+        const menus = openMenus();
+        for (let i = menus.length - 1; i >= 0; i--) {
+            const hit = [].find.call(menus[i].querySelectorAll(".goog-menuitem"), function(it) {
+                return shown(it) && labelOf(it).indexOf(want) === 0;
+            });
+            if (hit) {
+                return hit;
+            }
+        }
+        return null;
+    };
+    const closeMenus = function() {
+        openMenus().forEach(function(m) {
+            m.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27, which: 27, bubbles: true, cancelable: true }));
+        });
+    };
+    // Google's menus open unseen while we work them
+    const busy = function(on) {
+        html.classList.toggle("ugf-d14-busy", on);
+    };
+    // File > ... > item. Returns "ok", "disabled" or "missing". With leaveOpen the last
+    // item is a submenu that stays open (and is returned) for the user to pick from.
+    const runMenu = async function(button, path, leaveOpen) {
+        if (!button) {
+            return "missing";
+        }
+        busy(true);
+        try {
+            press(button);
+            for (let i = 0; i < path.length; i++) {
+                const item = await until(function() {
+                    return findItem(path[i]);
+                });
+                if (!item) {
+                    closeMenus();
+                    return "missing";
+                }
+                if (item.classList.contains("goog-menuitem-disabled") || item.getAttribute("aria-disabled") === "true") {
+                    closeMenus();
+                    return "disabled";
+                }
+                const last = i === path.length - 1;
+                if (!last || leaveOpen) {
+                    const before = openMenus();
+                    hover(item);
+                    press(item);
+                    const sub = await until(function() {
+                        return openMenus().find(function(m) {
+                            return before.indexOf(m) === -1;
+                        });
+                    }, 1200);
+                    if (last) {
+                        return sub || "missing";
+                    }
+                } else {
+                    press(item);
+                }
+            }
+            await wait(60);
+            closeMenus();
+            return "ok";
+        } finally {
+            if (!leaveOpen) {
+                busy(false);
+            }
+        }
+    };
+
+    // a small note under a control, the way the period's editor said "Can't do that here"
+    let noteTimer = 0;
+    const note = function(text, near) {
+        let n = document.getElementById("ugf-d14-note");
+        if (!n) {
+            n = document.createElement("div");
+            n.id = "ugf-d14-note";
+            document.body.appendChild(n);
+        }
+        const r = near.getBoundingClientRect();
+        n.textContent = text;
+        n.style.left = Math.round(r.left) + "px";
+        n.style.top = Math.round(r.bottom + 4) + "px";
+        n.style.display = "block";
+        clearTimeout(noteTimer);
+        noteTimer = setTimeout(function() {
+            n.style.display = "none";
+        }, 2500);
+    };
+
+    // ---- the four alignment buttons ------------------------------------------------------
+    const ALIGN = [["left", "Left align", "L", "⌘+Shift+L"], ["center", "Center align", "E", "⌘+Shift+E"],
+        ["right", "Right align", "R", "⌘+Shift+R"], ["justify", "Justify", "J", "⌘+Shift+J"]];
+    const mac = /Mac/.test(navigator.platform);
+    // the keyboard's way, if Google's menu can't be worked
+    const alignByKeys = function(letter) {
+        const f = document.querySelector(".docs-texteventtarget-iframe");
+        const doc = f && f.contentDocument;
+        const t = doc && (doc.querySelector("[contenteditable='true']") || doc.body);
+        if (!t) {
+            return;
+        }
+        ["keydown", "keyup"].forEach(function(type) {
+            t.dispatchEvent(new KeyboardEvent(type, { key: letter.toLowerCase(), code: "Key" + letter, keyCode: letter.charCodeAt(0), which: letter.charCodeAt(0),
+                shiftKey: true, metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true }));
+        });
+    };
+    const align = async function(a) {
+        const source = document.getElementById("alignButton");
+        busy(true);
+        try {
+            if (source) {
+                press(source);
+                const pick = await until(function() {
+                    return [].find.call(document.querySelectorAll(".goog-menu [aria-label], .goog-menu [data-tooltip]"), function(el) {
+                        const t = el.getAttribute("aria-label") || el.getAttribute("data-tooltip") || "";
+                        return t.indexOf(a[1]) === 0 && shown(el);
+                    });
+                }, 1000);
+                if (pick) {
+                    press(pick);
+                    await wait(60);
+                    closeMenus();
+                    return;
+                }
+                closeMenus();
+            }
+            alignByKeys(a[2]);
+        } finally {
+            busy(false);
+        }
+    };
+    const toolbarButton = function(id, icon, tip) {
+        const b = document.createElement("div");
+        b.id = id;
+        b.className = "goog-toolbar-button goog-inline-block ugf-d14-button";
+        b.setAttribute("role", "button");
+        b.setAttribute("aria-label", tip);
+        b.setAttribute("data-tooltip", tip);
+        // (Docs enforces Trusted Types, so the button is built node by node)
+        const outer = el("div", "goog-toolbar-button-outer-box goog-inline-block");
+        const inner = el("div", "goog-toolbar-button-inner-box goog-inline-block");
+        const iconBox = el("div", "docs-icon goog-inline-block");
+        iconBox.appendChild(el("div", "docs-icon-img-container docs-icon-img docs-icon-" + icon + "-20"));
+        inner.appendChild(iconBox);
+        outer.appendChild(inner);
+        b.appendChild(outer);
+        b.addEventListener("mouseenter", function() {
+            b.classList.add("goog-toolbar-button-hover");
+        });
+        b.addEventListener("mouseleave", function() {
+            b.classList.remove("goog-toolbar-button-hover", "goog-toolbar-button-active");
+        });
+        // keep the document's selection: the button never takes the focus
+        b.addEventListener("mousedown", function(e) {
+            e.preventDefault();
+            b.classList.add("goog-toolbar-button-active");
+        });
+        b.addEventListener("mouseup", function() {
+            b.classList.remove("goog-toolbar-button-active");
+        });
+        return b;
+    };
+    const syncAlign = function() {
+        const icon = document.querySelector("#alignButton .docs-icon-img");
+        const now = icon && (String(icon.className).match(/docs-icon-align-(left|center|right|justify)/) || [])[1];
+        ALIGN.forEach(function(a) {
+            const b = document.getElementById("ugf-d14-align-" + a[0]);
+            if (b) {
+                b.classList.toggle("goog-toolbar-button-checked", a[0] === now);
+                b.setAttribute("aria-pressed", a[0] === now ? "true" : "false");
+            }
+        });
+    };
+    const alignButtons = function() {
+        const source = document.getElementById("alignButton");
+        if (!source || document.getElementById("ugf-d14-align-left")) {
+            return;
+        }
+        ALIGN.forEach(function(a) {
+            const b = toolbarButton("ugf-d14-align-" + a[0], "align-" + a[0], a[1] + " (" + (mac ? a[3] : a[3].replace("⌘", "Ctrl")) + ")");
+            b.addEventListener("click", function() {
+                align(a);
+            });
+            source.parentNode.insertBefore(b, source);
+        });
+        syncAlign();
+        new MutationObserver(syncAlign).observe(source, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
+    };
+
+    // ---- the Table menu ----------------------------------------------------------------
+    const TABLE = [["Insert table", "grid"], null, ["Insert row above"], ["Insert row below"], ["Insert column left"], ["Insert column right"], null,
+        ["Delete row"], ["Delete column"], ["Delete table"], null, ["Merge cells"], ["Unmerge cells"], null, ["Table properties..."]];
+    let dd = null;
+    const closeTable = function() {
+        if (dd) {
+            dd.style.display = "none";
+        }
+        const b = document.getElementById("ugf-d14-table-menu");
+        if (b) {
+            b.classList.remove("goog-control-open");
+        }
+    };
+    const tableCommand = async function(label, anchor) {
+        closeTable();
+        const format = document.getElementById("docs-format-menu");
+        const result = await runMenu(format, ["Table", label.replace(/\.\.\.$/, "")]);
+        if (result === "disabled") {
+            note("Put the cursor in a table first", anchor);
+        } else if (result === "missing") {
+            note("Google Docs has no “" + label.replace(/\.\.\.$/, "") + "” here", anchor);
+        }
+    };
+    const insertTable = async function(anchor) {
+        closeTable();
+        const insert = document.getElementById("docs-insert-menu");
+        const sub = await runMenu(insert, ["Table"], true);
+        if (!sub || typeof sub === "string") {
+            busy(false);
+            note("Google Docs' table picker didn't open", anchor);
+            return;
+        }
+        // Google's own size picker, shown where the period's was: beside the Table menu
+        const r = anchor.getBoundingClientRect();
+        sub.classList.add("ugf-d14-keep");
+        sub.style.left = Math.round(r.left) + "px";
+        sub.style.top = Math.round(r.bottom + 2) + "px";
+        const t = setInterval(function() {
+            if (!shown(sub)) {
+                clearInterval(t);
+                sub.classList.remove("ugf-d14-keep");
+                busy(false);
+            }
+        }, 150);
+    };
+    const tableMenu = function() {
+        const tools = document.getElementById("docs-tools-menu");
+        if (!tools || document.getElementById("ugf-d14-table-menu")) {
+            return;
+        }
+        const b = document.createElement("div");
+        b.id = "ugf-d14-table-menu";
+        b.className = "menu-button goog-control goog-inline-block";
+        b.setAttribute("role", "menuitem");
+        b.setAttribute("aria-haspopup", "true");
+        b.textContent = "Table";
+        tools.parentNode.insertBefore(b, tools.nextSibling);
+        dd = document.createElement("div");
+        dd.id = "ugf-d14-table-dd";
+        dd.className = "goog-menu goog-menu-vertical";
+        dd.setAttribute("role", "menu");
+        dd.style.display = "none";
+        TABLE.forEach(function(entry) {
+            if (!entry) {
+                const s = document.createElement("div");
+                s.className = "goog-menuseparator";
+                dd.appendChild(s);
+                return;
+            }
+            const it = document.createElement("div");
+            it.className = "goog-menuitem" + (entry[1] ? " goog-submenu" : "");
+            it.setAttribute("role", "menuitem");
+            it.appendChild(el("div", "goog-menuitem-content"));
+            it.firstChild.textContent = entry[0];
+            if (entry[1]) {
+                const arrow = document.createElement("span");
+                arrow.className = "ugf-d14-subarrow";
+                arrow.textContent = "▸";
+                it.firstChild.appendChild(arrow);
+            }
+            it.addEventListener("mouseenter", function() {
+                it.classList.add("goog-menuitem-highlight");
+            });
+            it.addEventListener("mouseleave", function() {
+                it.classList.remove("goog-menuitem-highlight");
+            });
+            it.addEventListener("mousedown", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+            it.addEventListener("click", function() {
+                if (entry[1] === "grid") {
+                    insertTable(b);
+                } else {
+                    tableCommand(entry[0], b);
+                }
+            });
+            dd.appendChild(it);
+        });
+        document.body.appendChild(dd);
+        b.addEventListener("mouseenter", function() {
+            b.classList.add("goog-control-hover");
+        });
+        b.addEventListener("mouseleave", function() {
+            b.classList.remove("goog-control-hover");
+        });
+        b.addEventListener("mousedown", function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dd.style.display !== "none") {
+                closeTable();
+                return;
+            }
+            closeMenus();
+            const r = b.getBoundingClientRect();
+            dd.style.left = Math.round(r.left) + "px";
+            dd.style.top = Math.round(r.bottom - 1) + "px";
+            dd.style.display = "block";
+            b.classList.add("goog-control-open");
+        });
+        document.addEventListener("mousedown", function(e) {
+            if (dd.style.display !== "none" && !dd.contains(e.target) && e.target !== b) {
+                closeTable();
+            }
+        }, true);
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "Escape") {
+                closeTable();
+            }
+        }, true);
+    };
+
+    // ---- the page back in the middle once the gutter is gone ------------------------
+    let laidOutAt = 0;
+    const relayout = function() {
+        const ed = document.getElementById("docs-editor");
+        const w = ed ? ed.getBoundingClientRect().width : 0;
+        if (w && w !== laidOutAt) {
+            laidOutAt = w;
+            window.dispatchEvent(new Event("resize"));
+        }
+    };
+
+    const start = function() {
+        if (CSS && !document.getElementById("ugf-d14-styles")) {
+            const style = document.createElement("style");
+            style.id = "ugf-d14-styles";
+            style.textContent = CSS;
+            (document.head || html).appendChild(style);
+        }
+        const keepLast = function() {
+            const style = document.getElementById("ugf-d14-styles");
+            if (style && document.head && document.head.lastElementChild !== style) {
+                document.head.appendChild(style);
+            }
+        };
+        const tick = function() {
+            [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["relayout", relayout]].forEach(function(step) {
+                try {
+                    step[1]();
+                } catch (e) {
+                    report(step[0], e);
+                }
+            });
+        };
+        tick();
+        setInterval(tick, 1000);
+    };
+    const t = setInterval(function() {
+        if (wanted()) {
+            clearInterval(t);
+            start();
+        }
+    }, 300);
+    setTimeout(function() {
+        clearInterval(t);
+    }, 60000);
+})();
