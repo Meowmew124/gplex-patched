@@ -9,6 +9,7 @@ It also redresses the Google Docs editor to match the Docs of 2014–2016 more e
 - the toolbar order of the time, with four alignment buttons, Editing ▾ and ︽ at the right, and no vertical ruler
 - menus in the period style, plus the Table menu between Tools and Add-ons
 - no side-panel gutter and no Gemini prompt bar
+- on the Docs list, the "Start a new document" strip of late 2015 (Blank plus Google's own templates, MORE for the gallery), without the round + button
 - document tabs (today's feature) kept, in the period's style, only for documents that have more than one tab; a "Tabs (n)" button shows and hides them
 
 The alignment buttons and the Table menu work Google's own menus behind the scenes, so every command is still Google's.

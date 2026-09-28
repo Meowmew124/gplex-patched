@@ -322,3 +322,29 @@ html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-wid
 html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-text-chaptered { white-space: nowrap !important; margin: 0 !important; padding: 0 !important; flex: 1 1 auto !important; }
 html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-chapter-count:empty { display: none !important; }
 html[gplex-docs="d2014"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container { padding: 0 6px 0 8px !important; }
+
+/* ---- the Docs list: "Start a new document", as the list had it from autumn 2015 ------ */
+html[gplex-docs-home="d2014"] #ugf-d14-tpl { flex: 0 0 auto; background: #434448; color: #fff; font-family: Roboto, Arial, sans-serif; position: relative; z-index: 1; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tin { width: 880px; max-width: calc(100% - 48px); margin: 0 auto; padding: 0 0 18px; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .thead { display: flex; align-items: center; height: 44px; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tt { font-size: 14px; color: rgba(255,255,255,.87); }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .more { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: rgba(255,255,255,.87); font-size: 12px; font-weight: 500; letter-spacing: .5px; text-decoration: none; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .more:hover { color: #fff; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .more .ar {
+    display: inline-block; width: 10px; height: 14px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%23ddd' stroke-width='1.5'%3E%3Cpath d='M2 5l3-3 3 3M2 9l3 3 3-3'/%3E%3C/svg%3E") center / 10px 14px no-repeat;
+}
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tiles { display: grid; grid-template-columns: repeat(7, 112px); gap: 0 16px; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile { display: block; width: 112px; color: #fff; text-decoration: none; cursor: pointer; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .pg { display: block; position: relative; width: 112px; height: 142px; background: #fff; overflow: hidden; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .pg img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #4285f4; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .plus { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; margin: -19px 0 0 -19px; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .plus::before,
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .plus::after { content: ""; position: absolute; background: #4285f4; left: 50%; top: 50%; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .plus::before { width: 38px; height: 3px; margin: -1.5px 0 0 -19px; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .plus::after { width: 3px; height: 38px; margin: -19px 0 0 -1.5px; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .lb { display: block; margin-top: 10px; font-size: 12px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[gplex-docs-home="d2014"] #ugf-d14-tpl .st { display: block; margin-top: 1px; font-size: 11px; color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* with Blank on the strip, the list had no round "+" (it stays for search results, where the strip isn't) */
+html[gplex-docs-home="d2014"] #ugf-docs-home:has(#ugf-d14-tpl) .fab { display: none !important; }

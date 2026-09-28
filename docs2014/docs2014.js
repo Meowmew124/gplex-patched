@@ -12,6 +12,10 @@
     const wanted = function() {
         return html.getAttribute("gplex-docs") === "d2014";
     };
+    // the Docs list (Gplex draws it as #ugf-docs-home)
+    const homeWanted = function() {
+        return html.getAttribute("gplex-docs-home") === "d2014";
+    };
 
     const el = function(tag, cls) {
         const n = document.createElement(tag);
@@ -491,6 +495,124 @@
         }
     };
 
+    // ---- the home list: the "Start a new document" strip of autumn 2015 ------------------
+    // Blank and Google's own templates on a dark band under the blue bar, MORE for the gallery.
+    // The templates are the ones Google's page offers (hidden under Gplex's list); a click opens
+    // one the way a click on Google's own tile does.
+    const TEMPLATE_GALLERY = "https://docs.google.com/templates";
+    const googleTemplates = function() {
+        const out = [];
+        document.querySelectorAll(".docs-homescreen-templates-templateview").forEach(function(t) {
+            if (t.closest("#ugf-docs-home")) {
+                return;
+            }
+            const title = ((t.querySelector("[class*='templateview-title']") || {}).textContent || "").trim();
+            if (!title || /^blank/i.test(title) || out.some(function(x) {
+                return x.title === title;
+            })) {
+                return;
+            }
+            const img = t.querySelector("img");
+            out.push({ title: title, style: ((t.querySelector("[class*='templateview-style']") || {}).textContent || "").trim(), img: img ? img.src : "" });
+        });
+        return out;
+    };
+    const openTemplate = function(title) {
+        const t = [].find.call(document.querySelectorAll(".docs-homescreen-templates-templateview"), function(x) {
+            return !x.closest("#ugf-docs-home") && ((x.querySelector("[class*='templateview-title']") || {}).textContent || "").trim() === title;
+        });
+        if (!t) {
+            window.location.href = TEMPLATE_GALLERY;
+            return;
+        }
+        try {
+            t.focus();
+        } catch (e) {}
+        press(t);
+        // and the keyboard's way in, which the list also answers
+        setTimeout(function() {
+            if (document.visibilityState === "visible" && document.getElementById("ugf-docs-home")) {
+                ["keydown", "keyup"].forEach(function(type) {
+                    t.dispatchEvent(new KeyboardEvent(type, { bubbles: true, cancelable: true, key: "Enter", code: "Enter", keyCode: 13, which: 13 }));
+                });
+            }
+        }, 400);
+    };
+    let stripKey = "";
+    const templateStrip = function() {
+        const shell = document.getElementById("ugf-docs-home");
+        const content = shell && shell.querySelector(".content");
+        let strip = document.getElementById("ugf-d14-tpl");
+        // not over search results, as the period's list had it
+        if (!content || new URLSearchParams(window.location.search).get("q")) {
+            if (strip) {
+                strip.remove();
+            }
+            return;
+        }
+        const tpls = googleTemplates().slice(0, 6);
+        const key = tpls.map(function(t) {
+            return t.title + "|" + t.img;
+        }).join("/");
+        // Gplex redraws its list: put the strip back when it goes, rebuild when the templates change
+        if (strip && strip.parentNode === shell && strip.nextElementSibling === content && key === stripKey) {
+            return;
+        }
+        stripKey = key;
+        if (strip) {
+            strip.remove();
+        }
+        strip = el("div");
+        strip.id = "ugf-d14-tpl";
+        const inner = el("div", "tin");
+        const head = el("div", "thead");
+        const title = el("span", "tt");
+        title.textContent = "Start a new document";
+        const more = el("a", "more");
+        more.href = TEMPLATE_GALLERY;
+        more.textContent = "MORE";
+        more.appendChild(el("span", "ar"));
+        head.append(title, more);
+        const tiles = el("div", "tiles");
+        const tile = function(label, style, cls) {
+            const a = el("a", "tile" + (cls ? " " + cls : ""));
+            const pg = el("span", "pg");
+            const lb = el("span", "lb");
+            lb.textContent = label;
+            a.append(pg, lb);
+            if (style) {
+                const st = el("span", "st");
+                st.textContent = style;
+                a.appendChild(st);
+            }
+            return a;
+        };
+        const blank = tile("Blank", "", "blank");
+        blank.href = "https://docs.google.com/document/create";
+        blank.target = "_blank";
+        blank.firstChild.appendChild(el("span", "plus"));
+        tiles.appendChild(blank);
+        tpls.forEach(function(t) {
+            const a = tile(t.title, t.style);
+            a.href = "#";
+            a.title = t.title + (t.style ? " (" + t.style + ")" : "");
+            if (t.img) {
+                const img = el("img");
+                img.src = t.img;
+                img.alt = "";
+                a.firstChild.appendChild(img);
+            }
+            a.addEventListener("click", function(e) {
+                e.preventDefault();
+                openTemplate(t.title);
+            });
+            tiles.appendChild(a);
+        });
+        inner.append(head, tiles);
+        strip.appendChild(inner);
+        shell.insertBefore(strip, content);
+    };
+
     const start = function() {
         if (CSS && !document.getElementById("ugf-d14-styles")) {
             const style = document.createElement("style");
@@ -504,8 +626,10 @@
                 document.head.appendChild(style);
             }
         };
+        const steps = homeWanted() ? [["style", keepLast], ["templates", templateStrip]] :
+            [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["tabs", docTabs], ["relayout", relayout]];
         const tick = function() {
-            [["style", keepLast], ["align", alignButtons], ["table", tableMenu], ["tabs", docTabs], ["relayout", relayout]].forEach(function(step) {
+            steps.forEach(function(step) {
                 try {
                     step[1]();
                 } catch (e) {
@@ -517,7 +641,7 @@
         setInterval(tick, 1000);
     };
     const t = setInterval(function() {
-        if (wanted()) {
+        if (wanted() || homeWanted()) {
             clearInterval(t);
             start();
         }
