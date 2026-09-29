@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VORAPIS notifications fix
 // @namespace    gplex-patched
-// @version      1.2
+// @version      1.3
 // @description  YouTube's notification menu request (notification/get_notification_menu) now comes back empty, so VORAPIS's bell shows nothing. This answers it from YouTube's notification inbox (browse FEnotifications_inbox), which still has them, in the menu's own format. VORAPIS itself is left untouched.
 // @match        https://www.youtube.com/*
 // @run-at       document-start
@@ -111,22 +111,44 @@
     window.fetch = fixed;
 
     // youtube.com/#notifications (the "See all" of Gplex's bell and of Loogle+): VORAPIS has no
-    // notifications page, so the bell's dropdown is opened instead, once VORAPIS has drawn it
+    // notifications page, so the bell's dropdown is opened instead. VORAPIS draws the bell before
+    // it answers clicks, so it is pressed (as a mouse does) until its notifications panel shows.
     if (window.location.hash === "#notifications") {
         const started = Date.now();
+        let pressed = 0;
+        const panelShown = function () {
+            const p = document.querySelector(".sb-notification-frame, .yt-uix-clickcard-card-visible, ytd-multi-page-menu-renderer, #sb-button-notify.yt-uix-button-toggled");
+            return !!p && p.getBoundingClientRect().height > 0;
+        };
+        const press = function (el) {
+            const r = el.getBoundingClientRect();
+            const at = { bubbles: true, cancelable: true, view: window, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+            ["pointerdown", "mousedown", "pointerup", "mouseup", "click"].forEach(function (t) {
+                try {
+                    el.dispatchEvent(/^pointer/.test(t) ? new PointerEvent(t, at) : new MouseEvent(t, at));
+                } catch (e) {}
+            });
+        };
         const tryOpen = function () {
-            const bell = document.querySelector("#sb-button-notify, ytd-notification-topbar-button-renderer button, ytd-notification-topbar-button-renderer #button");
-            if (bell) {
+            if (panelShown()) {
                 history.replaceState(null, "", window.location.pathname + window.location.search);
-                setTimeout(function () {
-                    bell.click();
-                }, 400);
                 return;
             }
-            if (Date.now() - started < 20000) {
-                setTimeout(tryOpen, 250);
+            const bell = document.querySelector("#sb-button-notify, ytd-notification-topbar-button-renderer button, ytd-notification-topbar-button-renderer #button");
+            if (bell && bell.getBoundingClientRect().width > 0 && Date.now() - pressed > 1500) {
+                pressed = Date.now();
+                press(bell);
+            }
+            if (Date.now() - started < 15000) {
+                setTimeout(tryOpen, 300);
             }
         };
-        setTimeout(tryOpen, 500);
+        if (document.readyState === "complete") {
+            setTimeout(tryOpen, 800);
+        } else {
+            window.addEventListener("load", function () {
+                setTimeout(tryOpen, 800);
+            });
+        }
     }
 })();
