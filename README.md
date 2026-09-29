@@ -28,7 +28,7 @@ And Google Forms, on the same layouts:
 
 And Google Drive, on the 2016 layouts: the Drive triangle of 2014-2016 back beside "Drive" in the header.
 
-And the notifications bell of the 2015-2017 Google bar, on google.com and Gplex's own pages (the Docs, Sheets, Slides and Forms lists, Drive, Photos, Translate, News and Calendar; the 2015-2017 layouts): the grey circle with its bell, red with the count when there's something new, and a box of two parts:
+And the notifications bell of the 2015-2017 Google bar, on google.com and Gplex's own pages (the Docs, Sheets, Slides and Forms lists, Drive, Photos, Translate, News and Calendar; the 2015-2017 layouts): the grey circle with its bell, red with the count when there's something new, and the "Google notifications" panel of the time (grey, the gear for its settings, Mr. Jingles when you're all caught up, "Previously read (Google+)" at the foot), with two parts:
 - YouTube: your notifications (from YouTube's notification inbox, which still has them), newest first, the newest five with "Show all" for the rest
 - Google+: your notifications on Loogle+ (give your Loogle+ username in the box once), dismissed one by one or "Mark all as read"
 
