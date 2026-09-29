@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      6.5.1.15
+// @version      6.5.1.16
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -57126,7 +57126,7 @@ html[gplex-gmail] body {
         }
         const cfg = { at: Date.now(), ver: String(gv("UGF_NB_YTVER", "")) || "2.20260915.01.00", index: "0", page: "" };
         try {
-            const t = String((await xhr({ method: "GET", url: YT + "/feed/notifications" })).responseText || "");
+            const t = String((await xhr({ method: "GET", url: YT + "/#notifications" })).responseText || "");
             const pick = function(k) {
                 const m = t.match(new RegExp('"' + k + '":"?([^",}]*)'));
                 return m ? m[1] : "";
@@ -57257,7 +57257,7 @@ html[gplex-gmail] body {
                 th: thumb(n.videoThumbnail),
                 msg: textOf(n.shortMessage),
                 tm: textOf(n.sentTimeText),
-                url: url ? (/^https?:/.test(url) ? url : YT + url) : YT + "/feed/notifications",
+                url: url ? (/^https?:/.test(url) ? url : YT + url) : YT + "/#notifications",
                 unread: n.read === false
             };
         }).filter(function(n) {
@@ -57567,7 +57567,7 @@ html[gplex-gmail] body {
         } catch (e) {
             trail("YouTube list failed: " + e.message);
             none(list, /signed out/.test(e.message) ? "Sign in to YouTube to see its notifications here." : "YouTube's notifications couldn't be loaded.",
-                /signed out/.test(e.message) ? "Sign in" : "Open YouTube", /signed out/.test(e.message) ? "https://accounts.google.com/ServiceLogin?service=youtube&continue=" + encodeURIComponent(YT + "/") : YT + "/feed/notifications");
+                /signed out/.test(e.message) ? "Sign in" : "Open YouTube", /signed out/.test(e.message) ? "https://accounts.google.com/ServiceLogin?service=youtube&continue=" + encodeURIComponent(YT + "/") : YT + "/#notifications");
             settle(box, list, "ok");
             return;
         }
@@ -57883,7 +57883,7 @@ html[gplex-gmail] body {
         let any = false;
         if (showing("yt")) {
             any = true;
-            fillYouTube(section(box, "yt", "YouTube", "See all", YT + "/feed/notifications"), box);
+            fillYouTube(section(box, "yt", "YouTube", "See all", YT + "/#notifications"), box);
         }
         if (showing("gp")) {
             any = true;
