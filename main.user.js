@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      6.5.1.13
+// @version      6.5.1.14
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -56955,41 +56955,70 @@ html[gplex-gmail] body {
         ".ugf-nb-g:hover .gi, .ugf-nb-g.open .gi { opacity: .85; }",
         ".ugf-nb-g.ugf-nb-has .gi { visibility: hidden; }",
         "#ugf-docs-home .gtop .corner .ugf-nb-g { width: 40px; height: 40px; margin: 0 6px 0 2px; cursor: pointer; }",
-        "#ugf-nb-box { position: fixed; z-index: 2147483600; width: 420px; max-height: calc(100vh - 80px); display: flex; flex-direction: column; background: #fff; color: #212121; " +
-            "border: 1px solid rgba(0,0,0,.2); border-radius: 2px; box-shadow: 0 4px 16px rgba(0,0,0,.2); font: 13px Roboto, Arial, sans-serif; text-align: left; }",
+        // the box: Google's notifications panel of 2015-2016, from the screenshots of the time
+        // (google.com, June 2015; the panel as it stood before the redesign of February 2017):
+        // flat #e5e5e5, "Google notifications" over a gear, Mr. Jingles when all caught up,
+        // "Previously read (Google+)" along the foot; the notifications as white cards
+        "#ugf-nb-box { position: fixed; z-index: 2147483600; width: 400px; max-height: calc(100vh - 80px); display: flex; flex-direction: column; background: #e5e5e5; color: #333; " +
+            "border: 1px solid #ccc; border-color: rgba(0,0,0,.2); box-shadow: 0 2px 10px rgba(0,0,0,.2); font: 13px Roboto, Arial, sans-serif; text-align: left; }",
         "#ugf-nb-box::before, #ugf-nb-box::after { content: ''; position: absolute; top: -9px; right: var(--arrow, 22px); border: 8px solid transparent; border-top: 0; border-bottom: 9px solid rgba(0,0,0,.2); }",
-        "#ugf-nb-box::after { top: -8px; border-bottom-color: #fff; }",
-        "#ugf-nb-box .hd { display: flex; align-items: center; height: 48px; padding: 0 8px 0 16px; border-bottom: 1px solid #e0e0e0; font-size: 16px; color: #212121; flex: 0 0 auto; }",
-        "#ugf-nb-box .hd .sp { flex: 1 1 auto; }",
-        "#ugf-nb-box .scroll { overflow: auto; flex: 1 1 auto; }",
-        "#ugf-nb-box .sec + .sec { border-top: 8px solid #f1f1f1; }",
-        "#ugf-nb-box .sh { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; font-size: 13px; font-weight: 500; color: #757575; text-transform: uppercase; letter-spacing: .3px; }",
-        "#ugf-nb-box .sh .lg { width: 20px; height: 20px; flex: 0 0 20px; border-radius: 2px; display: flex; align-items: center; justify-content: center; color: #fff; font: bold 11px Arial, sans-serif; text-transform: none; letter-spacing: 0; }",
-        "#ugf-nb-box .sh .lg.yt { background: #e62117; }",
-        // the Google+ mark of 2015-2019: the red circle and a capital G+
-        "#ugf-nb-box .sh .lg.gp { border-radius: 50%; background: url(data:image/png;base64,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) center / 20px 20px no-repeat; font-size: 0; }",
+        "#ugf-nb-box::after { top: -8px; border-bottom-color: #e5e5e5; }",
+        "#ugf-nb-box .view { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }",
+        "#ugf-nb-box .view[hidden] { display: none; }",
+        "#ugf-nb-box .hd { position: relative; display: flex; align-items: center; justify-content: center; height: 50px; flex: 0 0 auto; font-size: 16px; color: #666; }",
+        "#ugf-nb-box .hd .ic { position: absolute; left: 14px; top: 13px; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }",
+        "#ugf-nb-box .hd .ic svg { width: 20px; height: 20px; fill: #777; display: block; }",
+        "#ugf-nb-box .hd .ic:hover svg { fill: #444; }",
+        "#ugf-nb-box .scroll { overflow: auto; flex: 1 1 auto; min-height: 0; padding: 0 0 4px; }",
+        "#ugf-nb-box .sec[hidden], #ugf-nb-box .jingles[hidden], #ugf-nb-box .loading[hidden] { display: none; }",
+        "#ugf-nb-box .loading { padding: 40px 0; text-align: center; color: #999; }",
+        "#ugf-nb-box .sh { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 16px; font-size: 12px; color: #737373; }",
+        "#ugf-nb-box .sh .lg { width: 16px; height: 16px; flex: 0 0 16px; border-radius: 2px; display: flex; align-items: center; justify-content: center; color: #fff; font: bold 8px Arial, sans-serif; }",
+        "#ugf-nb-box .lg.yt { background: #e62117; }",
+        "#ugf-nb-box .lg.gp { border-radius: 50%; background: url(data:image/png;base64,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) center / 100% 100% no-repeat; font-size: 0; }",
         "#ugf-nb-box .sh .sp { flex: 1 1 auto; }",
-        "#ugf-nb-box .sh a, #ugf-nb-box .ft a { color: #4285f4; text-decoration: none; text-transform: none; font-weight: 500; letter-spacing: 0; cursor: pointer; }",
-        "#ugf-nb-box .it { display: flex; align-items: flex-start; gap: 12px; padding: 10px 16px; cursor: pointer; text-decoration: none; color: inherit; position: relative; }",
-        "#ugf-nb-box .it:hover { background: #f5f5f5; }",
-        "#ugf-nb-box .it.unread { background: #f3f8fe; } #ugf-nb-box .it.unread:hover { background: #e8f0fe; }",
-        "#ugf-nb-box .it .av { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; background: #e0e0e0 center / cover no-repeat; }",
+        "#ugf-nb-box .sh a { color: #427fed; text-decoration: none; cursor: pointer; }",
+        "#ugf-nb-box .sh a:hover { text-decoration: underline; }",
+        "#ugf-nb-box .it { display: flex; align-items: flex-start; gap: 12px; margin: 0 12px 6px; padding: 12px; background: #fff; box-shadow: 0 1px 1px rgba(0,0,0,.12); cursor: pointer; text-decoration: none; color: inherit; position: relative; }",
+        "#ugf-nb-box .it.read { background: #f4f6f9; box-shadow: none; }",
+        "#ugf-nb-box .it:hover { box-shadow: 0 1px 4px rgba(0,0,0,.2); }",
+        "#ugf-nb-box .it .av { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; background: #ddd center / cover no-repeat; }",
         "#ugf-nb-box .it .tx { flex: 1 1 auto; min-width: 0; }",
-        "#ugf-nb-box .it .who { font-weight: 500; color: #212121; }",
-        "#ugf-nb-box .it .msg { color: #212121; line-height: 18px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }",
-        "#ugf-nb-box .it .tm { margin-top: 2px; font-size: 12px; color: #757575; }",
+        "#ugf-nb-box .it .who { font-weight: bold; color: #262626; }",
+        "#ugf-nb-box .it .msg { color: #404040; line-height: 18px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }",
+        "#ugf-nb-box .it .tm { margin-top: 3px; font-size: 12px; color: #999; }",
         "#ugf-nb-box .it .th { width: 86px; height: 48px; flex: 0 0 86px; background: #000 center / cover no-repeat; }",
-        "#ugf-nb-box .it .x { width: 24px; height: 24px; flex: 0 0 24px; opacity: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #757575; font-size: 18px; line-height: 1; }",
-        "#ugf-nb-box .it:hover .x { opacity: 1; } #ugf-nb-box .it .x:hover { background: rgba(0,0,0,.08); }",
-        "#ugf-nb-box .none { padding: 12px 16px 16px; color: #757575; }",
-        "#ugf-nb-box .none a { color: #4285f4; text-decoration: none; }",
-        "#ugf-nb-box .ft { display: flex; justify-content: flex-end; padding: 8px 16px 12px; }",
+        "#ugf-nb-box .it .x { position: absolute; right: 6px; top: 6px; width: 20px; height: 20px; opacity: 0; display: flex; align-items: center; justify-content: center; color: #999; font-size: 16px; line-height: 1; }",
+        "#ugf-nb-box .it:hover .x { opacity: 1; } #ugf-nb-box .it .x:hover { color: #333; }",
+        "#ugf-nb-box .note { margin: 0 12px 6px; padding: 12px; background: #fff; box-shadow: 0 1px 1px rgba(0,0,0,.12); color: #666; line-height: 18px; }",
+        "#ugf-nb-box .note a { color: #427fed; text-decoration: none; cursor: pointer; }",
         "#ugf-nb-box .list.collapsed .it.more { display: none; }",
-        "#ugf-nb-box .ft.tog { justify-content: center; padding: 6px 16px 10px; border-top: 1px solid #f1f1f1; }",
-        "#ugf-nb-box .ask { display: flex; gap: 8px; padding: 0 16px 4px; }",
-        "#ugf-nb-box .ask input { flex: 1 1 auto; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9; border-top-color: #c0c0c0; border-radius: 0; font: 13px Arial, sans-serif; outline: none; }",
+        "#ugf-nb-box .tog { display: block; margin: 0 12px 8px; padding: 8px; text-align: center; color: #737373; cursor: pointer; }",
+        "#ugf-nb-box .tog:hover { color: #333; }",
+        // Mr. Jingles
+        "#ugf-nb-box .jingles { display: flex; flex-direction: column; align-items: center; padding: 58px 0 60px; }",
+        "#ugf-nb-box .jingles .bub { position: relative; white-space: nowrap; padding: 11px 18px; background: #fff; color: #aaa; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,.15); margin-bottom: 12px; }",
+        "#ugf-nb-box .jingles .bub::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: #fff; }",
+        "#ugf-nb-box .jingles .bell { width: 64px; height: 82px; background: var(--ugf-nb-jingles) center / 64px 82px no-repeat; }",
+        // the foot
+        "#ugf-nb-box .ft2 { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; height: 48px; margin: 8px 20px 0; background: #ebebeb; color: #737373; cursor: pointer; text-decoration: none; }",
+        "#ugf-nb-box .ft2:hover { background: #f2f2f2; color: #555; }",
+        // the settings page behind the gear
+        "#ugf-nb-box .sbody { padding: 6px 20px 20px; }",
+        "#ugf-nb-box .sbody .lead { font-size: 15px; color: #555; margin: 4px 0 18px; }",
+        "#ugf-nb-box .srow { display: flex; align-items: center; gap: 14px; height: 44px; }",
+        "#ugf-nb-box .srow .lg { width: 18px; height: 18px; flex: 0 0 18px; border-radius: 2px; display: flex; align-items: center; justify-content: center; color: #fff; font: bold 9px Arial, sans-serif; }",
+        "#ugf-nb-box .srow .nm { color: #222; font-size: 14px; }",
+        "#ugf-nb-box .srow a { color: #427fed; text-decoration: none; font-size: 14px; }",
+        "#ugf-nb-box .srow .sp { flex: 1 1 auto; }",
+        "#ugf-nb-box .chk { width: 18px; height: 18px; border-radius: 2px; background: #fff; border: 1px solid #bbb; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: center; }",
+        "#ugf-nb-box .chk.on { background: #666; border-color: #666; }",
+        "#ugf-nb-box .chk.on::after { content: ''; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }",
+        "#ugf-nb-box .ask { display: flex; gap: 8px; margin: 14px 0 0; }",
+        "#ugf-nb-box .ask input { flex: 1 1 auto; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9; border-top-color: #c0c0c0; border-radius: 0; font: 13px Arial, sans-serif; outline: none; background: #fff; }",
         "#ugf-nb-box .ask input:focus { border-color: #4d90fe; }",
-        "#ugf-nb-box .ask button { height: 30px; padding: 0 12px; border: 1px solid #3079ed; border-radius: 2px; background: linear-gradient(#4d90fe, #4787ed); color: #fff; font: bold 11px Arial, sans-serif; cursor: pointer; }"
+        "#ugf-nb-box .ask button { height: 30px; padding: 0 12px; border: 1px solid #3079ed; border-radius: 2px; background: linear-gradient(#4d90fe, #4787ed); color: #fff; font: bold 11px Arial, sans-serif; cursor: pointer; }",
+        "#ugf-nb-box .who2 { margin-top: 6px; color: #777; font-size: 12px; }"
     ].join("\n");
 
     const el = function(tag, cls, text) {
@@ -57391,10 +57420,10 @@ html[gplex-gmail] body {
             return;
         }
         const results = await Promise.all([
-            ytUnseen().catch(function() {
+            showing("yt") ? ytUnseen().catch(function() {
                 return 0;
-            }),
-            loogleUser() ? gpUnread().catch(function() {
+            }) : Promise.resolve(0),
+            showing("gp") && loogleUser() ? gpUnread().catch(function() {
                 return 0;
             }) : Promise.resolve(0)
         ]);
@@ -57412,28 +57441,67 @@ html[gplex-gmail] body {
             x.classList.remove("open");
         });
     };
+    // which of the two the box shows (the gear's settings page)
+    const showing = function(kind) {
+        return String(gv(kind === "yt" ? "UGF_NB_SHOW_YT" : "UGF_NB_SHOW_GP", "1")) !== "0";
+    };
+    const SVG_ICON = {
+        gear: "M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z",
+        back: "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"
+    };
+    const svgIcon = function(name) {
+        const svg = document.createElementNS(SVGNS, "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        const p = document.createElementNS(SVGNS, "path");
+        p.setAttribute("d", SVG_ICON[name]);
+        svg.appendChild(p);
+        return svg;
+    };
+    const logo = function(kind) {
+        return el("span", "lg " + kind, kind === "yt" ? "▶" : "");
+    };
     const section = function(box, kind, title, link, linkUrl) {
         const s = el("div", "sec " + kind);
+        s.hidden = true;
         const h = el("div", "sh");
-        h.appendChild(el("span", "lg " + kind, kind === "yt" ? "▶" : ""));
+        h.appendChild(logo(kind));
         h.appendChild(el("span", "", title));
         h.appendChild(el("span", "sp"));
         if (link) {
             const a = el("a", "", link);
-            a.href = linkUrl;
-            a.target = "_blank";
+            a.className = "hl";
+            if (linkUrl) {
+                a.href = linkUrl;
+                a.target = "_blank";
+            }
             h.appendChild(a);
         }
         s.appendChild(h);
         const list = el("div", "list");
-        list.appendChild(el("div", "none", "Loading..."));
         s.appendChild(list);
-        box.querySelector(".scroll").appendChild(s);
+        box.querySelector(".scroll").insertBefore(s, box.querySelector(".scroll .jingles"));
         return list;
     };
+    // what each part came to: "ok" (something to show), "empty", or still loading; with
+    // nothing to show anywhere, Mr. Jingles says "All caught up!"
+    const settle = function(box, list, state) {
+        const sec = list.parentNode;
+        sec.hidden = state === "empty";
+        sec.setAttribute("data-state", state);
+        const secs = [].slice.call(box.querySelectorAll(".view.main .sec"));
+        const loading = secs.some(function(x) {
+            return !x.hasAttribute("data-state");
+        });
+        const any = secs.some(function(x) {
+            return x.getAttribute("data-state") === "ok";
+        });
+        box.querySelector(".loading").hidden = !loading || any;
+        box.querySelector(".jingles").hidden = loading || any;
+    };
+    // a message in the place of the cards (signed out, couldn't load...)
     const none = function(list, text, linkText, url) {
         list.textContent = "";
-        const n = el("div", "none", text);
+        const n = el("div", "note", text);
         if (linkText) {
             n.appendChild(document.createTextNode(" "));
             const a = el("a", "", linkText);
@@ -57443,7 +57511,7 @@ html[gplex-gmail] body {
         }
         list.appendChild(n);
     };
-    const fillYouTube = async function(list) {
+    const fillYouTube = async function(list, box) {
         let items;
         try {
             items = await ytList();
@@ -57460,12 +57528,13 @@ html[gplex-gmail] body {
             }
         } catch (e) {
             trail("YouTube list failed: " + e.message);
-            none(list, /signed out/.test(e.message) ? "Sign in to YouTube to see notifications from your subscriptions." : "YouTube's notifications couldn't be loaded.",
+            none(list, /signed out/.test(e.message) ? "Sign in to YouTube to see its notifications here." : "YouTube's notifications couldn't be loaded.",
                 /signed out/.test(e.message) ? "Sign in" : "Open YouTube", /signed out/.test(e.message) ? "https://accounts.google.com/ServiceLogin?service=youtube&continue=" + encodeURIComponent(YT + "/") : YT + "/feed/notifications");
+            settle(box, list, "ok");
             return;
         }
         if (!items.length) {
-            none(list, "No new videos from your subscriptions.");
+            settle(box, list, "empty");
             return;
         }
         // newest first (YouTube's inbox puts its "Important" group ahead of the rest): by the
@@ -57489,7 +57558,7 @@ html[gplex-gmail] body {
         // collapsed to the newest few; the rest behind "Show all"
         const FEW = 5;
         items.slice(0, 30).forEach(function(n, i) {
-            const a = el("a", "it" + (n.unread ? " unread" : "") + (i >= FEW ? " more" : ""));
+            const a = el("a", "it" + (n.unread ? "" : " read") + (i >= FEW ? " more" : ""));
             a.href = n.url;
             a.target = "_blank";
             const av = el("span", "av");
@@ -57513,50 +57582,29 @@ html[gplex-gmail] body {
         const shown = Math.min(items.length, 30);
         if (shown > FEW) {
             list.classList.add("collapsed");
-            const ft = el("div", "ft tog");
-            const t = el("a", "", "Show all " + shown + " \u25BE");
+            const t = el("a", "tog", "Show all " + shown + " ▾");
             t.addEventListener("click", function(e) {
                 e.preventDefault();
                 const open = list.classList.toggle("collapsed") === false;
-                t.textContent = open ? "Show fewer \u25B4" : "Show all " + shown + " \u25BE";
+                t.textContent = open ? "Show fewer ▴" : "Show all " + shown + " ▾";
             });
-            ft.appendChild(t);
-            list.appendChild(ft);
+            list.appendChild(t);
         }
+        settle(box, list, "ok");
         counts.yt = 0;
         sv("UGF_NB_YT_BASE", ytRaw);
         paint();
     };
     const fillGooglePlus = async function(list, box) {
         if (!loogleUser()) {
-            none(list, "Your Loogle+ username, for its notifications here:", "", "");
-            // (or say who you are on Loogle+ here)
-            const f = el("form", "ask");
-            const inp = el("input");
-            inp.type = "text";
-            inp.placeholder = "Loogle+ username";
-            const ok = el("button", "", "Save");
-            ok.type = "submit";
-            f.appendChild(inp);
-            f.appendChild(ok);
-            f.addEventListener("submit", function(e) {
-                e.preventDefault();
-                const u = inp.value.trim().replace(/^\+/, "");
-                if (u) {
-                    sv("UGF_LOOGLE_USER", u);
-                    list.textContent = "";
-                    list.appendChild(el("div", "none", "Loading..."));
-                    fillGooglePlus(list, box);
-                    refresh();
-                }
+            none(list, "Give your Loogle+ username behind the gear, and its notifications will show here.", "", "");
+            const go = el("a", "", "Settings");
+            go.addEventListener("click", function() {
+                box.querySelector(".hd .gear").click();
             });
-            list.appendChild(f);
-            const go = el("div", "none");
-            const a = el("a", "", "Go to Loogle+");
-            a.href = loogleBase() + "/";
-            a.target = "_blank";
-            go.appendChild(a);
-            list.appendChild(go);
+            list.firstChild.appendChild(document.createTextNode(" "));
+            list.firstChild.appendChild(go);
+            settle(box, list, "ok");
             return;
         }
         let items;
@@ -57565,23 +57613,27 @@ html[gplex-gmail] body {
         } catch (e) {
             trail("Loogle+ failed: " + e.message);
             none(list, "Loogle+'s notifications couldn't be loaded for +" + loogleUser() + " (" + e.message + ").", "Open Loogle+", loogleBase() + "/");
-            const change = el("a", "", "Change username");
-            change.style.cssText = "display:block;padding:0 16px 12px;color:#4285f4;cursor:pointer";
-            change.addEventListener("click", function() {
-                sv("UGF_LOOGLE_USER", "");
-                list.textContent = "";
-                fillGooglePlus(list, box);
-            });
-            list.appendChild(change);
+            settle(box, list, "ok");
             return;
         }
         if (!items.length) {
-            none(list, "No new notifications.");
+            settle(box, list, "empty");
             return;
         }
         list.textContent = "";
+        const markAll = list.parentNode.querySelector(".sh .hl");
+        if (markAll) {
+            markAll.addEventListener("click", function(e) {
+                e.preventDefault();
+                loogle({ username: loogleUser(), request: "read_all_notifications" }).catch(function() {});
+                list.textContent = "";
+                counts.gp = 0;
+                paint();
+                settle(box, list, "empty");
+            });
+        }
         items.forEach(function(n) {
-            const a = el("a", "it" + (n.unread ? " unread" : ""));
+            const a = el("a", "it" + (n.unread ? "" : " read"));
             a.href = loogleBase() + "/";
             a.target = "_blank";
             const av = el("span", "av");
@@ -57606,7 +57658,7 @@ html[gplex-gmail] body {
                 counts.gp = Math.max(0, counts.gp - (n.unread ? 1 : 0));
                 paint();
                 if (!list.querySelector(".it")) {
-                    none(list, "No new notifications.");
+                    settle(box, list, "empty");
                 }
             });
             a.appendChild(av);
@@ -57614,17 +57666,78 @@ html[gplex-gmail] body {
             a.appendChild(x);
             list.appendChild(a);
         });
-        const ft = el("div", "ft");
-        const all = el("a", "", "Mark all as read");
-        all.addEventListener("click", function(e) {
-            e.preventDefault();
-            loogle({ username: loogleUser(), request: "read_all_notifications" }).catch(function() {});
-            none(list, "No new notifications.");
-            counts.gp = 0;
-            paint();
+        settle(box, list, "ok");
+    };
+    // the gear's page: "Allow notifications here from:", as the panel had it
+    const settingsView = function(box) {
+        const v = el("div", "view settings");
+        v.hidden = true;
+        const hd = el("div", "hd");
+        const back = el("span", "ic back");
+        back.setAttribute("title", "Back");
+        back.appendChild(svgIcon("back"));
+        hd.appendChild(back);
+        hd.appendChild(el("span", "", "Settings"));
+        v.appendChild(hd);
+        const body = el("div", "sbody");
+        body.appendChild(el("div", "lead", "Allow notifications here from:"));
+        let changed = false;
+        [["gp", "Google+", loogleBase() + "/", "UGF_NB_SHOW_GP"], ["yt", "YouTube", YT + "/account_notifications", "UGF_NB_SHOW_YT"]].forEach(function(r) {
+            const row = el("div", "srow");
+            row.appendChild(logo(r[0]));
+            row.appendChild(el("span", "nm", r[1]));
+            const a = el("a", "", "Settings");
+            a.href = r[2];
+            a.target = "_blank";
+            row.appendChild(a);
+            row.appendChild(el("span", "sp"));
+            const c = el("span", "chk" + (showing(r[0]) ? " on" : ""));
+            c.setAttribute("role", "checkbox");
+            c.setAttribute("aria-label", r[1]);
+            c.addEventListener("click", function() {
+                const on = !c.classList.contains("on");
+                c.classList.toggle("on", on);
+                sv(r[3], on ? "1" : "0");
+                changed = true;
+            });
+            row.appendChild(c);
+            body.appendChild(row);
         });
-        ft.appendChild(all);
-        list.appendChild(ft);
+        // who you are on Loogle+ (its notifications are asked for by username)
+        const f = el("form", "ask");
+        const inp = el("input");
+        inp.type = "text";
+        inp.placeholder = "Loogle+ username";
+        inp.value = loogleUser();
+        const ok = el("button", "", "Save");
+        ok.type = "submit";
+        f.appendChild(inp);
+        f.appendChild(ok);
+        const said = el("div", "who2", loogleUser() ? "Google+ notifications from Loogle+ for +" + loogleUser() : "Google+ notifications come from Loogle+: give your username there.");
+        f.addEventListener("submit", function(e) {
+            e.preventDefault();
+            sv("UGF_LOOGLE_USER", inp.value.trim().replace(/^\+/, ""));
+            said.textContent = inp.value.trim() ? "Saved: +" + inp.value.trim().replace(/^\+/, "") : "Cleared";
+            changed = true;
+        });
+        body.appendChild(f);
+        body.appendChild(said);
+        v.appendChild(body);
+        back.addEventListener("click", function() {
+            if (changed) {
+                // start again with what was chosen
+                const bell = document.querySelector("#ugf-nb-bell.open, .kic.bell.open");
+                close();
+                refresh();
+                if (bell) {
+                    open(bell);
+                }
+                return;
+            }
+            v.hidden = true;
+            box.querySelector(".view.main").hidden = false;
+        });
+        return v;
     };
     const open = function(bell) {
         if (bell.classList.contains("open")) {
@@ -57635,10 +57748,33 @@ html[gplex-gmail] body {
         bell.classList.add("open");
         const box = el("div");
         box.id = "ugf-nb-box";
+        const main = el("div", "view main");
         const hd = el("div", "hd");
-        hd.appendChild(el("span", "", "Notifications"));
-        box.appendChild(hd);
-        box.appendChild(el("div", "scroll"));
+        const gear = el("span", "ic gear");
+        gear.setAttribute("title", "Settings");
+        gear.appendChild(svgIcon("gear"));
+        hd.appendChild(gear);
+        hd.appendChild(el("span", "", "Google notifications"));
+        main.appendChild(hd);
+        const scroll = el("div", "scroll");
+        scroll.appendChild(el("div", "loading", "Loading..."));
+        const j = el("div", "jingles");
+        j.hidden = true;
+        j.appendChild(el("div", "bub", "All caught up!"));
+        j.appendChild(el("div", "bell"));
+        scroll.appendChild(j);
+        main.appendChild(scroll);
+        const ft = el("a", "ft2", "Previously read (Google+)");
+        ft.href = loogleBase() + "/";
+        ft.target = "_blank";
+        main.appendChild(ft);
+        box.appendChild(main);
+        const sv2 = settingsView(box);
+        box.appendChild(sv2);
+        gear.addEventListener("click", function() {
+            main.hidden = true;
+            sv2.hidden = false;
+        });
         // (on <html> itself: Gplex hides everything else in <body> on google.com)
         html.appendChild(box);
         const r = bell.getBoundingClientRect();
@@ -57646,10 +57782,19 @@ html[gplex-gmail] body {
         box.style.top = Math.round(r.bottom + 10) + "px";
         box.style.right = right + "px";
         box.style.setProperty("--arrow", Math.max(8, Math.round(window.innerWidth - right - r.left - r.width / 2 - 8)) + "px");
-        const ytl = section(box, "yt", "YouTube", "See all", YT + "/feed/notifications");
-        const gpl = section(box, "gp", "Google+", "Open", loogleBase() + "/");
-        fillYouTube(ytl);
-        fillGooglePlus(gpl, box);
+        let any = false;
+        if (showing("yt")) {
+            any = true;
+            fillYouTube(section(box, "yt", "YouTube", "See all", YT + "/feed/notifications"), box);
+        }
+        if (showing("gp")) {
+            any = true;
+            fillGooglePlus(section(box, "gp", "Google+", loogleUser() ? "Mark all as read" : "", ""), box);
+        }
+        if (!any) {
+            box.querySelector(".loading").hidden = true;
+            j.hidden = false;
+        }
     };
     document.addEventListener("mousedown", function(e) {
         const b = document.getElementById("ugf-nb-box");
@@ -57755,8 +57900,17 @@ html[gplex-gmail] body {
             html.style.setProperty("--ugf-nb-circle", "url(" + c.toDataURL("image/png") + ")");
         } catch (e) {}
     };
+    // Mr. Jingles: the smiling grey bell of "All caught up!" (#c6c6c6, his clapper #8f8f8f)
+    const JINGLES = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="82" viewBox="0 0 64 82">' +
+        '<circle cx="32" cy="6" r="4" fill="none" stroke="#c6c6c6" stroke-width="2.5"/>' +
+        '<path d="M32 10C19 10 11 21 11 35v21h42V35c0-14-8-25-21-25z" fill="#c6c6c6"/>' +
+        '<rect x="2" y="55" width="60" height="7" rx="3.5" fill="#c6c6c6"/>' +
+        '<path d="M24 62a8 8 0 0 0 8 8V62z" fill="#8f8f8f"/><path d="M32 62v8a8 8 0 0 0 8-8z" fill="#a8a8a8"/>' +
+        '<circle cx="25.5" cy="37" r="2.4" fill="#8f8f8f"/><circle cx="38.5" cy="37" r="2.4" fill="#8f8f8f"/>' +
+        '<path d="M26.5 43.5h11a5.5 5.5 0 0 1-11 0z" fill="#8f8f8f"/></svg>';
     const start = function() {
         paintCircle();
+        html.style.setProperty("--ugf-nb-jingles", "url(\"data:image/svg+xml," + encodeURIComponent(JINGLES) + "\")");
         const st = el("style");
         st.id = "ugf-nb-styles";
         st.textContent = CSS;
