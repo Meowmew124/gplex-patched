@@ -28,7 +28,17 @@ And Google Forms, on the same layouts:
 
 And Google Drive, on the 2016 layouts: the Drive triangle of 2014-2016 back beside "Drive" in the header.
 
+And the notifications bell of the 2015-2017 Google bar, on google.com and Gplex's own pages (the 2015-2017 layouts): the grey circle with its bell, red with the count when there's something new, and a box of two parts:
+- YouTube: your notifications (from YouTube's notification inbox, which still has them), newest first, the newest five with "Show all" for the rest
+- Google+: your notifications on Loogle+ (give your Loogle+ username in the box once), dismissed one by one or "Mark all as read"
+
+Your Google profile photo is also fetched sharp on Gplex's pages (Google hands out a small copy that blurs when shown bigger).
+
 The alignment buttons and the Table menu work Google's own menus behind the scenes, so every command is still Google's.
+
+## VORAPIS notifications fix
+
+YouTube's notification menu request now comes back empty, so VORAPIS's bell (and YouTube's own) shows nothing. [`vorapis-notifications-fix.user.js`](../../raw/main/vorapis-notifications-fix.user.js) answers it from YouTube's notification inbox, newest first, without changing VORAPIS. Install it alongside VORAPIS; it updates from here.
 
 ## Install
 

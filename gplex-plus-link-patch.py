@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Re-apply Akhil's changes to a new Gplex Extended release: the Google+ link fix and
 the Docs 2014 fixes (docs2014/: the editor's layout, menus, Table menu and alignment
-buttons, appended as their own block).
+buttons, appended as their own block) and the notifications bell (notify/: YouTube and
+Loogle+ notifications in the 2015-2017 bar, and sharp profile photos).
 
 Makes every Google+ button honour the "Custom link for Google+ buttons" setting
 (UGF_PLUS_LINK): the waffle menu's Google+ tile and the hardcoded +You links,
@@ -27,6 +28,10 @@ import sys
 DEFAULT = "https://plus.google.com/"
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS_MARK = "ugfDocs2014Fixes"
+NOTIFY_MARK = "ugfNotify"
+# what the notifications bell needs: YouTube's and Loogle+'s servers (Gplex itself is not
+# run on Loogle+: its main block would draw the google.com homepage over any other site)
+NOTIFY_HEADERS = [("connect", "www.youtube.com"), ("connect", "plus.loogle.mooo.com")]
 
 
 def docs2014_block():
@@ -94,6 +99,13 @@ EDITS = [
 ]
 
 
+def add_header(text, key, value):
+    """Add a // @key value line to the userscript header unless it is already there."""
+    if re.search(r"^// @" + key + r"[ \t]+" + re.escape(value) + r"[ \t]*$", text, re.M):
+        return text
+    return text.replace("// ==/UserScript==", "// @" + key + "      " + value + "\n// ==/UserScript==", 1)
+
+
 def set_header(text, key, value):
     """Set a // @key line in the userscript header, adding it if missing."""
     line = re.compile(r"^// @" + key + r"[ \t]+.*$", re.M)
@@ -132,6 +144,13 @@ def main():
     else:
         text = text.rstrip("\n") + "\n\n" + docs2014_block().rstrip("\n") + "\n"
         print("appended  Docs 2014 fixes (layout, menus, Table menu, alignment buttons)")
+    if NOTIFY_MARK in text:
+        print("already has the notifications bell; not appended again")
+    else:
+        text = text.rstrip("\n") + "\n\n" + open(os.path.join(HERE, "notify", "notify.js")).read().replace("\r\n", "\n").rstrip("\n") + "\n"
+        for key, value in NOTIFY_HEADERS:
+            text = add_header(text, key, value)
+        print("appended  notifications bell (YouTube + Loogle+, sharp profile photos)")
     leftover = text.count('href="' + DEFAULT + '"')
     if leftover:
         print("note: %d other hardcoded href=\"%s\" left; check whether they're new Google+ buttons" % (leftover, DEFAULT))

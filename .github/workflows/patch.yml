@@ -9,6 +9,7 @@ on:
     paths:
       - gplex-plus-link-patch.py
       - docs2014/**
+      - notify/**
       - .github/workflows/patch.yml
 
 permissions:
@@ -28,11 +29,11 @@ jobs:
       - name: Download the latest Gplex
         run: curl -fsSL "$UPSTREAM" -o upstream.user.js
 
-      # Rebuild only when upstream, the patch script or the Docs fixes changed.
+      # Rebuild only when upstream, the patch script, the Docs fixes or the bell changed.
       - name: Check for changes
         id: state
         run: |
-          key=$(cat upstream.user.js gplex-plus-link-patch.py docs2014/* | sha256sum | cut -d' ' -f1)
+          key=$(cat upstream.user.js gplex-plus-link-patch.py docs2014/* notify/* | sha256sum | cut -d' ' -f1)
           if [ -f main.user.js ] && [ "$key" = "$(cat .state 2>/dev/null)" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
