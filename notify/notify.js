@@ -327,7 +327,7 @@
         }
         const cfg = { at: Date.now(), ver: String(gv("UGF_NB_YTVER", "")) || "2.20260915.01.00", index: "0", page: "" };
         try {
-            const t = String((await xhr({ method: "GET", url: YT + "/feed/notifications" })).responseText || "");
+            const t = String((await xhr({ method: "GET", url: YT + "/#notifications" })).responseText || "");
             const pick = function(k) {
                 const m = t.match(new RegExp('"' + k + '":"?([^",}]*)'));
                 return m ? m[1] : "";
@@ -458,7 +458,7 @@
                 th: thumb(n.videoThumbnail),
                 msg: textOf(n.shortMessage),
                 tm: textOf(n.sentTimeText),
-                url: url ? (/^https?:/.test(url) ? url : YT + url) : YT + "/feed/notifications",
+                url: url ? (/^https?:/.test(url) ? url : YT + url) : YT + "/#notifications",
                 unread: n.read === false
             };
         }).filter(function(n) {
@@ -768,7 +768,7 @@
         } catch (e) {
             trail("YouTube list failed: " + e.message);
             none(list, /signed out/.test(e.message) ? "Sign in to YouTube to see its notifications here." : "YouTube's notifications couldn't be loaded.",
-                /signed out/.test(e.message) ? "Sign in" : "Open YouTube", /signed out/.test(e.message) ? "https://accounts.google.com/ServiceLogin?service=youtube&continue=" + encodeURIComponent(YT + "/") : YT + "/feed/notifications");
+                /signed out/.test(e.message) ? "Sign in" : "Open YouTube", /signed out/.test(e.message) ? "https://accounts.google.com/ServiceLogin?service=youtube&continue=" + encodeURIComponent(YT + "/") : YT + "/#notifications");
             settle(box, list, "ok");
             return;
         }
@@ -1084,7 +1084,7 @@
         let any = false;
         if (showing("yt")) {
             any = true;
-            fillYouTube(section(box, "yt", "YouTube", "See all", YT + "/feed/notifications"), box);
+            fillYouTube(section(box, "yt", "YouTube", "See all", YT + "/#notifications"), box);
         }
         if (showing("gp")) {
             any = true;

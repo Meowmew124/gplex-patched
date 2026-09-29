@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VORAPIS notifications fix
 // @namespace    gplex-patched
-// @version      1.1
+// @version      1.2
 // @description  YouTube's notification menu request (notification/get_notification_menu) now comes back empty, so VORAPIS's bell shows nothing. This answers it from YouTube's notification inbox (browse FEnotifications_inbox), which still has them, in the menu's own format. VORAPIS itself is left untouched.
 // @match        https://www.youtube.com/*
 // @run-at       document-start
@@ -109,4 +109,24 @@
     };
     fixed.__ugfNotifFix = true;
     window.fetch = fixed;
+
+    // youtube.com/#notifications (the "See all" of Gplex's bell and of Loogle+): VORAPIS has no
+    // notifications page, so the bell's dropdown is opened instead, once VORAPIS has drawn it
+    if (window.location.hash === "#notifications") {
+        const started = Date.now();
+        const tryOpen = function () {
+            const bell = document.querySelector("#sb-button-notify, ytd-notification-topbar-button-renderer button, ytd-notification-topbar-button-renderer #button");
+            if (bell) {
+                history.replaceState(null, "", window.location.pathname + window.location.search);
+                setTimeout(function () {
+                    bell.click();
+                }, 400);
+                return;
+            }
+            if (Date.now() - started < 20000) {
+                setTimeout(tryOpen, 250);
+            }
+        };
+        setTimeout(tryOpen, 500);
+    }
 })();
