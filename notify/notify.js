@@ -586,7 +586,7 @@
     };
     const gpList = async function() {
         const d = await loogle({ username: loogleUser(), request: "all_data" });
-        return (d.notifications || []).map(function(n) {
+        const list = (d.notifications || []).map(function(n) {
             return {
                 id: n.id,
                 who: decode(n.sender),
@@ -595,6 +595,41 @@
                 unread: !(n.read === 1 || n.read === "1" || n.is_read === 1 || n.is_read === "1")
             };
         });
+        gpRemember(list);
+        return list;
+    };
+    // Loogle+ hands out unread notifications only (no request gives back read ones), so the
+    // ones seen here are kept (the last 100), for "Previously read (Google+)"
+    const gpHistory = function() {
+        try {
+            return JSON.parse(String(gv("UGF_LOOGLE_HISTORY", "[]"))) || [];
+        } catch (e) {
+            return [];
+        }
+    };
+    const gpRemember = function(items) {
+        const h = gpHistory();
+        const have = {};
+        h.forEach(function(x) {
+            have[x.id] = x;
+        });
+        items.forEach(function(n) {
+            if (!have[n.id]) {
+                h.push({ id: n.id, who: n.who, msg: n.msg, tm: n.tm, at: Date.now() });
+            }
+        });
+        sv("UGF_LOOGLE_HISTORY", JSON.stringify(h.slice(-100)));
+    };
+    const ago = function(ms) {
+        const s2 = Math.max(0, Math.round((Date.now() - ms) / 1000));
+        const units = [[31557600, "year"], [2629800, "month"], [604800, "week"], [86400, "day"], [3600, "hour"], [60, "minute"]];
+        for (let i = 0; i < units.length; i++) {
+            if (s2 >= units[i][0]) {
+                const n = Math.floor(s2 / units[i][0]);
+                return n + " " + units[i][1] + (n > 1 ? "s" : "") + " ago";
+            }
+        }
+        return "Just now";
     };
     const gpUnread = async function() {
         const d = await loogle({ username: loogleUser(), request: "unread_count" });
@@ -628,6 +663,9 @@
                 return 0;
             }) : Promise.resolve(0)
         ]);
+        if (results[1] && results[1] !== counts.gp) {
+            gpList().catch(function() {});
+        }
         counts = { yt: results[0], gp: results[1] };
         paint();
     };
@@ -940,6 +978,63 @@
         });
         return v;
     };
+    // "Previously read (Google+)": the notifications kept here that are no longer unread
+    const previousView = function(box, main) {
+        const v = el("div", "view previous");
+        const hd = el("div", "hd");
+        const back = el("span", "ic back");
+        back.setAttribute("title", "Back");
+        back.appendChild(svgIcon("back"));
+        hd.appendChild(back);
+        hd.appendChild(el("span", "", "Previously read"));
+        v.appendChild(hd);
+        const scroll = el("div", "scroll");
+        const list = el("div", "list");
+        scroll.appendChild(list);
+        v.appendChild(scroll);
+        back.addEventListener("click", function() {
+            v.remove();
+            main.hidden = false;
+        });
+        list.appendChild(el("div", "loading", "Loading..."));
+        const fill = function(unreadIds) {
+            list.textContent = "";
+            const items = gpHistory().filter(function(x) {
+                return unreadIds.indexOf(String(x.id)) < 0;
+            }).reverse();
+            if (!items.length) {
+                none(list, loogleUser() ? "Nothing read yet. Notifications from Loogle+ show here once you've read them." : "Give your Loogle+ username behind the gear first.", "Open Loogle+", loogleBase() + "/");
+                return;
+            }
+            items.forEach(function(n) {
+                const a = el("a", "it read");
+                a.href = loogleBase() + "/";
+                a.target = "_blank";
+                const av = el("span", "av");
+                loogleAvatar(n.who).then(function(u) {
+                    if (u) {
+                        av.style.backgroundImage = "url(\"" + u + "\")";
+                    }
+                });
+                const tx = el("span", "tx");
+                tx.appendChild(el("div", "who", n.who));
+                tx.appendChild(el("div", "msg", n.msg));
+                tx.appendChild(el("div", "tm", n.tm || ago(n.at)));
+                a.appendChild(av);
+                a.appendChild(tx);
+                list.appendChild(a);
+            });
+        };
+        // (the ones still unread stay on the front page)
+        (loogleUser() ? gpList().then(function(u) {
+            return u.map(function(x) {
+                return String(x.id);
+            });
+        }).catch(function() {
+            return [];
+        }) : Promise.resolve([])).then(fill);
+        return v;
+    };
     const open = function(bell) {
         if (bell.classList.contains("open")) {
             close();
@@ -966,8 +1061,11 @@
         scroll.appendChild(j);
         main.appendChild(scroll);
         const ft = el("a", "ft2", "Previously read (Google+)");
-        ft.href = loogleBase() + "/";
-        ft.target = "_blank";
+        ft.addEventListener("click", function(e) {
+            e.preventDefault();
+            main.hidden = true;
+            box.appendChild(previousView(box, main));
+        });
         main.appendChild(ft);
         box.appendChild(main);
         const sv2 = settingsView(box);
