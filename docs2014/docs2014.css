@@ -173,6 +173,10 @@ html[gplex-docs="d2014"][gplex-docs-app="docs"] #docs-toolbar-mode-switcher .goo
 html[gplex-docs="d2014"][gplex-docs-app="docs"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown { position: static !important; flex: 0 0 9px !important; margin: 0 6px 0 0 !important; align-self: center !important; top: 0 !important; }
 
 /* ︽ in place of today's single chevron */
+/* the side toolbar's box starts a pixel lower and is a pixel taller than the main toolbar's, which
+   left Editing and the arrow 2px below the other buttons (66 against 64): lifted level with them */
+html[gplex-docs="d2014"][gplex-docs-app="docs"] #docs-side-toolbar #docs-toolbar-mode-switcher,
+html[gplex-docs="d2014"][gplex-docs-app="docs"] #docs-side-toolbar #viewModeButton { position: relative !important; top: -2px !important; }
 html[gplex-docs="d2014"][gplex-docs-app="docs"] #viewModeButton .docs-icon { visibility: hidden !important; }
 html[gplex-docs="d2014"][gplex-docs-app="docs"] #viewModeButton .goog-toolbar-button-inner-box {
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23666' stroke-width='1.6'%3E%3Cpath d='M2 6.5l4-4 4 4M2 10.5l4-4 4 4'/%3E%3C/svg%3E") center / 12px 12px no-repeat !important;
