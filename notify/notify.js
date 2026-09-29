@@ -149,8 +149,13 @@
         "#ugf-nb-bell.ugf-nb-has .gi { visibility: hidden; }",
         "#ugf-nb-bell.ugf-nb-has:hover .ugf-nb-count, #ugf-nb-bell.ugf-nb-has.open .ugf-nb-count { background: #c23321; }",
         ".kic.bell[data-ugf-nb] { position: relative; cursor: pointer; }",
-        ".kic.bell[data-ugf-nb].ugf-nb-has > :not(.ugf-nb-count) { visibility: hidden; }",
-        ".kic.bell[data-ugf-nb] .ugf-nb-count { min-width: 22px; height: 22px; border-radius: 11px; line-height: 22px; }",
+        // Gplex's own bells, as the 2016 circle too (their Material bell set aside)
+        ".ugf-nb-g { display: inline-flex !important; align-items: center; justify-content: center; }",
+        ".ugf-nb-g > :not(.gi):not(.ugf-nb-count) { display: none !important; }",
+        ".ugf-nb-g .gi { display: block; width: 20px; height: 20px; background: var(--ugf-nb-circle) center / 20px 20px no-repeat; opacity: .55; }",
+        ".ugf-nb-g:hover .gi, .ugf-nb-g.open .gi { opacity: .85; }",
+        ".ugf-nb-g.ugf-nb-has .gi { visibility: hidden; }",
+        "#ugf-docs-home .gtop .corner .ugf-nb-g { width: 40px; height: 40px; margin: 0 6px 0 2px; cursor: pointer; }",
         "#ugf-nb-box { position: fixed; z-index: 2147483600; width: 420px; max-height: calc(100vh - 80px); display: flex; flex-direction: column; background: #fff; color: #212121; " +
             "border: 1px solid rgba(0,0,0,.2); border-radius: 2px; box-shadow: 0 4px 16px rgba(0,0,0,.2); font: 13px Roboto, Arial, sans-serif; text-align: left; }",
         "#ugf-nb-box::before, #ugf-nb-box::after { content: ''; position: absolute; top: -9px; right: var(--arrow, 22px); border: 8px solid transparent; border-top: 0; border-bottom: 9px solid rgba(0,0,0,.2); }",
@@ -869,9 +874,30 @@
     };
     const place = function() {
         let changed = false;
-        document.querySelectorAll(".kic.bell:not([data-ugf-nb])").forEach(function(b) {
+        document.querySelectorAll(".kic.bell:not([data-ugf-nb]), #ugf-cal-account .ic.bell:not([data-ugf-nb])").forEach(function(b) {
             b.setAttribute("data-ugf-nb", "");
+            b.classList.add("kic", "bell", "ugf-nb-g");
+            b.appendChild(el("span", "gi"));
             b.addEventListener("click", bellClick);
+            changed = true;
+        });
+        // the Docs, Sheets, Slides and Forms lists: Gplex's 2016 corner has the grid and the photo
+        // only; the bell goes between them
+        document.querySelectorAll("#ugf-docs-home .gtop .corner .ib.apps").forEach(function(apps) {
+            const next = apps.nextElementSibling;
+            if (next && next.hasAttribute("data-ugf-nb")) {
+                return;
+            }
+            if (next && next.classList.contains("bell")) {
+                return;
+            }
+            const b = el("span", "kic bell ugf-nb-g");
+            b.setAttribute("data-ugf-nb", "");
+            b.setAttribute("role", "button");
+            b.setAttribute("aria-label", "Notifications");
+            b.appendChild(el("span", "gi"));
+            b.addEventListener("click", bellClick);
+            apps.parentNode.insertBefore(b, apps.nextSibling);
             changed = true;
         });
         // Gplex's own bar on google.com (Google's is hidden under it): after its app grid
