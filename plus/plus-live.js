@@ -28,10 +28,8 @@ var ugfPatchedPlus = (function() {
     const isGplex = function(l) {
         return /^https?:\/\/plus\.gplexextended\.com(\/|$)/i.test(l === undefined ? link() : l);
     };
-    const me = function() {
-        if (!isGplex()) {
-            return null;
-        }
+    // who you are on Gplex+ ({ name, user }), as Gplex last saw it there
+    const account = function() {
         try {
             const v = typeof GM_getValue === "function" ? GM_getValue("UGF_PLUS_ME", "") : "";
             const m = v ? JSON.parse(String(v)) : null;
@@ -40,6 +38,10 @@ var ugfPatchedPlus = (function() {
             }
         } catch (e) {}
         return null;
+    };
+    // (counted only while the link leads to Gplex+)
+    const me = function() {
+        return isGplex() ? account() : null;
     };
     const first = function() {
         const m = me();
@@ -121,7 +123,7 @@ var ugfPatchedPlus = (function() {
             }
         } catch (e) {}
     };
-    return { HOME: HOME, link: link, name: name, me: me, first: first, profile: profile, kind: kind, isGplex: isGplex,
+    return { HOME: HOME, link: link, name: name, me: me, account: account, first: first, profile: profile, kind: kind, isGplex: isGplex,
         items: items, readKeys: readKeys, markRead: markRead };
 })();
 
