@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.14.27
+// @version      7.2.15.30
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -433,6 +433,246 @@ function ugfPlusProfileLink() {
 function ugfPlusProfileHtml() {
     return ugfPlusHtml(ugfPlusProfileLink());
 }
+// (7.2.15) Dark mode for the Google pages Gplex draws (and Gplex+). The old pages never had a dark mode, so
+// rather than repaint every era by hand, the page is turned negative and its hues turned back: white becomes
+// near-black, black text becomes light, Google blue stays blue. Photos, videos, maps and logos are turned back
+// again so they look as they should, and things that are already dark (the black gbar, a dark photo panel)
+// keep their own colours. YouTube is left to StarTube's own Dark theme. Setting: UGF_DARK = off | on | system.
+let ugfDarkSet = function() {};
+function ugfDarkMode() {
+    try {
+        return String((typeof GM_getValue === "function" ? GM_getValue("UGF_DARK", "") : "") || localStorage.getItem("UGF_DARK") || "off");
+    } catch (e) {
+        return "off";
+    }
+}
+function ugfDarkLabel() {
+    return { on: "On", system: "Same as my device" }[ugfDarkMode()] || "Off";
+}
+(function() {
+    if (ugfOnYouTube || /(^|\.)youtube\.com$/i.test(location.hostname)) {
+        return;
+    }
+    // frames are inside a page that is already dark; turning them dark again would make them light
+    try {
+        if (window.top !== window.self) {
+            return;
+        }
+    } catch (e) {
+        return;
+    }
+    let mode = ugfDarkMode();
+    let root = document.documentElement;
+    const css =
+        "html[ugf-dark]{filter:invert(.93) hue-rotate(180deg)!important;background:#fff!important}" +
+        "html[ugf-dark] img,html[ugf-dark] video,html[ugf-dark] canvas,html[ugf-dark] embed,html[ugf-dark] object," +
+        "html[ugf-dark] iframe[src*='youtube'],html[ugf-dark] iframe[src*='youtu.be'],html[ugf-dark] [ugf-dark-keep]" +
+        "{filter:invert(1) hue-rotate(180deg)!important}" +
+        "html[ugf-dark] [ugf-dark-keep] img,html[ugf-dark] [ugf-dark-keep] video,html[ugf-dark] [ugf-dark-keep] canvas," +
+        "html[ugf-dark] [ugf-dark-keep] [ugf-dark-keep],html[ugf-dark] picture img{filter:none!important}" +
+        "html[ugf-dark] picture{filter:invert(1) hue-rotate(180deg)!important}" +
+        "html[ugf-dark] img[ugf-dark-logo]{filter:url(#ugf-dark-unwhite) invert(1) hue-rotate(180deg)!important}" +
+        "html[ugf-dark] [ugf-dark-keep] img[ugf-dark-logo]{filter:url(#ugf-dark-unwhite)!important}" +
+        "html[ugf-dark] [ugf-dark-keep][ugf-dark-logo]{filter:url(#ugf-dark-unwhite) invert(1) hue-rotate(180deg)!important}" +
+        "html[ugf-dark] ::selection{background:#3a6ad9;color:#fff}";
+    // the old logos sit on white: that white is made see-through (lighter shading partly), so the logo sits on
+    // the dark page in its own colours instead of in a white box
+    const addUnwhite = function() {
+        const NS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("id", "ugf-dark-svg");
+        svg.setAttribute("width", "0");
+        svg.setAttribute("height", "0");
+        svg.setAttribute("style", "position:absolute;width:0;height:0;overflow:hidden");
+        const f = document.createElementNS(NS, "filter");
+        f.setAttribute("id", "ugf-dark-unwhite");
+        f.setAttribute("color-interpolation-filters", "sRGB");
+        const m = document.createElementNS(NS, "feColorMatrix");
+        m.setAttribute("in", "SourceGraphic");
+        m.setAttribute("type", "matrix");
+        // a mask: white (and the faint white of JPEG edges) see-through, anything with colour solid
+        m.setAttribute("values", "0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -2 -2 -2 0 5");
+        m.setAttribute("result", "m");
+        const c = document.createElementNS(NS, "feComposite");
+        c.setAttribute("in", "SourceGraphic");
+        c.setAttribute("in2", "m");
+        c.setAttribute("operator", "in");
+        f.appendChild(m);
+        f.appendChild(c);
+        svg.appendChild(f);
+        document.body.appendChild(svg);
+    };
+    let style = null;
+    let native = false;   // the page was dark already (a Google page Gplex leaves alone, in Google's own dark theme)
+    const wanted = function() {
+        if (native) {
+            return false;
+        }
+        if (mode === "on") {
+            return true;
+        }
+        if (mode === "system") {
+            try {
+                return window.matchMedia("(prefers-color-scheme: dark)").matches;
+            } catch (e) {}
+        }
+        return false;
+    };
+    const apply = function() {
+        root = document.documentElement;   // some pages are written anew (document.open), with a new <html>
+        if (wanted()) {
+            if (!style) {
+                style = document.createElement("style");
+                style.id = "ugf-dark-style";
+                style.textContent = css;
+            }
+            // (also when the page threw away its <head> and the style with it)
+            if (!document.getElementById("ugf-dark-style")) {
+                (document.head || root).appendChild(style);
+            }
+            if (!root.hasAttribute("ugf-dark")) {
+                root.setAttribute("ugf-dark", "");
+            }
+            if (document.body && !document.getElementById("ugf-dark-svg")) {
+                addUnwhite();
+            }
+        } else {
+            root.removeAttribute("ugf-dark");
+        }
+    };
+    ugfDarkSet = function(m) {
+        mode = m;
+        native = false;
+        apply();
+        scan();
+    };
+    try {
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", apply);
+    } catch (e) {}
+    // colours: "rgb(r, g, b)" / "rgba(r, g, b, a)" -> [luminance, alpha]
+    const lum = function(c) {
+        const m = String(c || "").match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/);
+        if (!m) {
+            return [1, 0];
+        }
+        return [(0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255, m[4] === undefined ? 1 : parseFloat(m[4])];
+    };
+    // what is showing at a point: the first background colour from there up
+    const shade = function(x, y) {
+        let el = document.elementFromPoint(x, y);
+        while (el && el !== root) {
+            const l = lum(getComputedStyle(el).backgroundColor);
+            if (l[1] > 0.5) {
+                return l[0];
+            }
+            el = el.parentElement;
+        }
+        const r = lum(getComputedStyle(root).backgroundColor);
+        return r[1] > 0.5 ? r[0] : 1;
+    };
+    const nativeDark = function() {
+        if (!document.body || !innerWidth) {
+            return false;
+        }
+        const pts = [[0.5, 0.5], [0.25, 0.3], [0.75, 0.7], [0.5, 0.9]];
+        return pts.every(function(p) {
+            return shade(innerWidth * p[0], innerHeight * p[1]) < 0.35;
+        });
+    };
+    // dark things (the black gbar, dark photo panels) and big background pictures (logos, homepage photos)
+    // keep their own colours; small sprite icons are fine turned light
+    const seen = typeof WeakSet === "function" ? new WeakSet() : null;
+    let pending = false;
+    const scan = function() {
+        pending = false;
+        if (!root.hasAttribute("ugf-dark") || !document.body || !seen) {
+            return;
+        }
+        const all = document.body.getElementsByTagName("*");
+        const n = Math.min(all.length, 6000);
+        for (let i = 0; i < n; i++) {
+            const el = all[i];
+            if (seen.has(el)) {
+                continue;
+            }
+            seen.add(el);
+            const tag = el.tagName;
+            if (tag === "IMG") {
+                if (/logo/i.test((el.getAttribute("src") || "") + " " + (el.id || "") + " " + (el.className || "") + " " +
+                        (el.parentElement ? el.parentElement.id + " " + el.parentElement.className : "")) ||
+                        /^Google/i.test(el.getAttribute("alt") || "")) {
+                    el.setAttribute("ugf-dark-logo", "");
+                }
+                continue;
+            }
+            if (tag === "VIDEO" || tag === "CANVAS" || tag === "SCRIPT" || tag === "STYLE" || tag === "svg") {
+                continue;
+            }
+            const cs = getComputedStyle(el);
+            const w = el.offsetWidth, h = el.offsetHeight;
+            if (!w || !h) {
+                continue;
+            }
+            const bg = lum(cs.backgroundColor);
+            const pic = /url\(/.test(cs.backgroundImage) && w >= 80 && h >= 28;
+            const dark = bg[1] > 0.5 && bg[0] < 0.2 && w * h >= 600;
+            if ((pic || dark) && !(el.parentElement && el.parentElement.closest("[ugf-dark-keep]"))) {
+                el.setAttribute("ugf-dark-keep", "");
+                // a logo drawn as a background picture: its white made see-through like the <img> logos
+                if (pic && /logo/i.test(el.id + " " + el.className + " " + cs.backgroundImage)) {
+                    el.setAttribute("ugf-dark-logo", "");
+                }
+            }
+        }
+    };
+    const later = function() {
+        if (!pending) {
+            pending = true;
+            setTimeout(scan, 400);
+        }
+    };
+    apply();
+    const start = function() {
+        let watched = null;
+        const watch = function() {
+            if (watched !== document.documentElement) {
+                watched = document.documentElement;
+                try {
+                    new MutationObserver(later).observe(watched, { childList: true, subtree: true });
+                } catch (e) {}
+            }
+        };
+        watch();
+        later();
+        // pages written anew lose the style and the mark; put them back
+        setInterval(function() {
+            if (wanted() && (!document.documentElement.hasAttribute("ugf-dark") || !document.getElementById("ugf-dark-style") ||
+                    !document.getElementById("ugf-dark-svg"))) {
+                apply();
+                later();
+            }
+            watch();
+        }, 1000);
+        // a page that is dark by itself stays as it is (checked twice, once Gplex has drawn its page)
+        setTimeout(function() {
+            if (nativeDark()) {
+                setTimeout(function() {
+                    if (nativeDark()) {
+                        native = true;
+                        apply();
+                    }
+                }, 2500);
+            }
+        }, 1500);
+    };
+    // (not DOMContentLoaded: a page written anew with document.open loses its listeners, timers carry on)
+    const wait = setInterval(function() {
+        if (document.body) {
+            clearInterval(wait);
+            start();
+        }
+    }, 100);
+})();
 const ugfHasStarTube = true;
 // ---- StarTube ----
 // ---- Gplex Extended for YouTube: StarTube 2.7.0.10 by lightbeam24 (MIT license, https://github.com/lightbeam24/StarTube) ----
@@ -46134,6 +46374,17 @@ GM_registerMenuCommand("Load page without Gplex",loadWithoutGplex);
             }
         });
     })({"ja":["Gplex+ は初めてですか？","公開招待リンクから参加する"],"es":["¿Nuevo en Gplex+?","Únete con el enlace de invitación público"],"fr":["Nouveau sur Gplex+ ?","Rejoindre avec le lien d'invitation public"],"de":["Neu bei Gplex+?","Mit dem öffentlichen Einladungslink beitreten"],"it":["Nuovo su Gplex+?","Iscriviti con il link di invito pubblico"],"pt":["Novo no Gplex+?","Entre com o link de convite público"],"ru":["Впервые в Gplex+?","Присоединиться по общей ссылке-приглашению"],"zh-CN":["初次使用 Gplex+？","通过公开邀请链接加入"],"zh-TW":["第一次使用 Gplex+？","透過公開邀請連結加入"],"ko":["Gplex+가 처음이신가요?","공개 초대 링크로 가입하기"],"nl":["Nieuw bij Gplex+?","Doe mee via de openbare uitnodigingslink"],"pl":["Nowy w Gplex+?","Dołącz przez publiczny link z zaproszeniem"],"tr":["Gplex+'da yeni misiniz?","Herkese açık davet bağlantısıyla katılın"]});
+    // (7.2.15) the dark mode settings text
+    (function(T) {
+        const EN = ["Dark mode","Off","On","Same as my device","Turns the pages dark, for night. Old Google never had a dark mode, so Gplex shows its pages in negative with their colours kept; photos, videos, maps and logos look as they should. YouTube has its own Dark theme in StarTube's settings."];
+        Object.keys(T).forEach(function(l) {
+            if (UGF_I18N[l]) {
+                EN.forEach(function(en, i) {
+                    UGF_I18N[l].s[en] = T[l][i];
+                });
+            }
+        });
+    })({"ja":["ダークモード","オフ","オン","デバイスの設定に合わせる","ページを暗くして、夜でも見やすくします。昔の Google にはダークモードがなかったため、Gplex は色合いを保ったままページを反転して表示します。写真、動画、地図、ロゴは本来の見た目のままです。YouTube には StarTube の設定に専用のダークテーマがあります。"],"es":["Modo oscuro","Desactivado","Activado","Igual que mi dispositivo","Oscurece las páginas, para la noche. El Google antiguo nunca tuvo modo oscuro, así que Gplex muestra sus páginas en negativo conservando los colores; las fotos, los vídeos, los mapas y los logotipos se ven como deben. YouTube tiene su propio tema oscuro en los ajustes de StarTube."],"fr":["Mode sombre","Désactivé","Activé","Comme mon appareil","Assombrit les pages, pour la nuit. L'ancien Google n'a jamais eu de mode sombre : Gplex affiche donc ses pages en négatif en gardant leurs couleurs ; les photos, vidéos, cartes et logos s'affichent normalement. YouTube a son propre thème sombre dans les paramètres de StarTube."],"de":["Dunkelmodus","Aus","An","Wie mein Gerät","Macht die Seiten dunkel, für die Nacht. Das alte Google hatte nie einen Dunkelmodus, daher zeigt Gplex seine Seiten im Negativ und behält die Farben bei; Fotos, Videos, Karten und Logos sehen aus wie gewohnt. YouTube hat in den StarTube-Einstellungen ein eigenes dunkles Design."],"it":["Modalità scura","Disattivata","Attivata","Come il mio dispositivo","Scurisce le pagine, per la notte. Il vecchio Google non ha mai avuto una modalità scura, quindi Gplex mostra le pagine in negativo mantenendo i colori; foto, video, mappe e loghi appaiono come devono. YouTube ha un proprio tema scuro nelle impostazioni di StarTube."],"pt":["Modo escuro","Desativado","Ativado","Igual ao meu dispositivo","Escurece as páginas, para a noite. O Google antigo nunca teve modo escuro, então o Gplex mostra as páginas em negativo mantendo as cores; fotos, vídeos, mapas e logotipos aparecem como devem. O YouTube tem um tema escuro próprio nas configurações do StarTube."],"ru":["Тёмный режим","Выкл.","Вкл.","Как на устройстве","Делает страницы тёмными, для ночи. В старом Google не было тёмного режима, поэтому Gplex показывает страницы в негативе, сохраняя цвета; фото, видео, карты и логотипы выглядят как обычно. У YouTube есть своя тёмная тема в настройках StarTube."],"zh-CN":["深色模式","关闭","开启","跟随设备","让页面变暗，适合夜间使用。旧版 Google 从未有过深色模式，因此 Gplex 会在保留颜色的同时反转页面；照片、视频、地图和徽标保持原样。YouTube 在 StarTube 设置中有自己的深色主题。"],"zh-TW":["深色模式","關閉","開啟","跟隨裝置","讓頁面變暗，適合夜間使用。舊版 Google 從未有過深色模式，因此 Gplex 會在保留顏色的同時反轉頁面；相片、影片、地圖和標誌維持原樣。YouTube 在 StarTube 設定中有自己的深色主題。"],"ko":["다크 모드","끄기","켜기","기기 설정과 같게","밤에 보기 좋도록 페이지를 어둡게 합니다. 예전 Google에는 다크 모드가 없었기 때문에 Gplex는 색상을 유지한 채 페이지를 반전해 보여줍니다. 사진, 동영상, 지도, 로고는 원래대로 보입니다. YouTube는 StarTube 설정에 자체 어두운 테마가 있습니다."],"nl":["Donkere modus","Uit","Aan","Zoals mijn apparaat","Maakt de pagina's donker, voor 's avonds. Het oude Google had nooit een donkere modus, dus Gplex toont zijn pagina's in negatief met behoud van de kleuren; foto's, video's, kaarten en logo's zien er gewoon uit. YouTube heeft een eigen donker thema in de instellingen van StarTube."],"pl":["Tryb ciemny","Wyłączony","Włączony","Jak na urządzeniu","Przyciemnia strony, na noc. Dawne Google nigdy nie miało trybu ciemnego, więc Gplex pokazuje strony w negatywie z zachowaniem kolorów; zdjęcia, filmy, mapy i logo wyglądają normalnie. YouTube ma własny ciemny motyw w ustawieniach StarTube."],"tr":["Karanlık mod","Kapalı","Açık","Cihazımla aynı","Sayfaları gece için karartır. Eski Google'da hiç karanlık mod yoktu, bu yüzden Gplex sayfalarını renklerini koruyarak negatif gösterir; fotoğraflar, videolar, haritalar ve logolar olması gerektiği gibi görünür. YouTube'un StarTube ayarlarında kendi koyu teması vardır."]});
     const UGF_GMAIL_I18N = {"de":["0 Nachrichten","1 Stern   4 Sterne   alle Sterne","1. Status: POP ist deaktiviert","Konten","Konten und Import","Weiterleitungsadresse hinzufügen","E-Mail-Konto hinzufügen","Zusätzlichen Speicherplatz hinzufügen:","Weiteres Konto hinzufügen","Weitere eigene E-Mail-Adresse hinzufügen","Add-ons","Erweitert","Erweitert:","Alle Nachrichten","Immer https verwenden","Archivieren","Vorgeschlagene Kontakte automatisch hinzufügen:","Automatisch weiter","Personen, mit denen ich oft kommuniziere, automatisch erlauben, mit mir zu chatten","Zurück zum Posteingang","Strand","Unter dem Posteingang","Blockierte Adressen:","Browserverbindung:","Schaltflächenbeschriftung:","Speicherplatz kaufen","Kalender","Abbrechen","Textbausteine","Kategorien","Kategorien:","Kontoeinstellungen ändern:","Passwort ändern","Optionen zur Passwortwiederherstellung ändern","Chat","Chatverlauf:","Chat aus","Chat an","Chat:","Chats","E-Mails von anderen Konten abrufen:","Design auswählen:","Wählen Sie aus, welche Nachrichtenkategorien als Tabs im Posteingang angezeigt werden.","Klassisch","Hier klicken zum","Schreiben","E-Mail schreiben","Konfigurationsanleitung","Kontakte","Das Gmail-Schreibfenster ließ sich nicht steuern.","Das Gmail-Schreibfenster ließ sich nicht ausfüllen.","Das Gmail-Schreibfenster ließ sich nicht öffnen.","Diese Unterhaltung ließ sich nicht öffnen","Diese Unterhaltungen ließen sich nicht auswählen","Filter erstellen","Neuen Filter erstellen","Neues Label erstellen","Benutzerdefinierte Tastenkombinationen","Dunkel","Standard","Standardmäßig „Allen antworten“","Löschen","Endgültig löschen","Details","Deaktivieren","IMAP deaktivieren","Offline-Mail für diesen Computer deaktivieren","POP deaktivieren","Weiterleitung deaktivieren","Hover-Aktionen deaktivieren","Offline-Mail deaktivieren","Verwerfen","Anzeigedichte","Keine Töne abspielen","Docs","Nicht immer https verwenden","Entwürfe","Drive","Aktivieren","IMAP aktivieren","Offline-Mail für diesen Computer aktivieren","POP für alle Nachrichten aktivieren","POP für ab jetzt eingehende Nachrichten aktivieren","Hover-Aktionen aktivieren","Offline-Mail aktivieren","Gefilterte Nachrichten:","Filter","Filter und blockierte Adressen","Filter:","Finanzen","Foren","Weiterleiten","Eine Kopie eingehender Nachrichten weiterleiten an","Weiterleitung und POP","Weiterleitung und POP/IMAP","Weiterleitung:","Allgemein","Add-ons herunterladen","Gmail hat die Nachricht nicht angenommen.","Gmail hat die Nachricht nicht angenommen. Das Schreibfenster ist noch geöffnet.","Gmail hat diese Aktion nicht angeboten","Gmail-Anzeigesprache:","Gmail wird in dem Layout angezeigt, das Sie in Gplex ausgewählt haben. Falls es Ihre Arbeit behindert, schalten Sie es in den Gplex-Einstellungen aus.","Gmail hat die Nachricht als Entwurf gespeichert, statt sie zu senden.","Das Gmail-Schreibfenster hat sich nicht rechtzeitig geöffnet.","Google-Kontoeinstellungen","Google Kalender-Gadget","Gplex für Gmail ist aktiv","Gplex für Gmail:","Zugriff auf Ihr Konto gewähren:","Hangouts","Hilfe","Hoher Kontrast","Hover-Aktionen:","IMAP-Zugriff:","Symbole","Bilder","Filter importieren","Von Yahoo!, Hotmail, AOL oder anderen Webmail- oder POP3-Konten importieren.","E-Mails und Kontakte importieren","E-Mails und Kontakte importieren:","Wichtigkeitsmarkierungen:","Wichtig","Wichtige zuerst","In neuem Fenster","Posteingang","Posteingangstyp:","Eingabetools","Installierte Add-ons:","Tastenkombinationen aus","Tastenkombinationen an","Tastenkombinationen:","Label","Labels","Labels:","Labs","Labs sind experimentelle Funktionen, die sich jederzeit ändern, ausfallen oder verschwinden können.","Labs:","Sprache:","Letzte Kontoaktivität: vor 1 Minute","Letzte Kontoaktivität: vor 22 Minuten","Layout","Weitere Informationen","Wird geladen…","Mail","Verwalten","Maps","Als wichtig markieren","Als ungelesen markieren","Maximale Seitengröße:","Nachricht gesendet.","Mehr","Weitere Aktionen","Berge","Verschieben nach","Mehrere Posteingänge","Meine Clips:","Mein Bild:","Chatverlauf nie speichern","Neue Nachricht","Neuer","Neueste","News","Niemand hat Zugriff.","Es sind keine Add-ons installiert.","Keine Unterhaltungen entsprechen Ihrer Suche.","Keine Kennzeichnungen","Keine Markierungen","Keine anderen Postfächer","Keine Signatur","Keine Textausschnitte","Keine Aufteilung","Keine","Kein Spam","Erinnerungen:","Aus – normales Gmail verwenden","Offline","Offline-Mail speichert Ihre E-Mails mithilfe von Gears auf diesem Computer.","Offline-Mail:","Älter","Älteste","An – Gmail im Layout","Nur Personen, die ich ausdrücklich zugelassen habe, dürfen mit mir chatten","An 1 anderen Ort geöffnet","Diese Seite einmal ohne Gplex öffnen","Filter überschreiben – wichtige Nachrichten in den Posteingang aufnehmen","POP-Download:","Persönliche Kennzeichnungen:","Fotos","Planeten","Play","Ton abspielen, wenn eine neue Chatnachricht eintrifft","Vorschaufenster","Allgemein","Alle drucken","Sortierter Eingang","Datenschutz","Datenschutzerklärung","Programmrichtlinien","Werbung","Markierten Text zitieren","Gelesen","Lesebereich:","Aktualisieren","Antworten","Spam melden","Spam melden","Rechts vom Posteingang","Chat rechts","E-MAILS DURCHSUCHEN","IM WEB SUCHEN","Änderungen speichern","Jetzt speichern","Chatverlauf in meinem Gmail-Konto speichern","E-Mails durchsuchen","E-Mails und Docs durchsuchen","Nach Thema oder URL suchen","Clips suchen:","E-Mails durchsuchen","Im Web suchen","Suche läuft…","Wählen Sie zuerst eine Unterhaltung aus","Wählen Sie ein Bild aus, das alle sehen, denen Sie eine E-Mail senden.","Auswählen:","Senden","E-Mails senden als:","Wird gesendet…","Gesendet","Gesendet","Status hier festlegen","Glänzend","Shopping","Anzeigen","Alle Sprachoptionen anzeigen","In IMAP anzeigen","In Labelliste anzeigen","Kennzeichnungen anzeigen","Markierungen anzeigen","Meine Web Clips über dem Posteingang anzeigen","Suchoptionen anzeigen","Textausschnitte anzeigen","Signatur:","Intelligentes Schreiben:","Textausschnitte:","Zurückstellen","Zurückgestellt","Soziale Netzwerke","Zartgrau","Töne:","Spam","Markieren","Markiert","Markierte zuerst","Sterne:","Status: IMAP ist deaktiviert ·","Die E-Mails der letzten 30 Tage auf diesem Computer speichern, damit Sie sie auch ohne Verbindung lesen können.","Betreff","E-Mails vorschlagen, bei denen Sie nachhaken sollten","E-Mails vorschlagen, auf die Sie antworten sollten","Aufgaben","Vorlagen","Nutzungsbedingungen & Datenschutz","Nutzungsbedingungen","Text","Das Layout selbst wählen Sie in den Gplex-Einstellungen auf google.com.","mail.google.com an das Layout anpassen","Designs","Diese Nachricht scheint gefährlich zu sein","An","Papierkorb","Baum","Senden rückgängig machen","Ungelesen","Ungelesene zuerst","Symbol für ungelesene Nachrichten","Nicht markiert","Benachrichtigungen","Von Google und Gmail verwendet","Abwesenheitsnotiz aus","Abwesenheitsnotiz an","Abwesenheitsnotiz:","Sehr fehlerhaft, nicht empfohlen. Die Kategorie-Tabs stimmen oft nicht mit dem überein, was Gmail tatsächlich anzeigt, deshalb sind sie aus, bis Sie sie hier einschalten.","Video","Videos","Sprach- und Videochat ist installiert.","Sprach- und Videochat:","Wallet","Web","Web Clips","Web Clips zeigen Schlagzeilen, Blogbeiträge, Anzeigen und andere Inhalte über Ihren Nachrichten.","Schreibvorschläge aus","Schreibvorschläge an","Sie verwenden derzeit","Sie haben derzeit keine blockierten Adressen.","Sie haben keine Filter.","Sie haben keine anderen Konten eingerichtet.","Adresse","Unterhaltungen pro Seite","bearbeiten","ausblenden","anzeigen","mehr","von","oder","entfernen","anzeigen"],"es":["0 mensajes","1 estrella   4 estrellas   todas las estrellas","1. Estado: POP está inhabilitado","Cuentas","Cuentas e importación","Añadir una dirección de reenvío","Añadir una cuenta de correo","Añadir más espacio de almacenamiento:","Añadir otra cuenta","Añadir otra dirección de correo tuya","Complementos","Avanzada","Avanzada:","Todos","Usar siempre https","Archivar","Añadir contactos sugeridos automáticamente:","Avance automático","Permitir automáticamente chatear conmigo a las personas con las que me comunico a menudo","Volver a Recibidos","Playa","Debajo de la bandeja de entrada","Direcciones bloqueadas:","Conexión del navegador:","Etiquetas de los botones:","Comprar más espacio","Calendar","Cancelar","Respuestas predefinidas","Categorías","Categorías:","Cambiar la configuración de la cuenta:","Cambiar contraseña","Cambiar las opciones de recuperación de contraseña","Chat","Historial de chat:","Chat desactivado","Chat activado","Chat:","Chats","Consultar el correo de otras cuentas:","Elige un tema:","Elige qué categorías de mensajes quieres ver como pestañas en la bandeja de entrada.","Clásico","Haz clic aquí para","Redactar","Redactar correo","Instrucciones de configuración","Contactos","No se ha podido controlar la ventana de redacción de Gmail.","No se ha podido rellenar la ventana de redacción de Gmail.","No se ha podido abrir la ventana de redacción de Gmail.","No se ha podido abrir esa conversación","No se han podido seleccionar esas conversaciones","Crear un filtro","Crear un filtro nuevo","Crear etiqueta nueva","Combinaciones de teclas personalizadas","Oscuro","Predeterminado","«Responder a todos» predeterminado","Eliminar","Eliminar definitivamente","Detalles","Inhabilitar","Inhabilitar IMAP","Inhabilitar el correo sin conexión en este ordenador","Inhabilitar POP","Inhabilitar el reenvío","Inhabilitar acciones al pasar el cursor","Inhabilitar el correo sin conexión","Descartar","Densidad de visualización","No reproducir sonidos","Documentos","No usar siempre https","Borradores","Drive","Habilitar","Habilitar IMAP","Habilitar el correo sin conexión en este ordenador","Habilitar POP para todos los mensajes","Habilitar POP para los mensajes que se reciban a partir de ahora","Habilitar acciones al pasar el cursor","Habilitar el correo sin conexión","Correo filtrado:","Filtros","Filtros y direcciones bloqueadas","Filtros:","Finanzas","Foros","Reenviar","Reenviar una copia del correo entrante a","Reenvío y correo POP","Reenvío y correo POP/IMAP","Reenvío:","General","Obtener complementos","Gmail no ha aceptado el mensaje.","Gmail no ha aceptado el mensaje. Su ventana de redacción sigue abierta.","Gmail no ha ofrecido esa acción","Idioma de Gmail:","Gmail se muestra con el diseño que has elegido en Gplex. Si ves que afecta a tu productividad, ve a la configuración de Gplex y desactívalo.","Gmail lo ha guardado como borrador en lugar de enviarlo.","La ventana de redacción de Gmail no se ha abierto a tiempo.","Configuración de la cuenta de Google","Gadget de Google Calendar","Gplex para Gmail está activo","Gplex para Gmail:","Conceder acceso a tu cuenta:","Hangouts","Ayuda","Contraste alto","Acciones al pasar el cursor:","Acceso IMAP:","Iconos","Imágenes","Importar filtros","Importar desde Yahoo!, Hotmail, AOL u otras cuentas de correo web o POP3.","Importar correo y contactos","Importar correo y contactos:","Marcadores de importancia:","Importantes","Importantes primero","En otra ventana","Recibidos","Tipo de bandeja de entrada:","Herramientas de introducción de texto","Complementos instalados:","Combinaciones de teclas desactivadas","Combinaciones de teclas activadas","Combinaciones de teclas:","Etiqueta","Etiquetas","Etiquetas:","Labs","Labs son funciones experimentales que pueden cambiar, dejar de funcionar o desaparecer en cualquier momento.","Labs:","Idioma:","Última actividad de la cuenta: hace 1 minuto","Última actividad de la cuenta: hace 22 minutos","Diseño","Más información","Cargando…","Correo","Gestionar","Maps","Marcar como importante","Marcar como no leído","Tamaño máximo de página:","Mensaje enviado.","Más","Más acciones","Montañas","Mover a","Varias bandejas de entrada","Mis clips:","Mi imagen:","No guardar nunca el historial de chat","Mensaje nuevo","Más recientes","Lo más reciente","Noticias","Ninguna cuenta tiene acceso.","No hay complementos instalados.","No hay conversaciones que coincidan con tu búsqueda.","Sin indicadores","Sin marcadores","No hay otros buzones","Sin firma","Sin fragmentos","Sin división","Ninguno","No es spam","Recordatorios:","Desactivado: usar el Gmail normal","Sin conexión","El correo sin conexión usa Gears para guardar tu correo en este ordenador.","Correo sin conexión:","Más antiguos","Lo más antiguo","Activado: mostrar Gmail con el diseño","Permitir chatear conmigo solo a las personas que haya aprobado expresamente","Abierto en 1 ubicación más","Abrir esta página sin Gplex una vez","Anular filtros: incluir los mensajes importantes en Recibidos","Descarga POP:","Indicadores personales:","Fotos","Planetas","Play","Reproducir un sonido cuando llegue un mensaje de chat nuevo","Panel de vista previa","Principal","Imprimir todo","Recibidos prioritarios","Privacidad","Política de privacidad","Políticas del programa","Promociones","Citar el texto seleccionado","Leídos","Panel de lectura:","Actualizar","Responder","Marcar como spam","Marcar como spam","A la derecha de la bandeja de entrada","Chat a la derecha","BUSCAR CORREO","BUSCAR EN LA WEB","Guardar cambios","Guardar ahora","Guardar el historial de chat en mi cuenta de Gmail","Buscar correo","Buscar en el correo y en Documentos","Buscar por tema o URL","Buscar clips:","Buscar correo","Buscar en la Web","Buscando…","Primero selecciona una conversación","Selecciona una imagen que verán todos los destinatarios de tus correos.","Seleccionar:","Enviar","Enviar como:","Enviando…","Enviados","Enviados","Establece tu estado aquí","Brillante","Shopping","Mostrar","Mostrar todas las opciones de idioma","Mostrar en IMAP","Mostrar en la lista de etiquetas","Mostrar indicadores","Mostrar marcadores","Mostrar mis clips web encima de Recibidos","Mostrar opciones de búsqueda","Mostrar fragmentos","Firma:","Redacción inteligente:","Fragmentos:","Posponer","Pospuestos","Social","Gris suave","Sonidos:","Spam","Destacar","Destacados","Destacados primero","Estrellas:","Estado: IMAP está inhabilitado ·","Guardar en este ordenador el correo de los últimos 30 días para leerlo sin conexión.","Asunto","Sugerir correos a los que hacer seguimiento","Sugerir correos a los que responder","Tareas","Plantillas","Términos y privacidad","Condiciones de servicio","Texto","El diseño se elige en la configuración de Gplex en google.com.","Adaptar mail.google.com al diseño","Temas","Este mensaje parece peligroso","Para","Papelera","Árbol","Deshacer el envío","No leídos","No leídos primero","Icono de mensajes no leídos","Sin destacar","Notificaciones","Lo usan tanto Google como Gmail","Respuesta automática desactivada","Respuesta automática activada","Respuesta automática:","Muy inestable, no recomendado. Las pestañas de categorías a menudo no coinciden con lo que muestra Gmail, así que están desactivadas salvo que las actives aquí.","Vídeo","Vídeos","El chat de voz y vídeo está instalado.","Chat de voz y vídeo:","Wallet","Web","Clips web","Los clips web muestran titulares de noticias, entradas de blogs, anuncios y otros elementos encima de tus mensajes.","Sugerencias de escritura desactivadas","Sugerencias de escritura activadas","Estás usando","No tienes direcciones bloqueadas.","No tienes filtros.","No has configurado ninguna otra cuenta.","dirección","conversaciones por página","editar","ocultar","","más","de","o","quitar","mostrar"],"fr":["0 message","1 étoile   4 étoiles   toutes les étoiles","1. État : POP est désactivé","Comptes","Comptes et importation","Ajouter une adresse de transfert","Ajouter un compte de messagerie","Ajouter de l'espace de stockage :","Ajouter un autre compte","Ajouter une autre adresse e-mail que vous possédez","Modules complémentaires","Paramètres avancés","Paramètres avancés :","Tous les messages","Toujours utiliser https","Archiver","Ajouter automatiquement les contacts suggérés :","Avance automatique","Autoriser automatiquement les personnes avec qui je communique souvent à discuter avec moi","Retour à la boîte de réception","Plage","Sous la boîte de réception","Adresses bloquées :","Connexion du navigateur :","Libellés des boutons :","Acheter de l'espace de stockage","Agenda","Annuler","Réponses standardisées","Catégories","Catégories :","Modifier les paramètres du compte :","Modifier le mot de passe","Modifier les options de récupération du mot de passe","Chat","Historique du chat :","Chat désactivé","Chat activé","Chat :","Chats","Consulter d'autres comptes de messagerie :","Choisir un thème :","Choisissez les catégories de messages à afficher sous forme d'onglets dans la boîte de réception.","Classique","Cliquez ici pour","Nouveau message","Nouveau message","Instructions de configuration","Contacts","Impossible de piloter la fenêtre de rédaction de Gmail.","Impossible de remplir la fenêtre de rédaction de Gmail.","Impossible d'ouvrir la fenêtre de rédaction de Gmail.","Impossible d'ouvrir cette conversation","Impossible de sélectionner ces conversations","Créer un filtre","Créer un nouveau filtre","Créer un libellé","Raccourcis clavier personnalisés","Sombre","Par défaut","« Répondre à tous » par défaut","Supprimer","Supprimer définitivement","Détails","Désactiver","Désactiver IMAP","Désactiver le mode hors connexion sur cet ordinateur","Désactiver POP","Désactiver le transfert","Désactiver les actions au survol","Désactiver le mode hors connexion","Supprimer","Densité d'affichage","Ne pas émettre de son","Docs","Ne pas toujours utiliser https","Brouillons","Drive","Activer","Activer IMAP","Activer le mode hors connexion sur cet ordinateur","Activer POP pour tous les messages","Activer POP pour les messages reçus à partir de maintenant","Activer les actions au survol","Activer le mode hors connexion","Messages filtrés :","Filtres","Filtres et adresses bloquées","Filtres :","Finance","Forums","Transférer","Transférer une copie des messages reçus à","Transfert et POP","Transfert et POP/IMAP","Transfert :","Général","Télécharger des modules complémentaires","Gmail n'a pas accepté le message.","Gmail n'a pas accepté le message. Sa fenêtre de rédaction est toujours ouverte.","Gmail n'a pas proposé cette action","Langue d'affichage de Gmail :","Gmail s'affiche dans la mise en page choisie dans Gplex. Si cela nuit à votre productivité, désactivez-le dans les paramètres de Gplex.","Gmail l'a enregistré comme brouillon au lieu de l'envoyer.","La fenêtre de rédaction de Gmail ne s'est pas ouverte à temps.","Paramètres du compte Google","Gadget Google Agenda","Gplex pour Gmail est actif","Gplex pour Gmail :","Accorder l'accès à votre compte :","Hangouts","Aide","Contraste élevé","Actions au survol :","Accès IMAP :","Icônes","Images","Importer des filtres","Importer depuis Yahoo!, Hotmail, AOL ou d'autres comptes de messagerie Web ou POP3.","Importer des messages et des contacts","Importer des messages et des contacts :","Marqueurs d'importance :","Important","Importants d'abord","Dans une nouvelle fenêtre","Boîte de réception","Type de boîte de réception :","Outils de saisie","Modules complémentaires installés :","Raccourcis clavier désactivés","Raccourcis clavier activés","Raccourcis clavier :","Libellé","Libellés","Libellés :","Labos","Les Labos sont des fonctionnalités expérimentales susceptibles d'être modifiées, de cesser de fonctionner ou de disparaître à tout moment.","Labos :","Langue :","Dernière activité sur le compte : il y a 1 minute","Dernière activité sur le compte : il y a 22 minutes","Mise en page","En savoir plus","Chargement…","Messagerie","Gérer","Maps","Marquer comme important","Marquer comme non lu","Taille de page maximale :","Message envoyé.","Plus","Autres actions","Montagnes","Déplacer vers","Boîtes de réception multiples","Mes clips :","Ma photo :","Ne jamais enregistrer l'historique du chat","Nouveau message","Plus récents","Les plus récents","Actualités","Aucun compte n'a accès.","Aucun module complémentaire n'est installé.","Aucune conversation ne correspond à votre recherche.","Aucun indicateur","Aucun marqueur","Aucune autre boîte aux lettres","Aucune signature","Pas d'extraits","Pas de partage","Aucune","Non-spam","Rappels :","Désactivé – utiliser le Gmail normal","Hors connexion","La messagerie hors connexion utilise Gears pour stocker vos messages sur cet ordinateur.","Messagerie hors connexion :","Plus anciens","Les plus anciens","Activé – afficher Gmail avec la mise en page","N'autoriser que les personnes que j'ai explicitement approuvées à discuter avec moi","Ouvert dans 1 autre emplacement","Ouvrir cette page sans Gplex une fois","Ignorer les filtres – inclure les messages importants dans la boîte de réception","Téléchargement POP :","Indicateurs personnels :","Photos","Planètes","Play","Émettre un son à l'arrivée d'un nouveau message de chat","Volet de visualisation","Principale","Tout imprimer","Boîte de réception prioritaire","Confidentialité","Règles de confidentialité","Règlement du programme","Promotions","Citer le texte sélectionné","Lus","Volet de lecture :","Actualiser","Répondre","Signaler comme spam","Signaler comme spam","À droite de la boîte de réception","Chat à droite","RECHERCHER DANS LES MESSAGES","RECHERCHER SUR LE WEB","Enregistrer les modifications","Enregistrer maintenant","Enregistrer l'historique du chat dans mon compte Gmail","Rechercher dans les messages","Rechercher dans les messages et Docs","Rechercher par thème ou URL","Rechercher des clips :","Rechercher dans les messages","Rechercher sur le Web","Recherche…","Sélectionnez d'abord une conversation","Choisissez une photo que verront toutes les personnes à qui vous écrivez.","Sélectionner :","Envoyer","Envoyer des e-mails en tant que :","Envoi…","Messages envoyés","Messages envoyés","Définir votre statut ici","Brillant","Shopping","Afficher","Afficher toutes les options de langue","Afficher dans IMAP","Afficher dans la liste des libellés","Afficher les indicateurs","Afficher les marqueurs","Afficher mes clips Web au-dessus de la boîte de réception","Afficher les options de recherche","Afficher les extraits","Signature :","Saisie intelligente :","Extraits :","Mettre en attente","En attente","Réseaux sociaux","Gris doux","Sons :","Spam","Suivre","Messages suivis","Suivis d'abord","Étoiles :","État : IMAP est désactivé ·","Stocker les messages des 30 derniers jours sur cet ordinateur pour les lire sans connexion.","Objet","Suggérer des e-mails à relancer","Suggérer des e-mails auxquels répondre","Tâches","Modèles","Conditions et confidentialité","Conditions d'utilisation","Texte","La mise en page elle-même se choisit dans les paramètres de Gplex sur google.com.","Adapter mail.google.com à la mise en page","Thèmes","Ce message semble dangereux","À","Corbeille","Arbre","Annuler l'envoi","Non lus","Non lus d'abord","Icône des messages non lus","Non suivis","Notifications","Utilisé par Google et par Gmail","Réponse automatique désactivée","Réponse automatique activée","Réponse automatique :","Très instable, déconseillé. Les onglets de catégories ne correspondent souvent pas à ce que Gmail affiche réellement ; ils restent donc désactivés tant que vous ne les activez pas ici.","Vidéo","Vidéos","Le chat vocal et vidéo est installé.","Chat vocal et vidéo :","Wallet","Web","Clips Web","Les clips Web affichent des titres d'actualités, des articles de blog, des annonces et d'autres éléments au-dessus de vos messages.","Suggestions d'écriture désactivées","Suggestions d'écriture activées","Vous utilisez actuellement","Vous n'avez aucune adresse bloquée.","Vous n'avez aucun filtre.","Vous n'avez configuré aucun autre compte.","adresse","conversations par page","modifier","masquer","","plus","sur","ou","supprimer","afficher"],"it":["0 messaggi","1 stella   4 stelle   tutte le stelle","1. Stato: POP disattivato","Account","Account e importazione","Aggiungi un indirizzo di inoltro","Aggiungi un account email","Aggiungi altro spazio di archiviazione:","Aggiungi un altro account","Aggiungi un altro tuo indirizzo email","Componenti aggiuntivi","Avanzate","Avanzate:","Tutti i messaggi","Usa sempre https","Archivia","Aggiungi automaticamente i contatti suggeriti:","Avanzamento automatico","Consenti automaticamente di chattare con me alle persone con cui comunico spesso","Torna a Posta in arrivo","Spiaggia","Sotto la posta in arrivo","Indirizzi bloccati:","Connessione del browser:","Etichette dei pulsanti:","Acquista altro spazio","Calendar","Annulla","Risposte predefinite","Categorie","Categorie:","Modifica impostazioni account:","Cambia password","Modifica le opzioni di recupero della password","Chat","Cronologia chat:","Chat disattivata","Chat attivata","Chat:","Chat","Controlla la posta da altri account:","Scegli un tema:","Scegli quali categorie di messaggi mostrare come schede nella posta in arrivo.","Classico","Fai clic qui per","Scrivi","Scrivi messaggio","Istruzioni di configurazione","Contatti","Impossibile controllare la finestra di scrittura di Gmail.","Impossibile compilare la finestra di scrittura di Gmail.","Impossibile aprire la finestra di scrittura di Gmail.","Impossibile aprire la conversazione","Impossibile selezionare le conversazioni","Crea un filtro","Crea un nuovo filtro","Crea nuova etichetta","Scorciatoie da tastiera personalizzate","Scuro","Predefinito","\"Rispondi a tutti\" predefinito","Elimina","Elimina definitivamente","Dettagli","Disattiva","Disattiva IMAP","Disattiva la posta offline su questo computer","Disattiva POP","Disattiva l'inoltro","Disattiva azioni al passaggio del mouse","Disattiva la posta offline","Annulla","Densità di visualizzazione","Non riprodurre suoni","Documenti","Non usare sempre https","Bozze","Drive","Attiva","Attiva IMAP","Attiva la posta offline su questo computer","Attiva POP per tutti i messaggi","Attiva POP per i messaggi che arrivano da ora in poi","Attiva azioni al passaggio del mouse","Attiva la posta offline","Posta filtrata:","Filtri","Filtri e indirizzi bloccati","Filtri:","Finanza","Forum","Inoltra","Inoltra una copia della posta in arrivo a","Inoltro e POP","Inoltro e POP/IMAP","Inoltro:","Generali","Scarica componenti aggiuntivi","Gmail non ha accettato il messaggio.","Gmail non ha accettato il messaggio. La sua finestra di scrittura è ancora aperta.","Gmail non ha offerto quell'azione","Lingua di visualizzazione di Gmail:","Gmail viene mostrato con il layout che hai scelto in Gplex. Se noti che ostacola il tuo lavoro, disattivalo nelle impostazioni di Gplex.","Gmail lo ha salvato come bozza invece di inviarlo.","La finestra di scrittura di Gmail non si è aperta in tempo.","Impostazioni dell'account Google","Gadget di Google Calendar","Gplex per Gmail è attivo","Gplex per Gmail:","Concedi l'accesso al tuo account:","Hangouts","Guida","Contrasto elevato","Azioni al passaggio del mouse:","Accesso IMAP:","Icone","Immagini","Importa filtri","Importa da Yahoo!, Hotmail, AOL o altri account webmail o POP3.","Importa posta e contatti","Importa posta e contatti:","Indicatori di importanza:","Importanti","Prima gli importanti","In una nuova finestra","Posta in arrivo","Tipo di posta in arrivo:","Strumenti di immissione","Componenti aggiuntivi installati:","Scorciatoie da tastiera disattivate","Scorciatoie da tastiera attivate","Scorciatoie da tastiera:","Etichetta","Etichette","Etichette:","Labs","I Labs sono funzioni sperimentali che possono cambiare, smettere di funzionare o scomparire in qualsiasi momento.","Labs:","Lingua:","Ultima attività dell'account: 1 minuto fa","Ultima attività dell'account: 22 minuti fa","Layout","Ulteriori informazioni","Caricamento…","Posta","Gestisci","Maps","Contrassegna come importante","Segna come da leggere","Dimensioni massime della pagina:","Messaggio inviato.","Altro","Altre azioni","Montagne","Sposta in","Posta in arrivo multipla","I miei clip:","La mia immagine:","Non salvare mai la cronologia chat","Nuovo messaggio","Più recenti","I più recenti","Notizie","Nessun account ha accesso.","Nessun componente aggiuntivo installato.","Nessuna conversazione corrisponde alla ricerca.","Nessun indicatore","Nessun contrassegno","Nessun'altra casella di posta","Nessuna firma","Nessuno snippet","Nessuna suddivisione","Nessuno","Non spam","Promemoria:","Disattivato – usa il normale Gmail","Offline","La posta offline usa Gears per archiviare la tua posta su questo computer.","Posta offline:","Meno recenti","I meno recenti","Attivato – mostra Gmail con il layout","Consenti di chattare con me solo alle persone che ho approvato esplicitamente","Aperto in 1 altra posizione","Apri questa pagina senza Gplex una volta","Ignora i filtri – includi i messaggi importanti nella posta in arrivo","Download POP:","Indicatori personali:","Foto","Pianeti","Play","Riproduci un suono all'arrivo di un nuovo messaggio di chat","Riquadro di anteprima","Principale","Stampa tutto","Posta prioritaria","Privacy","Norme sulla privacy","Norme del programma","Promozioni","Cita il testo selezionato","Letti","Riquadro di lettura:","Aggiorna","Rispondi","Segnala come spam","Segnala come spam","A destra della posta in arrivo","Chat sul lato destro","CERCA NELLA POSTA","CERCA NEL WEB","Salva modifiche","Salva ora","Salva la cronologia chat nel mio account Gmail","Cerca nella posta","Cerca nella posta e in Documenti","Cerca per argomento o URL","Cerca clip:","Cerca nella posta","Cerca nel Web","Ricerca in corso…","Seleziona prima una conversazione","Seleziona un'immagine che vedranno tutti quelli a cui invii email.","Seleziona:","Invia","Invia messaggio come:","Invio in corso…","Posta inviata","Posta inviata","Imposta qui lo stato","Lucido","Shopping","Mostra","Mostra tutte le opzioni della lingua","Mostra in IMAP","Mostra nell'elenco delle etichette","Mostra indicatori","Mostra contrassegni","Mostra i miei web clip sopra la posta in arrivo","Mostra opzioni di ricerca","Mostra snippet","Firma:","Scrittura intelligente:","Snippet:","Posticipa","Posticipati","Social","Grigio tenue","Suoni:","Spam","Speciale","Speciali","Prima gli speciali","Stelle:","Stato: IMAP disattivato ·","Archivia su questo computer la posta degli ultimi 30 giorni per leggerla senza connessione.","Oggetto","Suggerisci email da sollecitare","Suggerisci email a cui rispondere","Tasks","Modelli","Termini e privacy","Termini di servizio","Testo","Il layout si sceglie nelle impostazioni di Gplex su google.com.","Adatta mail.google.com al layout","Temi","Questo messaggio sembra pericoloso","A","Cestino","Albero","Annulla invio","Da leggere","Prima i messaggi da leggere","Icona dei messaggi da leggere","Non speciali","Aggiornamenti","Usato sia da Google sia da Gmail","Risponditore automatico disattivato","Risponditore automatico attivato","Risponditore automatico:","Molto instabile, sconsigliato. Le schede delle categorie spesso non corrispondono a ciò che Gmail mostra davvero, quindi restano disattivate finché non le attivi qui.","Video","Video","La chat vocale e video è installata.","Chat vocale e video:","Wallet","Web","Web Clip","I web clip mostrano titoli di notizie, post di blog, annunci e altri elementi sopra i tuoi messaggi.","Suggerimenti di scrittura disattivati","Suggerimenti di scrittura attivati","Stai utilizzando","Non hai indirizzi bloccati.","Non hai filtri.","Non hai configurato altri account.","indirizzo","conversazioni per pagina","modifica","nascondi","","altro","di","oppure","rimuovi","mostra"],"ja":["0 件のメッセージ","スター 1 個   スター 4 個   すべてのスター","1. ステータス: POP は無効です","アカウント","アカウントとインポート","転送先アドレスを追加","メールアカウントを追加","保存容量を追加:","別のアカウントを追加","所有している別のメールアドレスを追加","アドオン","詳細","詳細:","すべてのメール","常に https を使用する","アーカイブ","おすすめの連絡先を自動的に追加:","自動送り","頻繁にやり取りするユーザーにはチャットを自動的に許可する","受信トレイに戻る","ビーチ","受信トレイの下","ブロック中のアドレス:","ブラウザ接続:","ボタンのラベル:","保存容量を購入","カレンダー","キャンセル","返信定型文","カテゴリ","カテゴリ:","アカウント設定の変更:","パスワードを変更","パスワード再設定オプションを変更","チャット","チャット履歴:","チャット オフ","チャット オン","チャット:","チャット","他のアカウントでメールを確認:","テーマを選択:","受信トレイにタブとして表示するメールのカテゴリを選択してください。","クラシック","ここをクリックして","作成","メールを作成","設定手順","連絡先","Gmail の作成ウィンドウを操作できませんでした。","Gmail の作成ウィンドウに入力できませんでした。","Gmail の作成ウィンドウを開けませんでした。","そのスレッドを開けませんでした","それらのスレッドを選択できませんでした","フィルタを作成","新しいフィルタを作成","新しいラベルを作成","カスタム キーボード ショートカット","ダーク","デフォルト","デフォルトの返信動作を「全員に返信」にする","削除","完全に削除","詳細","無効にする","IMAP を無効にする","このパソコンでオフライン メールを無効にする","POP を無効にする","転送を無効にする","カーソル操作を無効にする","オフライン メールを無効にする","破棄","表示間隔","音を鳴らさない","ドキュメント","常に https を使用しない","下書き","ドライブ","有効にする","IMAP を有効にする","このパソコンでオフライン メールを有効にする","すべてのメールで POP を有効にする","今後受信するメールで POP を有効にする","カーソル操作を有効にする","オフライン メールを有効にする","フィルタで処理されたメール:","フィルタ","フィルタとブロック中のアドレス","フィルタ:","ファイナンス","フォーラム","転送","受信メールのコピーを転送:","メール転送と POP","メール転送と POP/IMAP","転送:","全般","アドオンを入手","Gmail がメールを受け付けませんでした。","Gmail がメールを受け付けませんでした。作成ウィンドウは開いたままです。","Gmail にその操作がありませんでした","Gmail の表示言語:","Gmail は Gplex で選んだレイアウトで表示されています。作業の妨げになる場合は、Gplex の設定でオフにしてください。","Gmail はメールを送信せず下書きとして保存しました。","Gmail の作成ウィンドウが時間内に開きませんでした。","Google アカウントの設定","Google カレンダー ガジェット","Gmail 版 Gplex が有効です","Gmail 版 Gplex:","アカウントへのアクセスを許可:","ハングアウト","ヘルプ","ハイコントラスト","カーソル操作:","IMAP アクセス:","アイコン","画像","フィルタをインポート","Yahoo!、Hotmail、AOL などのウェブメールや POP3 アカウントからインポートします。","メールと連絡先のインポート","メールと連絡先のインポート:","重要マーク:","重要","重要なメールを先頭","新しいウィンドウで開く","受信トレイ","受信トレイの種類:","入力ツール","インストール済みのアドオン:","キーボード ショートカット OFF","キーボード ショートカット ON","キーボード ショートカット:","ラベル","ラベル","ラベル:","Labs","Labs は試験運用中の機能で、変更、停止、廃止されることがあります。","Labs:","言語:","前回のアカウント アクティビティ: 1 分前","前回のアカウント アクティビティ: 22 分前","レイアウト","詳細","読み込んでいます…","メール","管理","マップ","重要マークを付ける","未読にする","最大ページサイズ:","メッセージを送信しました。","その他","その他の操作","山","移動","マルチ受信トレイ","マイ クリップ:","マイ画像:","チャット履歴を保存しない","新規メッセージ","新しい","最新","ニュース","アクセス権のあるアカウントはありません。","インストールされているアドオンはありません。","検索に一致するスレッドはありません。","インジケータを表示しない","マークを表示しない","他のメールボックスはありません","署名なし","メッセージの一部を表示しない","分割なし","なし","迷惑メールではない","リマインダー:","オフ – 通常の Gmail を使う","オフライン","オフライン メールは Gears を使用してこのパソコンにメールを保存します。","オフライン メール:","古い","最古","オン – Gmail を","明示的に承認したユーザーだけにチャットを許可する","他の 1 か所で開いています","このページを一度だけ Gplex なしで開く","フィルタを無視 – 重要なメールを受信トレイに含める","POP ダウンロード:","個人レベルのインジケータ:","フォト","惑星","Play","新しいチャット メッセージを受信したら音を鳴らす","プレビュー パネル","メイン","すべて印刷","優先トレイ","プライバシー","プライバシー ポリシー","プログラム ポリシー","プロモーション","選択したテキストを引用","既読","閲覧ウィンドウ:","更新","返信","迷惑メールを報告","迷惑メールを報告","受信トレイの右","右側にチャットを表示","メールを検索","ウェブを検索","変更を保存","今すぐ保存","Gmail アカウントにチャット履歴を保存する","メールを検索","メールとドキュメントを検索","トピックまたは URL で検索","クリップを検索:","メールを検索","ウェブを検索","検索しています…","先にスレッドを選択してください","メールを送る相手全員に表示される画像を選択します。","選択:","送信","名前:","送信しています…","送信済み","送信済みメール","ここでステータスを設定","光沢","ショッピング","表示","すべての言語オプションを表示","IMAP で表示","ラベルリストに表示","インジケータを表示","マークを表示","受信トレイの上にウェブクリップを表示する","検索オプションを表示","メッセージの一部を表示","署名:","スマート作成:","メッセージの一部の表示:","スヌーズ","スヌーズ中","ソーシャル","ソフトグレー","サウンド:","迷惑メール","スター","スター付き","スター付きを先頭","スター:","ステータス: IMAP は無効です ·","オフラインでも読めるように、過去 30 日間のメールをこのパソコンに保存します。","件名","フォローアップするメールを提案する","返信するメールを提案する","ToDo リスト","テンプレート","規約とプライバシー","利用規約","テキスト","レイアウト自体は google.com の Gplex 設定で選びます。","mail.google.com をレイアウトに合わせる","テーマ","このメールは危険な可能性があります","To","ゴミ箱","木","送信取り消し","未読","未読を先頭","未読メール アイコン","スターなし","新着","Google と Gmail の両方で使用","不在通知 OFF","不在通知 ON","不在通知:","非常に不安定なため、おすすめしません。カテゴリタブは Gmail の実際の表示と一致しないことが多いため、ここでオンにしない限りオフになっています。","動画","動画","音声 / ビデオ チャットがインストールされています。","音声 / ビデオ チャット:","ウォレット","ウェブ","ウェブクリップ","ウェブクリップは、ニュースの見出し、ブログ投稿、広告などをメールの上に表示します。","文章の提案 OFF","文章の提案 ON","現在の使用量:","ブロック中のアドレスはありません。","フィルタはありません。","他のアカウントは設定されていません。","アドレス","件のスレッドを 1 ページに表示","編集","非表示","のレイアウトで表示","その他","/","または","削除","表示"],"ko":["메일 0개","별표 1개   별표 4개   모든 별표","1. 상태: POP 사용 안함","계정","계정 및 가져오기","전달 주소 추가","메일 계정 추가","저장용량 추가:","다른 계정 추가","내가 소유한 다른 이메일 주소 추가","부가기능","고급","고급:","전체보관함","항상 https 사용","보관처리","추천 연락처 자동 추가:","자동 진행","자주 연락하는 사용자가 나와 채팅하도록 자동으로 허용","받은편지함으로 돌아가기","해변","받은편지함 아래","차단된 주소:","브라우저 연결:","버튼 라벨:","저장용량 추가 구매","캘린더","취소","자주 쓰는 답장","카테고리","카테고리:","계정 설정 변경:","비밀번호 변경","비밀번호 복구 옵션 변경","채팅","채팅 기록:","채팅 사용 안함","채팅 사용","채팅:","채팅","다른 계정의 메일 확인:","테마 선택:","받은편지함에 탭으로 표시할 메일 카테고리를 선택하세요.","클래식","여기를 클릭하여","편지쓰기","메일 쓰기","구성 안내","주소록","Gmail 편지쓰기 창을 조작할 수 없습니다.","Gmail 편지쓰기 창을 채울 수 없습니다.","Gmail 편지쓰기 창을 열 수 없습니다.","해당 대화를 열 수 없습니다.","해당 대화를 선택할 수 없습니다.","필터 만들기","새 필터 만들기","새 라벨 만들기","맞춤 단축키","어둡게","기본값","기본값: '전체답장'","삭제","영구삭제","세부정보","사용 안함","IMAP 사용 중지","이 컴퓨터에서 오프라인 메일 사용 중지","POP 사용 중지","전달 사용 중지","마우스 오버 작업 사용 중지","오프라인 메일 사용 중지","삭제","화면 밀도","소리 재생 안함","문서","항상 https를 사용하지 않음","임시보관함","드라이브","사용","IMAP 사용","이 컴퓨터에서 오프라인 메일 사용","모든 메일에 POP 사용","지금부터 수신되는 메일에 POP 사용","마우스 오버 작업 사용","오프라인 메일 사용","필터링된 메일:","필터","필터 및 차단된 주소","필터:","금융","포럼","전달","수신 메일의 사본을 다음 주소로 전달","전달 및 POP","전달 및 POP/IMAP","전달:","기본설정","부가기능 설치","Gmail에서 메일을 받아들이지 않았습니다.","Gmail에서 메일을 받아들이지 않았습니다. 편지쓰기 창이 아직 열려 있습니다.","Gmail에서 해당 작업을 제공하지 않았습니다.","Gmail 표시 언어:","Gmail이 Gplex에서 선택한 레이아웃으로 표시되고 있습니다. 작업에 방해가 된다면 Gplex 설정에서 사용 중지하세요.","Gmail에서 메일을 보내지 않고 임시보관함에 저장했습니다.","Gmail 편지쓰기 창이 제시간에 열리지 않았습니다.","Google 계정 설정","Google 캘린더 가젯","Gmail용 Gplex 사용 중","Gmail용 Gplex:","계정에 대한 액세스 권한 부여:","행아웃","고객센터","고대비","마우스 오버 작업:","IMAP 액세스:","아이콘","이미지","필터 가져오기","Yahoo!, Hotmail, AOL 또는 기타 웹메일이나 POP3 계정에서 가져옵니다.","메일 및 연락처 가져오기","메일 및 연락처 가져오기:","중요 표시:","중요","중요메일 먼저","새 창에서 열기","받은편지함","받은편지함 유형:","입력 도구","설치된 부가기능:","단축키 사용 안함","단축키 사용","단축키:","라벨","라벨","라벨:","실험실","실험실은 언제든지 변경되거나 작동하지 않거나 사라질 수 있는 실험적인 기능입니다.","실험실:","언어:","마지막 계정 활동: 1분 전","마지막 계정 활동: 22분 전","레이아웃","자세히 알아보기","로드 중…","메일","관리","지도","중요로 표시","읽지 않음으로 표시","최대 페이지 크기:","메일을 보냈습니다.","더보기","추가 작업","산","이동","다중 받은편지함","내 클립:","내 사진:","채팅 기록 저장 안함","새 메일","최신","최신 항목","뉴스","액세스 권한이 있는 계정이 없습니다.","설치된 부가기능이 없습니다.","검색과 일치하는 대화가 없습니다.","표시기 없음","표시 없음","다른 편지함 없음","서명 없음","미리보기 없음","분할 안함","없음","스팸 아님","알림:","사용 안함 – 기본 Gmail 사용","오프라인","오프라인 메일은 Gears를 사용해 이 컴퓨터에 메일을 저장합니다.","오프라인 메일:","이전","가장 오래된 항목","사용 – Gmail을","내가 명시적으로 승인한 사용자만 나와 채팅하도록 허용","다른 1곳에서 열려 있음","Gplex 없이 이 페이지를 한 번 열기","필터 무시 – 중요한 메일을 받은편지함에 포함","POP 다운로드:","개인 수준 표시기:","포토","행성","Play","새 채팅 메일이 도착하면 소리 재생","미리보기 창","기본","모두 인쇄","우선순위 받은편지함","개인정보처리방침","개인정보처리방침","프로그램 정책","프로모션","선택한 텍스트 인용","읽음","읽기 창:","새로고침","답장","스팸신고","스팸신고","받은편지함 오른쪽","오른쪽 채팅","메일 검색","웹 검색","변경사항 저장","지금 저장","내 Gmail 계정에 채팅 기록 저장","메일 검색","메일 및 문서 검색","주제 또는 URL로 검색","클립 검색:","메일 검색","웹 검색","검색 중…","먼저 대화를 선택하세요","내가 이메일을 보낼 때 모두가 보게 될 사진을 선택하세요.","선택:","보내기","다른 주소에서 메일 보내기:","보내는 중…","보낸편지함","보낸편지함","여기에서 상태 설정","광택","쇼핑","표시","모든 언어 옵션 표시","IMAP에서 표시","라벨 목록에 표시","표시기 표시","표시 사용","받은편지함 위에 웹 클립 표시","검색 옵션 표시","미리보기 표시","서명:","스마트 편지쓰기:","미리보기:","다시 알림","다시 알림 항목","소셜","연한 회색","소리:","스팸함","별표","별표편지함","별표 메일 먼저","별표:","상태: IMAP 사용 안함 ·","연결 없이도 읽을 수 있도록 최근 30일 동안의 메일을 이 컴퓨터에 저장합니다.","제목","후속 조치할 이메일 추천","답장할 이메일 추천","할 일","템플릿","약관 및 개인정보처리방침","이용약관","텍스트","레이아웃 자체는 google.com의 Gplex 설정에서 선택합니다.","mail.google.com을 레이아웃에 맞게 꾸미기","테마","위험한 메일로 보입니다","받는사람","휴지통","나무","보내기 취소","읽지 않음","읽지 않은 메일 먼저","읽지 않은 메일 아이콘","별표 없음","업데이트","Google과 Gmail에서 함께 사용","부재중 자동응답 사용 안함","부재중 자동응답 사용","부재중 자동응답:","버그가 매우 많아 권장하지 않습니다. 카테고리 탭은 Gmail에 실제로 표시되는 내용과 다른 경우가 많으므로, 여기에서 사용 설정하지 않는 한 사용 중지됩니다.","동영상","동영상","음성 및 화상 채팅이 설치되어 있습니다.","음성 및 화상 채팅:","월렛","웹","웹 클립","웹 클립은 메일 위에 뉴스 헤드라인, 블로그 게시물, 광고 등을 표시합니다.","글쓰기 추천 사용 안함","글쓰기 추천 사용","현재 사용량:","현재 차단된 주소가 없습니다.","필터가 없습니다.","설정된 다른 계정이 없습니다.","주소","개의 대화를 한 페이지에 표시","수정","숨기기","레이아웃으로 표시","더보기","/","또는","삭제","표시"],"nl":["0 berichten","1 ster   4 sterren   alle sterren","1. Status: POP is uitgeschakeld","Accounts","Accounts en importeren","Een doorstuuradres toevoegen","Een e-mailaccount toevoegen","Extra opslagruimte toevoegen:","Nog een account toevoegen","Nog een e-mailadres van jou toevoegen","Add-ons","Geavanceerd","Geavanceerd:","Alle berichten","Altijd https gebruiken","Archiveren","Voorgestelde contacten automatisch toevoegen:","Automatisch doorgaan","Mensen met wie ik vaak communiceer automatisch toestaan met mij te chatten","Terug naar Inbox","Strand","Onder de inbox","Geblokkeerde adressen:","Browserverbinding:","Knoplabels:","Meer opslagruimte kopen","Agenda","Annuleren","Standaardreacties","Categorieën","Categorieën:","Accountinstellingen wijzigen:","Wachtwoord wijzigen","Herstelopties voor wachtwoord wijzigen","Chat","Chatgeschiedenis:","Chat uit","Chat aan","Chat:","Chats","E-mail van andere accounts controleren:","Kies een thema:","Kies welke berichtcategorieën als tabbladen in de inbox worden weergegeven.","Klassiek","Klik hier om te","Opstellen","E-mail opstellen","Configuratie-instructies","Contacten","Kan het opstelvenster van Gmail niet bedienen.","Kan het opstelvenster van Gmail niet invullen.","Kan het opstelvenster van Gmail niet openen.","Kan dat gesprek niet openen","Kan die gesprekken niet selecteren","Een filter maken","Een nieuw filter maken","Nieuw label maken","Aangepaste sneltoetsen","Donker","Standaard","Standaard 'Allen beantwoorden'","Verwijderen","Definitief verwijderen","Details","Uitschakelen","IMAP uitschakelen","Offline e-mail uitschakelen voor deze computer","POP uitschakelen","Doorsturen uitschakelen","Aanwijsacties uitschakelen","Offline e-mail uitschakelen","Weggooien","Weergavedichtheid","Geen geluiden afspelen","Documenten","Niet altijd https gebruiken","Concepten","Drive","Inschakelen","IMAP inschakelen","Offline e-mail inschakelen voor deze computer","POP inschakelen voor alle berichten","POP inschakelen voor berichten die vanaf nu binnenkomen","Aanwijsacties inschakelen","Offline e-mail inschakelen","Gefilterde e-mail:","Filters","Filters en geblokkeerde adressen","Filters:","Financiën","Forums","Doorsturen","Een kopie van inkomende e-mail doorsturen naar","Doorsturen en POP","Doorsturen en POP/IMAP","Doorsturen:","Algemeen","Add-ons downloaden","Gmail heeft het bericht niet geaccepteerd.","Gmail heeft het bericht niet geaccepteerd. Het opstelvenster is nog open.","Gmail bood die actie niet aan","Weergavetaal van Gmail:","Gmail wordt weergegeven in de lay-out die je in Gplex hebt gekozen. Als dit je productiviteit belemmert, zet het dan uit in de instellingen van Gplex.","Gmail heeft het als concept opgeslagen in plaats van het te verzenden.","Het opstelvenster van Gmail ging niet op tijd open.","Instellingen voor Google-account","Google Agenda-gadget","Gplex voor Gmail is actief","Gplex voor Gmail:","Toegang tot je account verlenen:","Hangouts","Help","Hoog contrast","Aanwijsacties:","IMAP-toegang:","Pictogrammen","Afbeeldingen","Filters importeren","Importeren uit Yahoo!, Hotmail, AOL of andere webmail- of POP3-accounts.","E-mail en contacten importeren","E-mail en contacten importeren:","Belangrijkheidsmarkeringen:","Belangrijk","Belangrijk eerst","In nieuw venster","Inbox","Type inbox:","Invoertools","Geïnstalleerde add-ons:","Sneltoetsen uit","Sneltoetsen aan","Sneltoetsen:","Label","Labels","Labels:","Labs","Labs zijn experimentele functies die op elk moment kunnen veranderen, niet meer werken of verdwijnen.","Labs:","Taal:","Laatste accountactiviteit: 1 minuut geleden","Laatste accountactiviteit: 22 minuten geleden","Lay-out","Meer informatie","Laden…","E-mail","Beheren","Maps","Markeren als belangrijk","Markeren als ongelezen","Maximale paginagrootte:","Bericht verzonden.","Meer","Meer acties","Bergen","Verplaatsen naar","Meerdere inboxen","Mijn clips:","Mijn foto:","Chatgeschiedenis nooit opslaan","Nieuw bericht","Nieuwer","Nieuwste","Nieuws","Geen accounts hebben toegang.","Er zijn geen add-ons geïnstalleerd.","Geen gesprekken gevonden die overeenkomen met je zoekopdracht.","Geen indicatoren","Geen markeringen","Geen andere mailboxen","Geen handtekening","Geen fragmenten","Geen splitsing","Geen","Geen spam","Herinneringen:","Uit – de normale Gmail gebruiken","Offline","Offline e-mail gebruikt Gears om je e-mail op deze computer op te slaan.","Offline e-mail:","Ouder","Oudste","Aan – Gmail weergeven in de lay-out","Alleen mensen die ik uitdrukkelijk heb goedgekeurd, mogen met mij chatten","Open op 1 andere locatie","Deze pagina één keer zonder Gplex openen","Filters negeren – belangrijke berichten in de inbox opnemen","POP-download:","Persoonlijke indicatoren:","Foto's","Planeten","Play","Een geluid afspelen als er een nieuw chatbericht binnenkomt","Voorbeeldvenster","Primair","Alles afdrukken","Prioriteitsinbox","Privacy","Privacybeleid","Programmabeleid","Reclame","Geselecteerde tekst citeren","Gelezen","Leesvenster:","Vernieuwen","Beantwoorden","Spam melden","Spam melden","Rechts van de inbox","Chat aan de rechterkant","E-MAIL DOORZOEKEN","HET WEB DOORZOEKEN","Wijzigingen opslaan","Nu opslaan","Chatgeschiedenis opslaan in mijn Gmail-account","E-mail doorzoeken","E-mail en Documenten doorzoeken","Zoeken op onderwerp of URL","Clips zoeken:","E-mail doorzoeken","Het web doorzoeken","Zoeken…","Selecteer eerst een gesprek","Selecteer een foto die iedereen ziet als je ze e-mailt.","Selecteren:","Verzenden","E-mail verzenden als:","Verzenden…","Verzonden","Verzonden berichten","Stel hier je status in","Glanzend","Shopping","Weergeven","Alle taalopties weergeven","Weergeven in IMAP","Weergeven in labellijst","Indicatoren weergeven","Markeringen weergeven","Mijn webclips boven de inbox weergeven","Zoekopties weergeven","Fragmenten weergeven","Handtekening:","Slim opstellen:","Fragmenten:","Snoozen","Gesnoozed","Sociaal","Zachtgrijs","Geluiden:","Spam","Ster","Met ster","Met ster eerst","Sterren:","Status: IMAP is uitgeschakeld ·","De e-mail van de afgelopen 30 dagen op deze computer opslaan, zodat je die zonder verbinding kunt lezen.","Onderwerp","E-mails voorstellen om op terug te komen","E-mails voorstellen om te beantwoorden","Taken","Sjablonen","Voorwaarden en privacy","Servicevoorwaarden","Tekst","De lay-out zelf kies je in de instellingen van Gplex op google.com.","mail.google.com aanpassen aan de lay-out","Thema's","Dit bericht lijkt gevaarlijk","Aan","Prullenbak","Boom","Verzenden ongedaan maken","Ongelezen","Ongelezen eerst","Pictogram voor ongelezen berichten","Zonder ster","Updates","Gebruikt door Google en Gmail","Automatisch antwoord uit","Automatisch antwoord aan","Automatisch antwoord:","Erg onstabiel, niet aanbevolen. De categorietabbladen komen vaak niet overeen met wat Gmail echt laat zien, dus staan ze uit tenzij je ze hier aanzet.","Video","Video's","Spraak- en videochat is geïnstalleerd.","Spraak- en videochat:","Wallet","Web","Webclips","Webclips tonen nieuwskoppen, blogposts, advertenties en andere items boven je berichten.","Schrijfsuggesties uit","Schrijfsuggesties aan","Je gebruikt momenteel","Je hebt momenteel geen geblokkeerde adressen.","Je hebt geen filters.","Je hebt geen andere accounts ingesteld.","adres","gesprekken per pagina","bewerken","verbergen","","meer","van","of","verwijderen","weergeven"],"pl":["0 wiadomości","1 gwiazdka   4 gwiazdki   wszystkie gwiazdki","1. Stan: POP jest wyłączony","Konta","Konta i importowanie","Dodaj adres do przekazywania","Dodaj konto pocztowe","Dodaj więcej miejsca:","Dodaj kolejne konto","Dodaj inny należący do Ciebie adres e-mail","Dodatki","Zaawansowane","Zaawansowane:","Wszystkie","Zawsze używaj https","Archiwizuj","Automatycznie dodawaj sugerowane kontakty:","Automatyczne przejście","Automatycznie zezwalaj na czat osobom, z którymi często się kontaktuję","Wróć do folderu Odebrane","Plaża","Pod skrzynką odbiorczą","Zablokowane adresy:","Połączenie przeglądarki:","Etykiety przycisków:","Kup więcej miejsca","Kalendarz","Anuluj","Gotowe odpowiedzi","Kategorie","Kategorie:","Zmień ustawienia konta:","Zmień hasło","Zmień opcje odzyskiwania hasła","Czat","Historia czatu:","Czat wyłączony","Czat włączony","Czat:","Czaty","Sprawdzaj pocztę z innych kont:","Wybierz motyw:","Wybierz, które kategorie wiadomości mają być kartami w skrzynce odbiorczej.","Klasyczny","Kliknij tutaj, aby","Utwórz","Napisz wiadomość","Instrukcje konfiguracji","Kontakty","Nie udało się sterować oknem tworzenia wiadomości Gmaila.","Nie udało się wypełnić okna tworzenia wiadomości Gmaila.","Nie udało się otworzyć okna tworzenia wiadomości Gmaila.","Nie udało się otworzyć tego wątku","Nie udało się zaznaczyć tych wątków","Utwórz filtr","Utwórz nowy filtr","Utwórz nową etykietę","Własne skróty klawiszowe","Ciemny","Domyślny","Domyślnie „Odpowiedz wszystkim”","Usuń","Usuń na zawsze","Szczegóły","Wyłącz","Wyłącz IMAP","Wyłącz pocztę offline na tym komputerze","Wyłącz POP","Wyłącz przekazywanie","Wyłącz działania po najechaniu kursorem","Wyłącz pocztę offline","Odrzuć","Gęstość wyświetlania","Nie odtwarzaj dźwięków","Dokumenty","Nie używaj zawsze https","Wersje robocze","Drive","Włącz","Włącz IMAP","Włącz pocztę offline na tym komputerze","Włącz POP dla wszystkich wiadomości","Włącz POP dla wiadomości, które przyjdą od teraz","Włącz działania po najechaniu kursorem","Włącz pocztę offline","Odfiltrowana poczta:","Filtry","Filtry i zablokowane adresy","Filtry:","Finanse","Fora","Przekaż dalej","Przekazuj kopię poczty przychodzącej na adres","Przekazywanie i POP","Przekazywanie i POP/IMAP","Przekazywanie:","Ogólne","Pobierz dodatki","Gmail nie przyjął wiadomości.","Gmail nie przyjął wiadomości. Okno tworzenia wiadomości jest nadal otwarte.","Gmail nie udostępnił tej czynności","Język wyświetlania Gmaila:","Gmail jest wyświetlany w układzie wybranym w Gplex. Jeśli przeszkadza to w pracy, wyłącz go w ustawieniach Gplex.","Gmail zapisał wiadomość jako wersję roboczą zamiast ją wysłać.","Okno tworzenia wiadomości Gmaila nie otworzyło się na czas.","Ustawienia konta Google","Gadżet Kalendarza Google","Gplex dla Gmaila jest aktywny","Gplex dla Gmaila:","Przyznaj dostęp do swojego konta:","Hangouts","Pomoc","Wysoki kontrast","Działania po najechaniu kursorem:","Dostęp IMAP:","Ikony","Grafika","Importuj filtry","Importuj z Yahoo!, Hotmail, AOL lub innych kont poczty internetowej albo POP3.","Importuj pocztę i kontakty","Importuj pocztę i kontakty:","Znaczniki ważności:","Ważne","Najpierw ważne","W nowym oknie","Odebrane","Typ skrzynki odbiorczej:","Narzędzia do wprowadzania tekstu","Zainstalowane dodatki:","Skróty klawiszowe wyłączone","Skróty klawiszowe włączone","Skróty klawiszowe:","Etykieta","Etykiety","Etykiety:","Laboratorium","Laboratorium to funkcje eksperymentalne, które w każdej chwili mogą się zmienić, przestać działać lub zniknąć.","Laboratorium:","Język:","Ostatnia aktywność na koncie: 1 minutę temu","Ostatnia aktywność na koncie: 22 minuty temu","Układ","Więcej informacji","Wczytywanie…","Poczta","Zarządzaj","Mapy","Oznacz jako ważne","Oznacz jako nieprzeczytane","Maksymalny rozmiar strony:","Wiadomość wysłana.","Więcej","Więcej działań","Góry","Przenieś do","Wiele skrzynek odbiorczych","Moje klipy:","Moje zdjęcie:","Nigdy nie zapisuj historii czatu","Nowa wiadomość","Nowsze","Najnowsze","Wiadomości","Żadne konto nie ma dostępu.","Nie zainstalowano żadnych dodatków.","Żaden wątek nie pasuje do wyszukiwania.","Bez wskaźników","Bez znaczników","Brak innych skrzynek","Bez podpisu","Bez fragmentów","Bez podziału","Brak","To nie jest spam","Przypomnienia:","Wyłączone – używaj zwykłego Gmaila","Offline","Poczta offline używa Gears do przechowywania poczty na tym komputerze.","Poczta offline:","Starsze","Najstarsze","Włączone – pokazuj Gmaila w układzie","Zezwalaj na czat tylko osobom, które wyraźnie zatwierdziłem","Otwarte w 1 innej lokalizacji","Otwórz tę stronę raz bez Gplex","Zastąp filtry – umieszczaj ważne wiadomości w skrzynce odbiorczej","Pobieranie POP:","Osobiste wskaźniki:","Zdjęcia","Planety","Play","Odtwarzaj dźwięk po nadejściu nowej wiadomości czatu","Panel podglądu","Główne","Drukuj wszystko","Priorytetowe","Prywatność","Polityka prywatności","Zasady programu","Oferty","Cytuj zaznaczony tekst","Przeczytane","Panel odczytu:","Odśwież","Odpowiedz","Zgłoś spam","Zgłoś spam","Z prawej strony skrzynki odbiorczej","Czat po prawej stronie","SZUKAJ W POCZCIE","SZUKAJ W INTERNECIE","Zapisz zmiany","Zapisz teraz","Zapisuj historię czatu na moim koncie Gmail","Szukaj w poczcie","Szukaj w poczcie i Dokumentach","Szukaj według tematu lub adresu URL","Szukaj klipów:","Szukaj w poczcie","Szukaj w internecie","Wyszukiwanie…","Najpierw zaznacz wątek","Wybierz zdjęcie, które zobaczą wszyscy, do których piszesz.","Zaznacz:","Wyślij","Wysyłaj pocztę jako:","Wysyłanie…","Wysłane","Wysłane","Ustaw tutaj swój stan","Błyszczący","Zakupy","Pokaż","Pokaż wszystkie opcje językowe","Pokaż w IMAP","Pokaż na liście etykiet","Pokaż wskaźniki","Pokaż znaczniki","Pokazuj moje klipy internetowe nad skrzynką odbiorczą","Pokaż opcje wyszukiwania","Pokazuj fragmenty","Podpis:","Inteligentne tworzenie:","Fragmenty:","Odłóż","Odłożone","Społeczności","Delikatna szarość","Dźwięki:","Spam","Gwiazdka","Oznaczone gwiazdką","Najpierw oznaczone gwiazdką","Gwiazdki:","Stan: IMAP jest wyłączony ·","Przechowuj pocztę z ostatnich 30 dni na tym komputerze, aby czytać ją bez połączenia.","Temat","Sugeruj e-maile, do których warto wrócić","Sugeruj e-maile, na które warto odpowiedzieć","Lista zadań","Szablony","Warunki i prywatność","Warunki korzystania z usługi","Tekst","Sam układ wybiera się w ustawieniach Gplex na google.com.","Dopasuj mail.google.com do układu","Motywy","Ta wiadomość wygląda na niebezpieczną","Do","Kosz","Drzewo","Cofnij wysłanie","Nieprzeczytane","Najpierw nieprzeczytane","Ikona nieprzeczytanych wiadomości","Bez gwiazdki","Powiadomienia","Używane przez Google i Gmaila","Autoodpowiedź wyłączona","Autoodpowiedź włączona","Autoodpowiedź:","Bardzo niestabilne, niezalecane. Karty kategorii często nie odpowiadają temu, co faktycznie pokazuje Gmail, więc są wyłączone, dopóki ich tu nie włączysz.","Wideo","Wideo","Czat głosowy i wideo jest zainstalowany.","Czat głosowy i wideo:","Wallet","Internet","Klipy internetowe","Klipy internetowe pokazują nagłówki wiadomości, wpisy z blogów, reklamy i inne elementy nad Twoimi wiadomościami.","Sugestie pisania wyłączone","Sugestie pisania włączone","Obecnie używasz","Nie masz obecnie żadnych zablokowanych adresów.","Nie masz filtrów.","Nie masz skonfigurowanych innych kont.","adres","wątków na stronie","edytuj","ukryj","","więcej","z","lub","usuń","pokaż"],"pt":["0 mensagens","1 estrela   4 estrelas   todas as estrelas","1. Status: o POP está desativado","Contas","Contas e importação","Adicionar um endereço de encaminhamento","Adicionar uma conta de e-mail","Adicionar mais armazenamento:","Adicionar outra conta","Adicionar outro endereço de e-mail seu","Complementos","Avançado","Avançado:","Todos os e-mails","Sempre usar https","Arquivar","Adicionar contatos sugeridos automaticamente:","Avanço automático","Permitir automaticamente que as pessoas com quem me comunico com frequência conversem comigo","Voltar para a Caixa de entrada","Praia","Abaixo da caixa de entrada","Endereços bloqueados:","Conexão do navegador:","Rótulos dos botões:","Comprar mais armazenamento","Agenda","Cancelar","Respostas prontas","Categorias","Categorias:","Alterar configurações da conta:","Alterar senha","Alterar opções de recuperação de senha","Chat","Histórico do chat:","Chat desativado","Chat ativado","Chat:","Chats","Verificar e-mails de outras contas:","Escolha um tema:","Escolha quais categorias de mensagens mostrar como guias na caixa de entrada.","Clássico","Clique aqui para","Escrever","Escrever e-mail","Instruções de configuração","Contatos","Não foi possível controlar a janela de escrita do Gmail.","Não foi possível preencher a janela de escrita do Gmail.","Não foi possível abrir a janela de escrita do Gmail.","Não foi possível abrir essa conversa","Não foi possível selecionar essas conversas","Criar um filtro","Criar um novo filtro","Criar novo marcador","Atalhos de teclado personalizados","Escuro","Padrão","\"Responder a todos\" como padrão","Excluir","Excluir definitivamente","Detalhes","Desativar","Desativar IMAP","Desativar o e-mail off-line neste computador","Desativar POP","Desativar encaminhamento","Desativar ações ao passar o cursor","Desativar e-mail off-line","Descartar","Densidade de exibição","Não tocar sons","Documentos","Não usar sempre https","Rascunhos","Drive","Ativar","Ativar IMAP","Ativar o e-mail off-line neste computador","Ativar POP para todos os e-mails","Ativar POP para os e-mails que chegarem a partir de agora","Ativar ações ao passar o cursor","Ativar e-mail off-line","E-mails filtrados:","Filtros","Filtros e endereços bloqueados","Filtros:","Finanças","Fóruns","Encaminhar","Encaminhar uma cópia dos e-mails recebidos para","Encaminhamento e POP","Encaminhamento e POP/IMAP","Encaminhamento:","Geral","Instalar complementos","O Gmail não aceitou a mensagem.","O Gmail não aceitou a mensagem. A janela de escrita continua aberta.","O Gmail não ofereceu essa ação","Idioma de exibição do Gmail:","O Gmail está sendo exibido no layout que você escolheu no Gplex. Se isso atrapalhar sua produtividade, desative nas configurações do Gplex.","O Gmail salvou como rascunho em vez de enviar.","A janela de escrita do Gmail não abriu a tempo.","Configurações da Conta do Google","Gadget do Google Agenda","Gplex para Gmail está ativo","Gplex para Gmail:","Conceder acesso à sua conta:","Hangouts","Ajuda","Alto contraste","Ações ao passar o cursor:","Acesso IMAP:","Ícones","Imagens","Importar filtros","Importar do Yahoo!, Hotmail, AOL ou de outras contas de webmail ou POP3.","Importar e-mails e contatos","Importar e-mails e contatos:","Marcadores de importância:","Importante","Importantes primeiro","Em nova janela","Caixa de entrada","Tipo de caixa de entrada:","Ferramentas de entrada","Complementos instalados:","Atalhos de teclado desativados","Atalhos de teclado ativados","Atalhos de teclado:","Marcador","Marcadores","Marcadores:","Labs","Os Labs são recursos experimentais que podem mudar, deixar de funcionar ou desaparecer a qualquer momento.","Labs:","Idioma:","Última atividade da conta: há 1 minuto","Última atividade da conta: há 22 minutos","Layout","Saiba mais","Carregando…","E-mail","Gerenciar","Maps","Marcar como importante","Marcar como não lida","Tamanho máximo da página:","Mensagem enviada.","Mais","Mais ações","Montanhas","Mover para","Várias caixas de entrada","Meus clipes:","Minha foto:","Nunca salvar o histórico do chat","Nova mensagem","Mais recentes","Mais recente","Notícias","Nenhuma conta tem acesso.","Nenhum complemento instalado.","Nenhuma conversa corresponde à sua pesquisa.","Sem indicadores","Sem marcadores","Nenhuma outra caixa postal","Sem assinatura","Sem trechos","Sem divisão","Nenhum","Não é spam","Lembretes:","Desativado – usar o Gmail normal","Off-line","O e-mail off-line usa o Gears para armazenar seus e-mails neste computador.","E-mail off-line:","Mais antigos","Mais antigo","Ativado – mostrar o Gmail no layout","Permitir que conversem comigo somente as pessoas que eu aprovei explicitamente","Aberto em outro local","Abrir esta página sem o Gplex uma vez","Substituir filtros – incluir mensagens importantes na caixa de entrada","Download por POP:","Indicadores pessoais:","Fotos","Planetas","Play","Tocar um som quando chegar uma nova mensagem de chat","Painel de visualização","Principal","Imprimir tudo","Caixa prioritária","Privacidade","Política de Privacidade","Políticas do programa","Promoções","Citar texto selecionado","Lidas","Painel de leitura:","Atualizar","Responder","Denunciar spam","Denunciar spam","À direita da caixa de entrada","Chat do lado direito","PESQUISAR E-MAIL","PESQUISAR NA WEB","Salvar alterações","Salvar agora","Salvar o histórico do chat na minha conta do Gmail","Pesquisar e-mail","Pesquisar e-mail e Documentos","Pesquisar por tema ou URL","Pesquisar clipes:","Pesquisar e-mail","Pesquisar na Web","Pesquisando…","Selecione uma conversa primeiro","Selecione uma foto que todos verão quando você enviar um e-mail.","Selecionar:","Enviar","Enviar e-mail como:","Enviando…","Enviados","E-mails enviados","Defina seu status aqui","Brilhante","Shopping","Mostrar","Mostrar todas as opções de idioma","Mostrar no IMAP","Mostrar na lista de marcadores","Mostrar indicadores","Mostrar marcadores","Mostrar meus clipes da Web acima da caixa de entrada","Mostrar opções de pesquisa","Mostrar trechos","Assinatura:","Escrita inteligente:","Trechos:","Adiar","Adiados","Social","Cinza suave","Sons:","Spam","Estrela","Com estrela","Com estrela primeiro","Estrelas:","Status: o IMAP está desativado ·","Armazenar os e-mails dos últimos 30 dias neste computador para ler sem conexão.","Assunto","Sugerir e-mails para acompanhar","Sugerir e-mails para responder","Tarefas","Modelos","Termos e privacidade","Termos de Serviço","Texto","O layout em si é escolhido nas configurações do Gplex no google.com.","Adaptar o mail.google.com ao layout","Temas","Esta mensagem parece perigosa","Para","Lixeira","Árvore","Cancelar envio","Não lidas","Não lidas primeiro","Ícone de mensagem não lida","Sem estrela","Atualizações","Usado pelo Google e pelo Gmail","Resposta automática desativada","Resposta automática ativada","Resposta automática:","Muito instável, não recomendado. As guias de categorias muitas vezes não correspondem ao que o Gmail realmente mostra, por isso ficam desativadas a menos que você as ative aqui.","Vídeo","Vídeos","O chat de voz e vídeo está instalado.","Chat de voz e vídeo:","Wallet","Web","Clipes da Web","Os clipes da Web mostram manchetes, posts de blogs, anúncios e outros itens acima das suas mensagens.","Sugestões de escrita desativadas","Sugestões de escrita ativadas","Você está usando","Você não tem endereços bloqueados.","Você não tem filtros.","Você não configurou outras contas.","endereço","conversas por página","editar","ocultar","","mais","de","ou","remover","mostrar"],"ru":["0 писем","1 звезда   4 звезды   все звезды","1. Статус: POP отключен","Аккаунты","Аккаунты и импорт","Добавить адрес для пересылки","Добавить почтовый аккаунт","Добавить место в хранилище:","Добавить ещё один аккаунт","Добавить ещё один свой адрес электронной почты","Дополнения","Расширенные","Расширенные:","Вся почта","Всегда использовать https","Архивировать","Автоматически добавлять предлагаемые контакты:","Автопереход","Автоматически разрешать чат людям, с которыми я часто общаюсь","Назад во «Входящие»","Пляж","Под папкой «Входящие»","Заблокированные адреса:","Подключение браузера:","Подписи кнопок:","Купить больше места","Календарь","Отмена","Шаблоны ответов","Категории","Категории:","Изменить настройки аккаунта:","Изменить пароль","Изменить параметры восстановления пароля","Чат","История чата:","Чат выключен","Чат включен","Чат:","Чаты","Проверять почту других аккаунтов:","Выберите тему:","Выберите, какие категории писем показывать вкладками в папке «Входящие».","Классическая","Нажмите здесь, чтобы","Написать","Написать письмо","Инструкции по настройке","Контакты","Не удалось управлять окном создания письма Gmail.","Не удалось заполнить окно создания письма Gmail.","Не удалось открыть окно создания письма Gmail.","Не удалось открыть эту цепочку","Не удалось выбрать эти цепочки","Создать фильтр","Создать новый фильтр","Создать ярлык","Собственные быстрые клавиши","Тёмная","По умолчанию","«Ответить всем» по умолчанию","Удалить","Удалить навсегда","Подробнее","Отключить","Отключить IMAP","Отключить офлайн-почту на этом компьютере","Отключить POP","Отключить пересылку","Отключить действия при наведении","Отключить офлайн-почту","Удалить черновик","Плотность отображения","Не воспроизводить звуки","Документы","Не всегда использовать https","Черновики","Диск","Включить","Включить IMAP","Включить офлайн-почту на этом компьютере","Включить POP для всех писем","Включить POP для писем, получаемых с этого момента","Включить действия при наведении","Включить офлайн-почту","Отфильтрованная почта:","Фильтры","Фильтры и заблокированные адреса","Фильтры:","Финансы","Форумы","Переслать","Пересылать копии входящих писем на адрес","Пересылка и POP","Пересылка и POP/IMAP","Пересылка:","Общие","Установить дополнения","Gmail не принял письмо.","Gmail не принял письмо. Окно создания письма всё ещё открыто.","Gmail не предложил это действие","Язык интерфейса Gmail:","Gmail показан в оформлении, выбранном в Gplex. Если это мешает работе, отключите его в настройках Gplex.","Gmail сохранил письмо как черновик вместо отправки.","Окно создания письма Gmail не открылось вовремя.","Настройки аккаунта Google","Гаджет Google Календаря","Gplex для Gmail включен","Gplex для Gmail:","Предоставить доступ к аккаунту:","Hangouts","Справка","Высокая контрастность","Действия при наведении:","Доступ по протоколу IMAP:","Значки","Картинки","Импортировать фильтры","Импорт из Yahoo!, Hotmail, AOL или других аккаунтов веб-почты или POP3.","Импортировать почту и контакты","Импортировать почту и контакты:","Маркеры важности:","Важные","Сначала важные","В новом окне","Входящие","Тип папки «Входящие»:","Способы ввода","Установленные дополнения:","Быстрые клавиши отключены","Быстрые клавиши включены","Быстрые клавиши:","Ярлык","Ярлыки","Ярлыки:","Лаборатория","Лаборатория – это экспериментальные функции, которые могут измениться, перестать работать или исчезнуть в любой момент.","Лаборатория:","Язык:","Последние действия в аккаунте: 1 минуту назад","Последние действия в аккаунте: 22 минуты назад","Оформление","Подробнее","Загрузка…","Почта","Управление","Карты","Пометить как важное","Отметить как непрочитанное","Максимальный размер страницы:","Письмо отправлено.","Ещё","Другие действия","Горы","Переместить в","Несколько папок «Входящие»","Мои клипы:","Моё фото:","Никогда не сохранять историю чата","Новое сообщение","Новее","Самые новые","Новости","Ни у одного аккаунта нет доступа.","Дополнения не установлены.","Нет цепочек, соответствующих вашему запросу.","Без индикаторов","Без маркеров","Других папок нет","Без подписи","Без фрагментов","Без разделения","Нет","Не спам","Напоминания:","Выкл. – обычный Gmail","Офлайн","Офлайн-почта хранит ваши письма на этом компьютере с помощью Gears.","Офлайн-почта:","Старее","Самые старые","Вкл. – показывать Gmail в оформлении","Разрешать чат только людям, которых я явно одобрил","Открыто ещё в 1 месте","Один раз открыть эту страницу без Gplex","Игнорировать фильтры – включать важные письма во «Входящие»","Загрузка по POP:","Персональные индикаторы:","Фото","Планеты","Play","Воспроизводить звук при получении нового сообщения чата","Панель просмотра","Несортированные","Распечатать все","Приоритетные","Конфиденциальность","Политика конфиденциальности","Правила программы","Промоакции","Цитировать выделенный текст","Прочитанные","Область просмотра:","Обновить","Ответить","В спам","В спам","Справа от «Входящих»","Чат справа","ИСКАТЬ В ПОЧТЕ","ИСКАТЬ В ИНТЕРНЕТЕ","Сохранить изменения","Сохранить","Сохранять историю чата в моём аккаунте Gmail","Искать в почте","Искать в почте и Документах","Поиск по теме или URL","Поиск клипов:","Поиск в почте","Искать в Интернете","Поиск…","Сначала выберите цепочку","Выберите фото, которое увидят все, кому вы пишете.","Выбрать:","Отправить","Отправлять письма как:","Отправка…","Отправленные","Отправленные","Укажите здесь свой статус","Глянец","Покупки","Показать","Показать все языковые параметры","Показывать в IMAP","Показывать в списке ярлыков","Показывать индикаторы","Показывать маркеры","Показывать мои веб-клипы над папкой «Входящие»","Показать параметры поиска","Показывать фрагменты","Подпись:","Умный ввод:","Фрагменты:","Отложить","Отложенные","Соцсети","Мягкий серый","Звуки:","Спам","Пометить","Помеченные","Сначала помеченные","Звезды:","Статус: IMAP отключен ·","Хранить почту за последние 30 дней на этом компьютере, чтобы читать её без подключения.","Тема","Предлагать письма, к которым стоит вернуться","Предлагать письма, на которые стоит ответить","Задачи","Шаблоны","Условия и конфиденциальность","Условия использования","Текст","Само оформление выбирается в настройках Gplex на google.com.","Оформлять mail.google.com в выбранном стиле","Темы","Это письмо кажется опасным","Кому","Корзина","Дерево","Отмена отправки","Непрочитанные","Сначала непрочитанные","Значок непрочитанных писем","Без пометки","Оповещения","Используется и Google, и Gmail","Автоответчик выключен","Автоответчик включен","Автоответчик:","Очень нестабильно, не рекомендуется. Вкладки категорий часто не совпадают с тем, что на самом деле показывает Gmail, поэтому они выключены, пока вы не включите их здесь.","Видео","Видео","Голосовой и видеочат установлен.","Голосовой и видеочат:","Wallet","Веб","Веб-клипы","Веб-клипы показывают заголовки новостей, записи блогов, рекламу и другие материалы над вашими письмами.","Подсказки при вводе выключены","Подсказки при вводе включены","Сейчас используется","У вас нет заблокированных адресов.","У вас нет фильтров.","Другие аккаунты не настроены.","адрес","цепочек на странице","изменить","скрыть","","ещё","из","или","удалить","показать"],"tr":["0 ileti","1 yıldız   4 yıldız   tüm yıldızlar","1. Durum: POP devre dışı","Hesaplar","Hesaplar ve İçe Aktarma","Yönlendirme adresi ekle","Posta hesabı ekle","Ek depolama alanı ekle:","Başka bir hesap ekle","Sahip olduğunuz başka bir e-posta adresini ekleyin","Eklentiler","Gelişmiş","Gelişmiş:","Tüm Postalar","Her zaman https kullan","Arşivle","Önerilen kişileri otomatik ekle:","Otomatik ilerle","Sık iletişim kurduğum kişilerin benimle sohbet etmesine otomatik olarak izin ver","Gelen Kutusu'na dön","Plaj","Gelen kutusunun altında","Engellenen adresler:","Tarayıcı bağlantısı:","Düğme etiketleri:","Daha fazla depolama alanı satın al","Takvim","İptal","Hazır Yanıtlar","Kategoriler","Kategoriler:","Hesap ayarlarını değiştir:","Şifreyi değiştir","Şifre kurtarma seçeneklerini değiştir","Sohbet","Sohbet geçmişi:","Sohbet kapalı","Sohbet açık","Sohbet:","Sohbetler","Diğer hesaplardaki postaları kontrol et:","Tema seçin:","Gelen kutusunda sekme olarak gösterilecek ileti kategorilerini seçin.","Klasik","Buraya tıklayarak","Oluştur","Posta Oluştur","Yapılandırma talimatları","Kişiler","Gmail'in oluşturma penceresi kontrol edilemedi.","Gmail'in oluşturma penceresi doldurulamadı.","Gmail'in oluşturma penceresi açılamadı.","Bu görüşme açılamadı","Bu görüşmeler seçilemedi","Filtre oluştur","Yeni filtre oluştur","Yeni etiket oluştur","Özel klavye kısayolları","Koyu","Varsayılan","Varsayılan olarak \"Tümünü yanıtla\"","Sil","Kalıcı olarak sil","Ayrıntılar","Devre dışı bırak","IMAP'i devre dışı bırak","Bu bilgisayarda çevrimdışı postayı devre dışı bırak","POP'u devre dışı bırak","Yönlendirmeyi devre dışı bırak","Fareyle üzerine gelme işlemlerini devre dışı bırak","Çevrimdışı postayı devre dışı bırak","Sil","Görüntü yoğunluğu","Ses çalma","Dokümanlar","Her zaman https kullanma","Taslaklar","Drive","Etkinleştir","IMAP'i etkinleştir","Bu bilgisayarda çevrimdışı postayı etkinleştir","Tüm postalar için POP'u etkinleştir","Şu andan itibaren gelen postalar için POP'u etkinleştir","Fareyle üzerine gelme işlemlerini etkinleştir","Çevrimdışı postayı etkinleştir","Filtrelenen posta:","Filtreler","Filtreler ve Engellenen Adresler","Filtreler:","Finans","Forumlar","Yönlendir","Gelen postanın bir kopyasını şuraya yönlendir:","Yönlendirme ve POP","Yönlendirme ve POP/IMAP","Yönlendirme:","Genel","Eklenti edinin","Gmail iletiyi kabul etmedi.","Gmail iletiyi kabul etmedi. Oluşturma penceresi hâlâ açık.","Gmail bu işlemi sunmadı","Gmail görüntüleme dili:","Gmail, Gplex'te seçtiğiniz düzende gösteriliyor. Verimliliğinizi etkilediğini düşünüyorsanız Gplex ayarlarından kapatın.","Gmail iletiyi göndermek yerine taslak olarak kaydetti.","Gmail'in oluşturma penceresi zamanında açılmadı.","Google Hesabı ayarları","Google Takvim aracı","Gmail için Gplex etkin","Gmail için Gplex:","Hesabınıza erişim izni verin:","Hangouts","Yardım","Yüksek Kontrast","Fareyle üzerine gelme işlemleri:","IMAP Erişimi:","Simgeler","Görseller","Filtreleri içe aktar","Yahoo!, Hotmail, AOL veya diğer web postası ya da POP3 hesaplarından içe aktarın.","Postaları ve kişileri içe aktar","Postaları ve kişileri içe aktar:","Önem işaretleri:","Önemli","Önce önemliler","Yeni pencerede","Gelen Kutusu","Gelen kutusu türü:","Giriş araçları","Yüklü eklentiler:","Klavye kısayolları kapalı","Klavye kısayolları açık","Klavye kısayolları:","Etiket","Etiketler","Etiketler:","Labs","Labs, her an değişebilecek, bozulabilecek veya kaybolabilecek deneysel özelliklerdir.","Labs:","Dil:","Son hesap etkinliği: 1 dakika önce","Son hesap etkinliği: 22 dakika önce","Düzen","Daha fazla bilgi","Yükleniyor…","Posta","Yönet","Haritalar","Önemli olarak işaretle","Okunmadı olarak işaretle","Maksimum sayfa boyutu:","İleti gönderildi.","Diğer","Diğer işlemler","Dağlar","Şuraya taşı","Birden Fazla Gelen Kutusu","Kliplerim:","Resmim:","Sohbet geçmişini hiçbir zaman kaydetme","Yeni İleti","Daha yeni","En yeni","Haberler","Hiçbir hesabın erişimi yok.","Yüklü eklenti yok.","Aramanızla eşleşen görüşme yok.","Gösterge yok","İşaret yok","Başka posta kutusu yok","İmza yok","Snippet yok","Bölme yok","Yok","Spam değil","Hatırlatmalar:","Kapalı – normal Gmail'i kullan","Çevrimdışı","Çevrimdışı posta, postalarınızı bu bilgisayarda depolamak için Gears'ı kullanır.","Çevrimdışı posta:","Daha eski","En eski","Açık – Gmail'i şu düzende göster:","Yalnızca açıkça onayladığım kişilerin benimle sohbet etmesine izin ver","1 başka konumda açık","Bu sayfayı bir kez Gplex olmadan aç","Filtreleri geçersiz kıl – önemli iletileri gelen kutusuna dahil et","POP İndirme:","Kişisel düzey göstergeleri:","Fotoğraflar","Gezegenler","Play","Yeni bir sohbet iletisi geldiğinde ses çal","Önizleme Bölmesi","Birincil","Tümünü yazdır","Öncelikli Gelen Kutusu","Gizlilik","Gizlilik Politikası","Program Politikaları","Promosyonlar","Seçili metni alıntıla","Okundu","Okuma bölmesi:","Yenile","Yanıtla","Spam bildir","Spam bildir","Gelen kutusunun sağında","Sağ tarafta sohbet","POSTALARDA ARA","WEB'DE ARA","Değişiklikleri Kaydet","Şimdi Kaydet","Sohbet geçmişini Gmail hesabımda kaydet","Postalarda Ara","Postalarda ve Dokümanlarda Ara","Konuya veya URL'ye göre ara","Klip ara:","Postalarda ara","Web'de Ara","Aranıyor…","Önce bir görüşme seçin","E-posta gönderdiğiniz herkesin göreceği bir resim seçin.","Seç:","Gönder","Farklı adla posta gönder:","Gönderiliyor…","Gönderilmiş","Gönderilmiş Postalar","Durumu buradan ayarlayın","Parlak","Alışveriş","Göster","Tüm dil seçeneklerini göster","IMAP'te göster","Etiket listesinde göster","Göstergeleri göster","İşaretleri göster","Web kliplerimi Gelen Kutusu'nun üstünde göster","Arama seçeneklerini göster","Snippet'leri göster","İmza:","Akıllı Yazma:","Snippet'ler:","Ertele","Ertelenenler","Sosyal","Yumuşak Gri","Sesler:","Spam","Yıldız","Yıldızlı","Önce yıldızlılar","Yıldızlar:","Durum: IMAP devre dışı ·","Son 30 günün postalarını bağlantı olmadan okuyabilmek için bu bilgisayarda depolayın.","Konu","Takip edilecek e-postaları öner","Yanıtlanacak e-postaları öner","Görevler","Şablonlar","Şartlar ve Gizlilik","Kullanım Şartları","Metin","Düzenin kendisi google.com'daki Gplex ayarlarından seçilir.","mail.google.com'u düzene uydur","Temalar","Bu ileti tehlikeli görünüyor","Kime","Çöp Kutusu","Ağaç","Göndermeyi Geri Al","Okunmamış","Önce okunmamışlar","Okunmamış ileti simgesi","Yıldızsız","Güncellemeler","Hem Google hem de Gmail tarafından kullanılır","Otomatik yanıtlayıcı kapalı","Otomatik yanıtlayıcı açık","Otomatik yanıtlayıcı:","Çok hatalı, önerilmez. Kategori sekmeleri çoğu zaman Gmail'in gerçekte gösterdiğiyle eşleşmez; bu nedenle burada açmadığınız sürece kapalıdır.","Video","Videolar","Sesli ve görüntülü sohbet yüklü.","Sesli ve görüntülü sohbet:","Wallet","Web","Web Klipleri","Web klipleri, iletilerinizin üstünde haber başlıklarını, blog yayınlarını, reklamları ve diğer öğeleri gösterir.","Yazma önerileri kapalı","Yazma önerileri açık","Şu anda kullandığınız","Engellenmiş adresiniz yok.","Filtreniz yok.","Başka hesap ayarlamadınız.","adres","sayfa başına görüşme","düzenle","gizle","","diğer","/","veya","kaldır","göster"],"zh-CN":["0 封邮件","1 颗星   4 颗星   所有星标","1. 状态：POP 已停用","帐号","帐号和导入","添加转发地址","添加邮件帐号","添加额外存储空间：","添加其他帐号","添加您拥有的其他电子邮件地址","插件","高级","高级：","所有邮件","始终使用 https","归档","自动添加建议的联系人：","自动推进","自动允许与我经常联系的人和我聊天","返回收件箱","海滩","收件箱下方","已屏蔽的地址：","浏览器连接：","按钮标签：","购买更多存储空间","日历","取消","自动回复模板","类别","类别：","更改帐号设置：","更改密码","更改密码恢复选项","聊天","聊天记录：","聊天已关闭","聊天已开启","聊天：","聊天","查收其他帐号的邮件：","选择主题背景：","选择要在收件箱中以标签页形式显示的邮件类别。","经典","点击此处","写邮件","写邮件","配置说明","通讯录","无法操作 Gmail 的写邮件窗口。","无法填写 Gmail 的写邮件窗口。","无法打开 Gmail 的写邮件窗口。","无法打开该会话","无法选择这些会话","创建过滤器","创建新过滤器","新建标签","自定义键盘快捷键","深色","默认","默认“回复全部”","删除","永久删除","详细信息","停用","停用 IMAP","在此计算机上停用离线邮件","停用 POP","停用转发","停用悬停操作","停用离线邮件","舍弃","显示密度","不播放声音","文档","不始终使用 https","草稿","云端硬盘","启用","启用 IMAP","在此计算机上启用离线邮件","对所有邮件启用 POP","对从现在起收到的邮件启用 POP","启用悬停操作","启用离线邮件","已过滤的邮件：","过滤器","过滤器和已屏蔽的地址","过滤器：","财经","论坛","转发","将收到的邮件副本转发到","转发和 POP","转发和 POP/IMAP","转发：","常规","获取插件","Gmail 未接受该邮件。","Gmail 未接受该邮件。写邮件窗口仍处于打开状态。","Gmail 未提供该操作","Gmail 显示语言：","Gmail 正以您在 Gplex 中选择的布局显示。如果影响工作效率，请在 Gplex 设置中将其关闭。","Gmail 将其保存为草稿，而没有发送。","Gmail 的写邮件窗口未能及时打开。","Google 帐号设置","Google 日历小工具","Gmail 版 Gplex 已启用","Gmail 版 Gplex：","授予您帐号的访问权限：","环聊","帮助","高对比度","悬停操作：","IMAP 访问：","图标","图片","导入过滤器","从 Yahoo!、Hotmail、AOL 或其他网页邮件或 POP3 帐号导入。","导入邮件和联系人","导入邮件和联系人：","重要性标记：","重要邮件","重要邮件优先","在新窗口中打开","收件箱","收件箱类型：","输入工具","已安装的插件：","键盘快捷键已关闭","键盘快捷键已开启","键盘快捷键：","标签","标签","标签：","实验室","实验室功能是实验性功能，可能随时更改、出错或消失。","实验室：","语言：","上次帐号活动时间：1 分钟前","上次帐号活动时间：22 分钟前","布局","了解详情","正在加载…","邮件","管理","地图","标记为重要","标记为未读","每页最多显示：","邮件已发送。","更多","更多操作","群山","移至","多个收件箱","我的剪辑：","我的照片：","从不保存聊天记录","新邮件","较新","最新","新闻","没有帐号拥有访问权限。","未安装任何插件。","没有与您的搜索相符的会话。","无指示标志","无标记","没有其他邮箱","无签名","不显示摘要","不拆分","无","不是垃圾邮件","提醒：","关闭 – 使用普通 Gmail","离线","离线邮件使用 Gears 将您的邮件存储在此计算机上。","离线邮件：","较早","最早","开启 – 以","仅允许我明确批准的人和我聊天","在另外 1 个位置打开","不使用 Gplex 打开此页一次","忽略过滤器 – 在收件箱中包含重要邮件","POP 下载：","个人级别指示标志：","相册","行星","Play","收到新聊天消息时播放提示音","预览窗格","主要","全部打印","优先收件箱","隐私权","隐私权政策","计划政策","推广","引用所选文字","已读","阅读窗格：","刷新","回复","举报垃圾邮件","举报垃圾邮件","收件箱右侧","右侧聊天","搜索邮件","搜索网页","保存更改","立即保存","在我的 Gmail 帐号中保存聊天记录","搜索邮件","搜索邮件和文档","按主题或网址搜索","搜索剪辑：","搜索邮件","搜索网页","正在搜索…","请先选择一个会话","选择一张照片，您给别人发邮件时大家都会看到它。","选择：","发送","用这个地址发送邮件：","正在发送…","已发送","已发送邮件","在此设置状态","亮泽","购物","显示","显示所有语言选项","在 IMAP 中显示","在标签列表中显示","显示指示标志","显示标记","在收件箱上方显示我的网页剪辑","显示搜索选项","显示摘要","签名：","智能写作：","摘要：","延后","已延后","社交","柔和灰","声音：","垃圾邮件","星标","已加星标","已加星标的邮件优先","星标：","状态：IMAP 已停用 ·","将最近 30 天的邮件存储在此计算机上，以便在没有网络连接时阅读。","主题","建议需要跟进的邮件","建议需要回复的邮件","任务","模板","条款和隐私权","使用条款","文字","布局本身在 google.com 上的 Gplex 设置中选择。","让 mail.google.com 的外观与布局一致","主题背景","这封邮件似乎有危险","收件人","已删除邮件","树木","撤消发送","未读","未读邮件优先","未读邮件图标","未加星标","动态","由 Google 和 Gmail 共同使用","自动回复已关闭","自动回复已开启","休假自动回复：","问题很多，不建议使用。类别标签页经常与 Gmail 实际显示的内容不一致，因此除非您在此处开启，否则会保持关闭。","视频","视频","已安装语音和视频聊天。","语音和视频聊天：","钱包","网页","网页剪辑","网页剪辑会在您的邮件上方显示新闻标题、博客文章、广告及其他内容。","写作建议已关闭","写作建议已开启","您目前已使用","您目前没有已屏蔽的地址。","您没有过滤器。","您尚未设置其他帐号。","地址","个会话/页","修改","隐藏","布局显示 Gmail","更多","/","或","移除","显示"],"zh-TW":["0 封郵件","1 顆星   4 顆星   所有星號","1. 狀態：POP 已停用","帳戶","帳戶和匯入","新增轉寄地址","新增郵件帳戶","新增額外儲存空間：","新增其他帳戶","新增您擁有的其他電子郵件地址","外掛程式","進階","進階：","所有郵件","一律使用 https","封存","自動新增建議的聯絡人：","自動前進","自動允許經常與我聯絡的人和我即時通訊","返回收件匣","海灘","收件匣下方","已封鎖的地址：","瀏覽器連線：","按鈕標籤：","購買更多儲存空間","日曆","取消","罐頭回應","類別","類別：","變更帳戶設定：","變更密碼","變更密碼復原選項","即時通訊","即時通訊記錄：","即時通訊已關閉","即時通訊已開啟","即時通訊：","即時通訊","查看其他帳戶的郵件：","選擇主題：","選擇要在收件匣中以分頁顯示的郵件類別。","經典","按一下這裡","撰寫","撰寫郵件","設定操作說明","聯絡人","無法操作 Gmail 的撰寫視窗。","無法填寫 Gmail 的撰寫視窗。","無法開啟 Gmail 的撰寫視窗。","無法開啟這個會話群組","無法選取這些會話群組","建立篩選器","建立新篩選器","建立新標籤","自訂鍵盤快速鍵","深色","預設","預設「回覆所有人」","刪除","永久刪除","詳細資料","停用","停用 IMAP","在這部電腦上停用離線郵件","停用 POP","停用轉寄","停用懸停操作","停用離線郵件","捨棄","顯示密度","不播放音效","文件","不一律使用 https","草稿","雲端硬碟","啟用","啟用 IMAP","在這部電腦上啟用離線郵件","對所有郵件啟用 POP","對從現在起收到的郵件啟用 POP","啟用懸停操作","啟用離線郵件","已篩選的郵件：","篩選器","篩選器和封鎖的地址","篩選器：","財經","論壇","轉寄","將收到的郵件副本轉寄到","轉寄和 POP","轉寄和 POP/IMAP","轉寄：","一般設定","取得外掛程式","Gmail 未接受這封郵件。","Gmail 未接受這封郵件。撰寫視窗仍然開啟。","Gmail 沒有提供這項操作","Gmail 顯示語言：","Gmail 正以您在 Gplex 中選擇的版面配置顯示。如果影響工作效率，請到 Gplex 設定中將其關閉。","Gmail 將郵件儲存為草稿，而沒有寄出。","Gmail 的撰寫視窗未能及時開啟。","Google 帳戶設定","Google 日曆小工具","Gmail 版 Gplex 已啟用","Gmail 版 Gplex：","授予您帳戶的存取權：","Hangouts","說明","高對比","懸停操作：","IMAP 存取：","圖示","圖片","匯入篩選器","從 Yahoo!、Hotmail、AOL 或其他網路郵件或 POP3 帳戶匯入。","匯入郵件和聯絡人","匯入郵件和聯絡人：","重要性標記：","重要郵件","重要郵件優先","在新視窗中開啟","收件匣","收件匣類型：","輸入工具","已安裝的外掛程式：","鍵盤快速鍵已關閉","鍵盤快速鍵已開啟","鍵盤快速鍵：","標籤","標籤","標籤：","研究室","研究室是實驗性功能，隨時可能變更、失效或消失。","研究室：","語言：","上次帳戶活動：1 分鐘前","上次帳戶活動：22 分鐘前","版面配置","瞭解詳情","載入中…","郵件","管理","地圖","標示為重要郵件","標示為未讀取","每頁顯示上限：","郵件已寄出。","更多","更多操作","山脈","移至","多個收件匣","我的剪輯：","我的相片：","永不儲存即時通訊記錄","新郵件","較新","最新","新聞","沒有帳戶擁有存取權。","未安裝任何外掛程式。","沒有符合搜尋條件的會話群組。","不顯示指標","不顯示標記","沒有其他信箱","無簽名","不顯示摘要","不分割","無","不是垃圾郵件","提醒：","關閉 – 使用一般 Gmail","離線","離線郵件使用 Gears 將您的郵件儲存在這部電腦上。","離線郵件：","較舊","最舊","開啟 – 以","只允許我明確核准的人和我即時通訊","在其他 1 個位置開啟","不使用 Gplex 開啟此頁一次","覆寫篩選器 – 在收件匣中納入重要郵件","POP 下載：","個人層級指標：","相簿","行星","Play","收到新的即時訊息時播放音效","預覽窗格","主要","全部列印","優先收件匣","隱私權","隱私權政策","計畫政策","促銷內容","引用選取的文字","已讀取","閱讀窗格：","重新整理","回覆","回報垃圾郵件","回報垃圾郵件","收件匣右側","右側即時通訊","搜尋郵件","搜尋網頁","儲存變更","立即儲存","在我的 Gmail 帳戶中儲存即時通訊記錄","搜尋郵件","搜尋郵件和文件","依主題或網址搜尋","搜尋剪輯：","搜尋郵件","搜尋網頁","搜尋中…","請先選取一個會話群組","選取一張相片，您寄信給別人時大家都會看到。","選取：","傳送","選擇寄件地址：","傳送中…","寄件備份","寄件備份","在這裡設定狀態","亮面","購物","顯示","顯示所有語言選項","在 IMAP 中顯示","在標籤清單中顯示","顯示指標","顯示標記","在收件匣上方顯示我的網頁剪輯","顯示搜尋選項","顯示摘要","簽名：","智慧撰寫：","摘要：","延後","已延後","社交網路","柔和灰","音效：","垃圾郵件","星號","已加星號","已加星號郵件優先","星號：","狀態：IMAP 已停用 ·","將最近 30 天的郵件儲存在這部電腦上，讓您在沒有網路連線時也能閱讀。","主旨","建議需要追蹤的郵件","建議需要回覆的郵件","Tasks","範本","條款及隱私權","使用條款","文字","版面配置本身是在 google.com 的 Gplex 設定中選擇。","讓 mail.google.com 的外觀配合版面配置","主題","這封郵件似乎有危險","收件者","垃圾桶","樹木","復原傳送","未讀取","未讀取郵件優先","未讀取郵件圖示","未加星號","最新快訊","由 Google 和 Gmail 共同使用","休假回覆已關閉","休假回覆已開啟","休假回覆：","問題很多，不建議使用。類別分頁經常與 Gmail 實際顯示的內容不一致，因此除非您在這裡開啟，否則會保持關閉。","影片","影片","已安裝語音和視訊即時通訊。","語音和視訊即時通訊：","錢包","網頁","網頁剪輯","網頁剪輯會在您的郵件上方顯示新聞標題、網誌文章、廣告和其他項目。","寫作建議已關閉","寫作建議已開啟","您目前已使用","您目前沒有已封鎖的地址。","您沒有任何篩選器。","您尚未設定其他帳戶。","地址","個會話群組/頁","編輯","隱藏","版面配置顯示 Gmail","更多","/","或","移除","顯示"]};
     // extra strings (s: Gmail only, g: google.com too) and the patterns for text Gplex
     // builds from figures: counts, storage, "Moving to Spam..."
@@ -53789,6 +54040,8 @@ html:not([forceload-dd-open]) #ugf-forceload-dd,
 html:not([forceload-dd-open]) #ugf-forceload-fence,
 html:not([settings-display-dd-open]) #ugf-settings-display-dd,
 html:not([settings-display-dd-open]) #ugf-settings-display-fence,
+html:not([dark-dd-open]) #ugf-dark-dd,
+html:not([dark-dd-open]) #ugf-dark-fence,
 html:not([name-email-dd-open]) #ugf-name-email-dd,
 html:not([name-email-dd-open]) #ugf-name-email-fence,
 html:not([apps-dd-open]) #gp-apps-dd,
@@ -58557,6 +58810,8 @@ html[shopping-results] #ugf-center {
             </div>
             <div id="ugf-name-email-fence" class="ugf-fence">
             </div>
+            <div id="ugf-dark-fence" class="ugf-fence">
+            </div>
             <div id="ugf-neuro-fence" class="ugf-fence">
             </div>
             <div id="ugf-gmailon-fence" class="ugf-fence">
@@ -58848,6 +59103,36 @@ html[shopping-results] #ugf-center {
                                                 <!--a id="" class="ugf-dropdown-item" value="none">
                                                     <span>${UImessages.NEnone}</span>
                                                 </a-->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ugf-gplex-section">
+                            <div class="ugf-gplex-section-inner">
+                                <div class="ugf-gplex-section-title">
+                                    <span>Dark mode</span>
+                                </div>
+                                <div class="ugf-gplex-section-content">
+                                    <div id="ugf-option-dark" class="ugf-gplex-option flex" value="${ugfDarkMode()}">
+                                        <a class="ugf-dropdown-button" id="ugf-dark-dd-btn">
+                                            <span>${ugfDarkLabel()}</span>
+                                        </a>
+                                        <div class="ugf-gplex-text">
+                                            <span>Turns the pages dark, for night. Old Google never had a dark mode, so Gplex shows its pages in negative with their colours kept; photos, videos, maps and logos look as they should. YouTube has its own Dark theme in StarTube's settings.</span>
+                                        </div>
+                                        <div class="ugf-dropdown" id="ugf-dark-dd">
+                                            <div class="ugf-dropdown-inner">
+                                                <a id="" class="ugf-dropdown-item" value="off">
+                                                    <span>Off</span>
+                                                </a>
+                                                <a id="" class="ugf-dropdown-item" value="on">
+                                                    <span>On</span>
+                                                </a>
+                                                <a id="" class="ugf-dropdown-item" value="system">
+                                                    <span>Same as my device</span>
+                                                </a>
                                             </div>
                                         </div>
                                     </div>
@@ -62618,6 +62903,31 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                         nameEmail = value;
                         doGplexDropdowns("name-email");
                         document.querySelector("html").removeAttribute("name-email-dd-open");
+                    });
+                });
+                // (7.2.15) dark mode
+                document.querySelector("#ugf-dark-dd-btn").addEventListener("click",function() {
+                    document.querySelector("html").setAttribute("dark-dd-open","");
+                    document.title = "Gplex Settings";
+                });
+                document.querySelector("#ugf-dark-fence").addEventListener("click",function() {
+                    document.querySelector("html").removeAttribute("dark-dd-open");
+                });
+                document.querySelectorAll("#ugf-option-dark .ugf-dropdown-item").forEach(function(itemRoot) {
+                    itemRoot.addEventListener("click",function() {
+                        const value = itemRoot.getAttribute("value");
+                        try {
+                            if (typeof GM_setValue === "function") {
+                                GM_setValue("UGF_DARK", value);
+                            }
+                        } catch (e) {}
+                        try {
+                            localStorage.setItem("UGF_DARK", value);
+                        } catch (e) {}
+                        document.querySelector("#ugf-option-dark").setAttribute("value", value);
+                        document.querySelector("#ugf-option-dark .ugf-dropdown-button span").textContent = itemRoot.textContent.trim();
+                        document.querySelector("html").removeAttribute("dark-dd-open");
+                        ugfDarkSet(value);
                     });
                 });
                 let neuroBtns = document.querySelectorAll("#ugf-option-neuro .ugf-dropdown-item");
@@ -69290,6 +69600,949 @@ html[gplex-gmail] body {
         }
         return fallback;
     }
+    // (gplex-patched) what Gmail's own sidebar says is unread in a mailbox ("Inbox 1792 unread")
+    function ugfGmailNavCount(hash) {
+        const h = String(hash || "").split("/")[0];
+        if (!/^#(inbox|drafts|spam|starred|imp|label)/.test(h) || /^#starred/.test(h)) {
+            return "";
+        }
+        const link = [].filter.call(document.querySelectorAll("a.J-Ke[href]"), function(a) {
+            const href = a.getAttribute("href") || "";
+            return !ugfGmailOurs(a) && href.slice(href.indexOf("#")) === hash;
+        })[0];
+        const m = link && /(\d[\d,.\s]*)\s+unread/i.exec(link.getAttribute("aria-label") || "");
+        const n = m ? parseInt(m[1].replace(/[^\d]/g, ""), 10) : 0;
+        return n ? n.toLocaleString() : "";
+    }
+    // (gplex-patched) Maximum page size, for real: Gmail's own setting, shown as it is and saved there
+    function ugfGmailPageSizeSelect() {
+        const sizes = [10, 15, 20, 25, 50, 100];
+        let cur = 0;
+        // a full first page says it for certain; failing that, what was last saved from here
+        const c = ugfGmailCount();
+        if (c) {
+            const from = parseInt(String(c.from).replace(/[^\d]/g, ""), 10);
+            const to = parseInt(String(c.to).replace(/[^\d]/g, ""), 10);
+            const total = parseInt(String(c.total).replace(/[^\d]/g, ""), 10);
+            if (from === 1 && (c.unknown || total > to)) {
+                cur = to;
+            }
+        }
+        cur = cur || parseInt(ugfGmailShared("UGF_GMAIL_PAGESIZE"), 10) || 50;
+        if (sizes.indexOf(cur) < 0) {
+            cur = 50;
+        }
+        return '<select id="ugf-gmail-pagesize" data-now="' + cur + '">' + sizes.map(function(n) {
+            return '<option value="' + n + '"' + (n === cur ? " selected" : "") + ">" + n + "</option>";
+        }).join("") + "</select>";
+    }
+    function ugfGmailSetPageSize(n, say, done) {
+        const disarm = ugfGmailArm();
+        const before = window.location.hash || "#inbox";
+        const giveUp = function(msg) {
+            disarm();
+            say(msg);
+            if (window.location.hash !== before) {
+                window.location.hash = before;
+            }
+        };
+        say("Saving\u2026");
+        // Gmail's settings open in the layer Gplex hides, while Gplex's settings page stays on screen
+        window.location.hash = "#settings/general";
+        let tries = 0;
+        const iv = setInterval(function() {
+            tries++;
+            const sel = [].filter.call(document.querySelectorAll("select"), function(s) {
+                const has = function(v) {
+                    return [].some.call(s.options, function(o) {
+                        return o.value === v;
+                    });
+                };
+                return !ugfGmailOurs(s) && has("15") && has("100");
+            })[0];
+            if (!sel) {
+                if (tries > 40) {
+                    clearInterval(iv);
+                    giveUp("Gmail's settings did not open.");
+                }
+                return;
+            }
+            clearInterval(iv);
+            try {
+                sel.focus();
+                sel.value = String(n);
+                sel.dispatchEvent(new Event("input", { bubbles: true }));
+                sel.dispatchEvent(new Event("change", { bubbles: true }));
+            } catch (e) {}
+            setTimeout(function() {
+                const words = ugfGmailAlt(["Save Changes"]).map(function(w) {
+                    return String(w).toLowerCase();
+                });
+                const save = [].filter.call(document.querySelectorAll('button, [role="button"]'), function(b) {
+                    return !ugfGmailOurs(b) && !b.disabled && words.indexOf((b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase()) > -1;
+                })[0];
+                if (!save) {
+                    giveUp("Gmail did not offer Save Changes.");
+                    return;
+                }
+                try {
+                    if (typeof GM_setValue === "function") {
+                        GM_setValue("UGF_GMAIL_PAGESIZE", String(n));
+                    }
+                } catch (e) {}
+                ugfGmailRealClick(save);
+                setTimeout(function() {
+                    disarm();
+                    say("Saved: " + n + " conversations per page.");
+                    setTimeout(done, 600);
+                }, 2500);
+            }, 400);
+        }, 250);
+    }
+    // (gplex-patched) Gmail's themes as the 2016 picker had them, from the pictures Google still serves: the plain
+    // ones, the photo themes of 2011 (some changing with the day or the hour, as they did), and the featured photos
+    function ugfGmailThemesHere() {
+        return /^2016/.test(String(layout || ""));
+    }
+    function ugfGmailThemes() {
+        if (ugfGmailThemes.list) {
+            return ugfGmailThemes.list;
+        }
+        const hd = "https://ssl.gstatic.com/ui/v1/icons/mail/themes/";
+        const day = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+        const planet = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"];
+        const hour = function() {
+            const h = new Date().getHours();
+            return h < 6 ? "night" : h < 11 ? "morning" : h < 14 ? "noon" : h < 18 ? "afternoon" : h < 21 ? "evening" : "night";
+        };
+        const list = [
+            { id: "light", name: "Light", plain: true }, { id: "dark", name: "Dark", plain: true },
+            { id: "softgray", name: "Soft Gray", plain: true }, { id: "contrast", name: "High Contrast", plain: true }
+        ];
+        const classic = [
+            ["beach", "Beach", function() { return hd + "beach2/bg_" + day[new Date().getDay()] + "_2560x1600.jpg"; }, hd + "beach2/bg_fri_1280x800.jpg"],
+            ["mountains", "Mountains", function() { return hd + "mountains/bg_" + day[new Date().getDay()] + "_2560x1600.jpg"; }, hd + "mountains/bg_fri_1280x800.jpg"],
+            ["phantasea", "Phantasea", function() { return hd + "phantasea/bg_" + hour() + "_2560x1600.jpg"; }, hd + "phantasea/bg_afternoon_1280x800.jpg"],
+            ["planets", "Planets", function() { return hd + "planets/bg_" + planet[new Date().getDay()] + "_2560x1600.jpg"; }, hd + "planets/bg_moon_1280x800.jpg"],
+            ["desk", "Desk", hd + "desk/bg2_2560x1600.jpg", hd + "desk/bg2_1280x800.jpg"],
+            ["wood", "Wood", hd + "wood/bg_2560x1600.jpg", hd + "wood/bg_1280x800.jpg"],
+            ["treetops", "Treetops", hd + "treetops/bg4_2560x1600.jpg", hd + "treetops/bg4_1280x800.jpg"],
+            ["turf", "Turf", hd + "turf/bg3_2560x1600.jpg", hd + "turf/preview.png"],
+            ["pebbles", "Pebbles", hd + "pebbles/bg4_2560x1600.jpg", hd + "pebbles/preview.png"],
+            ["graffiti", "Graffiti", hd + "graffiti/bg_2560x1600.jpg", hd + "graffiti/bg_1440x900.jpg"],
+            ["android", "Android", hd + "android/bg.jpg", hd + "android/previewHD.png"],
+            ["ocean", "Ocean", hd + "ocean/bg.jpg", hd + "ocean/bg.jpg"]
+        ];
+        classic.forEach(function(c) {
+            list.push({ id: c[0], name: c[1], img: c[2], thumb: c[3] });
+        });
+        for (let n = 1; n <= 257; n++) {
+            list.push({ id: "f" + n, name: "", featured: n });
+        }
+        ugfGmailThemes.list = list;
+        return list;
+    }
+    function ugfGmailThemeImg(t, thumb) {
+        if (t.featured) {
+            const base = "https://www.gstatic.com/mail/themes/featured/f" + t.featured + ".jpg";
+            if (thumb) {
+                return base + "=w380-h234-e365-k-no-nd";
+            }
+            const w = Math.min(2560, Math.round((window.screen.width || 1920) * (window.devicePixelRatio || 1)));
+            return base + "=w" + w + "-h" + Math.round(w / 1.6) + "-e365-k-no-nd";
+        }
+        if (thumb && t.thumb) {
+            return t.thumb;
+        }
+        return typeof t.img === "function" ? t.img() : (t.img || "");
+    }
+    // what is saved: the theme, its text background (light or dark), vignette and blur (0-100)
+    function ugfGmailThemeState() {
+        const n = function(k) {
+            const v = parseInt(ugfGmailShared(k), 10);
+            return isNaN(v) ? 0 : Math.max(0, Math.min(100, v));
+        };
+        return { id: ugfGmailShared("UGF_GMAIL_THEME") || "light", text: ugfGmailShared("UGF_GMAIL_THEME_TEXT") === "dark" ? "dark" : "light",
+            vig: n("UGF_GMAIL_THEME_VIG"), blur: n("UGF_GMAIL_THEME_BLUR") };
+    }
+    function ugfGmailTheme() {
+        const id = ugfGmailThemeState().id;
+        return ugfGmailThemes().filter(function(t) {
+            return t.id === id;
+        })[0] || ugfGmailThemes()[0];
+    }
+    function ugfGmailApplyTheme(chrome, state) {
+        const h = document.documentElement;
+        const s = state || ugfGmailThemeState();
+        const t = ugfGmailThemes().filter(function(x) {
+            return x.id === s.id;
+        })[0] || ugfGmailThemes()[0];
+        ["ugf-gmail-theme", "ugf-gmail-text"].forEach(function(a) {
+            h.removeAttribute(a);
+        });
+        ["--ugf-gmail-bg", "--ugf-gmail-blur", "--ugf-gmail-vig"].forEach(function(p) {
+            h.style.removeProperty(p);
+        });
+        if (t.id === "light" || ugfGmailFeatures(ugfGmailEra()).settings.indexOf("Themes") < 0) {
+            return;
+        }
+        if (t.plain) {
+            h.setAttribute("ugf-gmail-theme", t.id);
+            return;
+        }
+        h.setAttribute("ugf-gmail-theme", "photo");
+        h.setAttribute("ugf-gmail-text", s.text);
+        h.style.setProperty("--ugf-gmail-bg", 'url("' + ugfGmailThemeImg(t) + '")');
+        h.style.setProperty("--ugf-gmail-blur", (s.blur / 100 * 24).toFixed(1) + "px");
+        h.style.setProperty("--ugf-gmail-vig", (s.vig / 100 * 0.85).toFixed(2));
+    }
+    function ugfGmailSaveTheme(s) {
+        try {
+            if (typeof GM_setValue === "function") {
+                GM_setValue("UGF_GMAIL_THEME", s.id);
+                GM_setValue("UGF_GMAIL_THEME_TEXT", s.text);
+                GM_setValue("UGF_GMAIL_THEME_VIG", String(s.vig));
+                GM_setValue("UGF_GMAIL_THEME_BLUR", String(s.blur));
+            }
+        } catch (e) {}
+        ugfGmailApplyTheme(ugfGmailChrome(ugfGmailEra()), s);
+    }
+    // (gplex-patched) "Pick your theme", the 2014-2016 window: pictures in a grid, Save and Cancel, and along the foot
+    // the text background (Light or Dark), vignette and blur; what is picked shows behind it at once
+    function ugfGmailThemePicker(onDone) {
+        if (document.getElementById("ugf-gmail-themepick")) {
+            return;
+        }
+        const esc = ugfEscapeHtml;
+        const chrome = ugfGmailChrome(ugfGmailEra());
+        const saved = ugfGmailThemeState();
+        const now = { id: saved.id, text: saved.text, vig: saved.vig, blur: saved.blur };
+        const scrim = document.createElement("div");
+        scrim.id = "ugf-gmail-themepick";
+        let grid = "";
+        ugfGmailThemes().forEach(function(t) {
+            const img = t.plain ? "" : ugfGmailThemeImg(t, true);
+            grid += '<a href="#" class="tp-th' + (t.id === now.id ? " on" : "") + '" data-theme="' + esc(t.id) + '" data-plain="' + (t.plain ? t.id : "") + '"' +
+                (t.name ? ' title="' + esc(t.name) + '"' : "") + ">" +
+                (img ? '<img loading="lazy" alt="" src="' + esc(img) + '">' : "") +
+                (t.plain || t.name ? '<span class="tp-name">' + esc(t.name) + "</span>" : "") + "</a>";
+        });
+        scrim.innerHTML = trusted_policy.createHTML(
+            '<div class="tp-box" role="dialog" aria-label="Pick your theme">' +
+                '<div class="tp-head">Pick your theme<a href="#" class="tp-x" title="Close">&times;</a></div>' +
+                '<div class="tp-grid">' + grid + "</div>" +
+                '<div class="tp-foot">' +
+                    '<button class="tp-save">Save</button><button class="tp-cancel">Cancel</button>' +
+                    '<span class="tp-sep"></span>' +
+                    '<button class="tp-tool" data-tool="text" title="Text background"><b>A</b></button>' +
+                    '<button class="tp-tool" data-tool="vig" title="Vignette"><i class="tp-vig"></i></button>' +
+                    '<button class="tp-tool" data-tool="blur" title="Blur"><i class="tp-blur"></i></button>' +
+                    '<div class="tp-pop" data-pop="text" hidden><div class="tp-poptitle">Text background</div>' +
+                        '<div class="tp-seg"><button data-text="light">Light</button><button data-text="dark">Dark</button></div></div>' +
+                    '<div class="tp-pop" data-pop="vig" hidden><div class="tp-poptitle">Vignette</div><input type="range" min="0" max="100" data-range="vig"></div>' +
+                    '<div class="tp-pop" data-pop="blur" hidden><div class="tp-poptitle">Blur</div><input type="range" min="0" max="100" data-range="blur"></div>' +
+                "</div>" +
+            "</div>");
+        // on <html>, beside the page Gplex hides
+        document.documentElement.appendChild(scrim);
+        const box = scrim.querySelector(".tp-box");
+        const preview = function() {
+            ugfGmailApplyTheme(chrome, now);
+            const t = ugfGmailThemes().filter(function(x) {
+                return x.id === now.id;
+            })[0];
+            // a plain theme has no picture to lay text, vignette or blur over
+            box.querySelectorAll(".tp-tool").forEach(function(b) {
+                b.disabled = !t || !!t.plain;
+            });
+            box.querySelectorAll(".tp-seg button").forEach(function(b) {
+                b.classList.toggle("on", b.getAttribute("data-text") === now.text);
+            });
+            box.querySelectorAll("input[data-range]").forEach(function(r) {
+                r.value = String(now[r.getAttribute("data-range")]);
+            });
+        };
+        const closePops = function() {
+            box.querySelectorAll(".tp-pop").forEach(function(p) {
+                p.hidden = true;
+            });
+            box.querySelectorAll(".tp-tool").forEach(function(b) {
+                b.classList.remove("open");
+            });
+        };
+        const finish = function(keep) {
+            if (keep) {
+                ugfGmailSaveTheme(now);
+            } else {
+                ugfGmailApplyTheme(chrome, saved);
+            }
+            scrim.remove();
+            if (typeof onDone === "function") {
+                onDone();
+            }
+        };
+        box.querySelectorAll(".tp-th").forEach(function(a) {
+            a.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                now.id = a.getAttribute("data-theme");
+                box.querySelectorAll(".tp-th.on").forEach(function(o) {
+                    o.classList.remove("on");
+                });
+                a.classList.add("on");
+                closePops();
+                preview();
+            });
+        });
+        box.querySelectorAll(".tp-tool").forEach(function(b) {
+            b.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                const pop = box.querySelector('.tp-pop[data-pop="' + b.getAttribute("data-tool") + '"]');
+                const was = !pop.hidden;
+                closePops();
+                if (!was) {
+                    pop.hidden = false;
+                    b.classList.add("open");
+                    const r = b.getBoundingClientRect();
+                    const f = box.querySelector(".tp-foot").getBoundingClientRect();
+                    pop.style.left = Math.round(r.left - f.left + r.width / 2 - pop.offsetWidth / 2) + "px";
+                }
+            });
+        });
+        box.querySelectorAll(".tp-seg button").forEach(function(b) {
+            b.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                now.text = b.getAttribute("data-text");
+                preview();
+            });
+        });
+        box.querySelectorAll("input[data-range]").forEach(function(r) {
+            r.addEventListener("input", function() {
+                now[r.getAttribute("data-range")] = parseInt(r.value, 10) || 0;
+                preview();
+            });
+        });
+        box.querySelector(".tp-save").addEventListener("click", function() {
+            finish(true);
+        });
+        box.querySelector(".tp-cancel").addEventListener("click", function() {
+            finish(false);
+        });
+        box.querySelector(".tp-x").addEventListener("click", function(ev) {
+            ev.preventDefault();
+            finish(false);
+        });
+        scrim.addEventListener("mousedown", function(ev) {
+            if (ev.target === scrim) {
+                finish(false);
+            } else if (!ev.target.closest(".tp-pop, .tp-tool")) {
+                closePops();
+            }
+        });
+        preview();
+        const on = box.querySelector(".tp-th.on");
+        if (on) {
+            on.scrollIntoView({ block: "center" });
+        }
+    }
+    // (gplex-patched) 2013-2016: "More" at the foot of the sidebar, as Gmail had it, holding Chats and the inbox
+    // categories (in place of the "Chat / Set status here" box, a Hangouts list that never filled)
+    function ugfGmailFoldNav(shell, chrome) {
+        const nav = shell.querySelector("#ugf-gmail-nav");
+        if (!nav || chrome !== "m2013" || nav.querySelector(".ugf-gmail-more")) {
+            return;
+        }
+        const m = /^\/mail\/u\/(\d+)\//.exec(window.location.pathname || "");
+        const box = document.createElement("div");
+        box.className = "ugf-gmail-more";
+        const item = function(text, href, cls) {
+            const a = document.createElement("a");
+            a.href = href;
+            a.textContent = text;
+            if (cls) {
+                a.className = cls;
+            }
+            box.appendChild(a);
+            return a;
+        };
+        const chats = item("Chats", "https://chat.google.com/u/" + (m ? m[1] : "0") + "/", "ugf-gmail-chats");
+        chats.target = "_blank";
+        chats.rel = "noopener";
+        const head = document.createElement("div");
+        head.className = "ugf-gmail-morehead";
+        head.textContent = "Categories";
+        box.appendChild(head);
+        [["Social", "social"], ["Promotions", "promotions"], ["Updates", "updates"], ["Forums", "forums"]].forEach(function(c) {
+            const a = item(c[0], ugfGmailMailUrl("#category/" + c[1]), "ugf-gmail-cat");
+            if (ugfGmailListOf(window.location.hash) === "#category/" + c[1]) {
+                a.classList.add("active");
+            }
+            a.addEventListener("click", function(ev) {
+                if (ev.ctrlKey || ev.metaKey || ev.shiftKey) {
+                    return;
+                }
+                ev.preventDefault();
+                window.location.hash = "#category/" + c[1];
+                setTimeout(ugfGmailRender, 900);
+            });
+        });
+        const open = ugfGmailShared("UGF_GMAIL_MORE") === "1" || /^#category\//.test(window.location.hash || "");
+        const tog = document.createElement("a");
+        tog.href = "#";
+        tog.className = "ugf-gmail-moretog";
+        const label = function(on) {
+            tog.textContent = on ? "Less " : "More ";
+            const c = document.createElement("span");
+            c.className = "caret";
+            c.textContent = on ? "▴" : "▾";
+            tog.appendChild(c);
+        };
+        label(open);
+        box.hidden = !open;
+        tog.addEventListener("click", function(ev) {
+            ev.preventDefault();
+            box.hidden = !box.hidden;
+            label(!box.hidden);
+            try {
+                if (typeof GM_setValue === "function") {
+                    GM_setValue("UGF_GMAIL_MORE", box.hidden ? "0" : "1");
+                }
+            } catch (e) {}
+        });
+        const chat = nav.querySelector("#ugf-gmail-chat");
+        nav.insertBefore(tog, chat);
+        nav.insertBefore(box, chat);
+        if (chat) {
+            chat.remove();
+        }
+    }
+    function ugfGmailThemeCss() {
+        const P = 'html[gplex-gmail][ugf-gmail-theme="photo"]';
+        const PD = P + '[ugf-gmail-text="dark"]';
+        const D = 'html[gplex-gmail][ugf-gmail-theme="dark"]';
+        // photo and Dark alike: white words over the page, the toolbar's buttons lightened over it
+        const PX = function(sel) {
+            return P + " " + sel + ", " + D + " " + sel;
+        };
+        return [
+            // More / Less, and what it holds
+            "#ugf-gmail-nav .ugf-gmail-more[hidden] { display: none; }",
+            "#ugf-gmail[chrome=\"m2013\"] #ugf-gmail-nav a.ugf-gmail-moretog { color: #222; }",
+            "#ugf-gmail-nav .ugf-gmail-morehead { padding: 6px 0 0 31px; font-size: 13px; line-height: 28px; color: #222; }",
+            "#ugf-gmail[chrome=\"m2013\"] #ugf-gmail-nav a.ugf-gmail-cat { padding-left: 44px; }",
+            "#ugf-gmail-nav .ugf-gmail-moretog .caret { font-size: 10px; margin-left: 3px; color: #777; }",
+            // Settings > Themes on the 2016 layout
+            "#ugf-gmail-settheme { height: 29px; padding: 0 14px; border: 1px solid rgba(0,0,0,.1); border-radius: 2px; background: linear-gradient(#f5f5f5, #f1f1f1); color: #444; font: bold 11px arial, sans-serif; cursor: pointer; }",
+            "#ugf-gmail-settheme:hover { border-color: #c6c6c6; box-shadow: 0 1px 1px rgba(0,0,0,.1); color: #222; }",
+            // ---- Pick your theme, as the 2014-2016 window
+            "#ugf-gmail-themepick { position: fixed; inset: 0; z-index: 2147483000; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.25); font-family: arial, sans-serif; }",
+            "#ugf-gmail-themepick .tp-box { width: min(1176px, calc(100vw - 80px)); height: min(766px, calc(100vh - 60px)); background: #fff; border: 1px solid #acacac; border-color: rgba(0,0,0,.33); box-shadow: 0 4px 16px rgba(0,0,0,.2); display: flex; flex-direction: column; }",
+            "#ugf-gmail-themepick .tp-head { position: relative; padding: 38px 44px 20px; font-size: 20px; color: #222; }",
+            "#ugf-gmail-themepick .tp-x { position: absolute; right: 22px; top: 26px; font-size: 26px; line-height: 1; color: #777; text-decoration: none; }",
+            "#ugf-gmail-themepick .tp-x:hover { color: #222; }",
+            "#ugf-gmail-themepick .tp-grid { flex: 1 1 auto; overflow-y: auto; padding: 4px 44px 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 12px; align-content: start; border-top: 1px solid #ebebeb; }",
+            // (each tile 263 x 162, as the window's were, held by its padding: the grid squeezed them flat otherwise)
+            "#ugf-gmail-themepick .tp-th { position: relative; display: block; height: 0; padding-top: 61.6%; background: #eee center / cover no-repeat; outline: 3px solid transparent; outline-offset: 0; overflow: hidden; }",
+            "#ugf-gmail-themepick .tp-th img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }",
+            "#ugf-gmail-themepick .tp-th:hover { outline-color: rgba(77,144,254,.5); }",
+            "#ugf-gmail-themepick .tp-th.on { outline-color: #4d90fe; }",
+            "#ugf-gmail-themepick .tp-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 8px; font-size: 12px; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.55)); text-shadow: 0 1px 1px rgba(0,0,0,.5); }",
+            "#ugf-gmail-themepick .tp-th[data-plain] .tp-name { color: #444; background: none; text-shadow: none; bottom: 6px; }",
+            "#ugf-gmail-themepick .tp-th[data-plain=\"light\"] { background: #fff; box-shadow: inset 0 0 0 1px #ddd; }",
+            "#ugf-gmail-themepick .tp-th[data-plain=\"dark\"] { background: linear-gradient(#222 0 26%, #fff 26% 100%); box-shadow: inset 0 0 0 1px #444; }",
+            "#ugf-gmail-themepick .tp-th[data-plain=\"softgray\"] { background: linear-gradient(#d9d9d9 0 26%, #f5f5f5 26% 100%); box-shadow: inset 0 0 0 1px #ddd; }",
+            "#ugf-gmail-themepick .tp-th[data-plain=\"contrast\"] { background: linear-gradient(#000 0 26%, #fff 26% 100%); box-shadow: inset 0 0 0 2px #000; }",
+            "#ugf-gmail-themepick .tp-foot { position: relative; display: flex; align-items: center; gap: 12px; padding: 18px 44px 30px; border-top: 1px solid #ebebeb; }",
+            "#ugf-gmail-themepick .tp-foot button { height: 38px; min-width: 98px; padding: 0 16px; border-radius: 2px; font: bold 13px arial, sans-serif; cursor: pointer; }",
+            "#ugf-gmail-themepick .tp-save { border: 1px solid #3079ed; background: linear-gradient(#4d90fe, #4787ed); color: #fff; }",
+            "#ugf-gmail-themepick .tp-save:hover { background: linear-gradient(#4d90fe, #357ae8); border-color: #2f5bb7; }",
+            "#ugf-gmail-themepick .tp-cancel { border: 1px solid rgba(0,0,0,.1); background: linear-gradient(#f5f5f5, #f1f1f1); color: #444; }",
+            "#ugf-gmail-themepick .tp-cancel:hover { border-color: #c6c6c6; color: #222; }",
+            "#ugf-gmail-themepick .tp-sep { width: 1px; height: 28px; background: #e5e5e5; margin: 0 6px; }",
+            "#ugf-gmail-themepick .tp-foot .tp-tool { min-width: 0; width: 74px; padding: 0; border: 1px solid transparent; background: none; color: #777; display: inline-flex; align-items: center; justify-content: center; }",
+            "#ugf-gmail-themepick .tp-tool:hover:not(:disabled), #ugf-gmail-themepick .tp-tool.open { border-color: #c6c6c6; background: linear-gradient(#eee, #e0e0e0); box-shadow: inset 0 1px 2px rgba(0,0,0,.1); }",
+            "#ugf-gmail-themepick .tp-tool:disabled { opacity: .35; cursor: default; }",
+            "#ugf-gmail-themepick .tp-tool b { display: inline-block; width: 22px; height: 22px; line-height: 22px; border: 2px solid #777; border-radius: 2px; background: #999; color: #fff; font: bold 17px arial, sans-serif; text-align: center; }",
+            "#ugf-gmail-themepick .tp-vig { display: inline-block; width: 28px; height: 18px; border: 2px solid #777; border-radius: 4px; background: radial-gradient(ellipse at center, #fff 45%, #999 100%); }",
+            "#ugf-gmail-themepick .tp-blur { display: inline-block; width: 22px; height: 22px; background: radial-gradient(circle, #999 1.6px, transparent 2.2px) 0 0 / 5.5px 5.5px; opacity: .8; }",
+            "#ugf-gmail-themepick .tp-pop { position: absolute; bottom: 74px; min-width: 200px; padding: 14px 20px 18px; background: #fff; border: 1px solid #ccc; border-color: rgba(0,0,0,.2); box-shadow: 0 2px 4px rgba(0,0,0,.2); }",
+            "#ugf-gmail-themepick .tp-pop::after { content: ''; position: absolute; left: 50%; bottom: -9px; margin-left: -9px; border: 9px solid transparent; border-bottom: 0; border-top-color: #fff; filter: drop-shadow(0 1px 0 rgba(0,0,0,.2)); }",
+            "#ugf-gmail-themepick .tp-pop[hidden] { display: none; }",
+            "#ugf-gmail-themepick .tp-poptitle { font-size: 16px; color: #555; margin-bottom: 12px; white-space: nowrap; }",
+            "#ugf-gmail-themepick .tp-seg { display: flex; }",
+            "#ugf-gmail-themepick .tp-foot .tp-seg button { min-width: 98px; height: 36px; border: 1px solid #ccc; background: linear-gradient(#f5f5f5, #f1f1f1); color: #444; border-radius: 0; }",
+            "#ugf-gmail-themepick .tp-seg button + button { border-left: 0; }",
+            "#ugf-gmail-themepick .tp-seg button.on { background: linear-gradient(#eee, #e0e0e0); box-shadow: inset 0 1px 2px rgba(0,0,0,.1); color: #222; }",
+            "#ugf-gmail-themepick .tp-pop input[type=range] { width: 180px; }",
+            // the grid of themes (Settings > Themes, outside the 2016 layout)
+            ".ugf-gmail-themes { display: flex; flex-wrap: wrap; gap: 10px; max-width: 620px; max-height: 420px; overflow-y: auto; padding: 2px; }",
+            ".ugf-gmail-themes .theme { width: 108px; font-size: 11px; text-align: center; cursor: pointer; color: inherit; text-decoration: none; }",
+            ".ugf-gmail-themes .theme i { position: relative; display: block; height: 64px; border: 1px solid #ccc; margin-bottom: 3px; overflow: hidden; background: #fff; }",
+            ".ugf-gmail-themes .theme i img { width: 100%; height: 100%; object-fit: cover; display: block; }",
+            ".ugf-gmail-themes .theme.on i { border: 2px solid #4d90fe; }",
+            ".ugf-gmail-themes .theme[data-plain=\"dark\"] i { background: linear-gradient(#222 0 26%, #fff 26%); }",
+            ".ugf-gmail-themes .theme[data-plain=\"softgray\"] i { background: linear-gradient(#d9d9d9 0 26%, #f5f5f5 26%); }",
+            ".ugf-gmail-themes .theme[data-plain=\"contrast\"] i { background: linear-gradient(#000 0 26%, #fff 26%); border-color: #000; }",
+            // Gplex's dark mode turns pages negative; a themed Gmail already has its own colours (and its photo
+            // would come out negative), so it is left as it is
+            "html[ugf-dark][gplex-gmail][ugf-gmail-theme] { filter: none !important; }",
+            "html[ugf-dark][gplex-gmail][ugf-gmail-theme] :is(img, video, canvas, embed, object, iframe, picture, [ugf-dark-keep]) { filter: none !important; }",
+            // ---- the themes on the page
+            // the picture, its blur and its vignette: behind Gplex's page, in front of the Gmail it hides
+            P + " body { background: #222 !important; }",
+            P + " body::before { content: ''; position: fixed; inset: -40px; z-index: 1; pointer-events: none; background: var(--ugf-gmail-bg) center / cover no-repeat; filter: blur(var(--ugf-gmail-blur, 0px)); }",
+            P + " body::after { content: ''; position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,var(--ugf-gmail-vig, 0)) 100%); }",
+            D + " body { background: #333 !important; }",
+            PX("#ugf-gmail") + " { background: transparent !important; }",
+            PX("#ugf-gmail[chrome] #ugf-gmail-top") + ", " + PX("#ugf-gmail[chrome] #ugf-gmail-nav") + ", " + PX("#ugf-gmail[chrome] #ugf-gmail-main") + " { background: transparent !important; border-bottom-color: transparent !important; }",
+            PX("#ugf-gmail[chrome] #ugf-gmail-footer") + " { border-top: 0; }",
+            // white over the picture, with a shadow to hold it off it
+            PX("#ugf-gmail[chrome] #ugf-gmail-nav a") + ", " + PX("#ugf-gmail-nav .ugf-gmail-morehead") + ", " + PX("#ugf-gmail-gmark .wordmark") + ", " + PX("#ugf-gmail-gmark .caret") + ", " +
+                PX("#ugf-gmail-nav .ugf-gmail-moretog .caret") + ", " + PX("#ugf-gmail-count") + ", " + PX("#ugf-gmail-footer") + ", " + PX("#ugf-gmail-footer a") + ", " + PX("#ugf-gmail-footer *") +
+                " { color: #fff !important; text-shadow: 0 1px 1px rgba(0,0,0,.45); }",
+            PX("#ugf-gmail[chrome] #ugf-gmail-nav a.active") + " { color: #fff !important; border-left-color: #fff !important; background: transparent !important; font-weight: bold; }",
+            PX("#ugf-gmail[chrome] #ugf-gmail-nav a:hover") + " { background: rgba(255,255,255,.15) !important; }",
+            PX("#ugf-gmail-count") + " { font-weight: bold; }",
+            // the other eras' words on the page itself: the Google bar's links (2007-2010), search options,
+            // the account links and +You, Select: All None..., Older/Oldest, Chat, and 2011's "Mail"
+            [PX("#ugf-gmail-gbar a"), PX("#ugf-gmail-gbar b"), PX("#ugf-gmail-gbar span"), PX("#ugf-gmail-gbar-settings"), PX("#ugf-gmail-opts"), PX("#ugf-gmail-opts a"),
+                PX("#ugf-gmail-filter"), PX("#ugf-gmail-filter a"), PX("#ugf-gmail-account > a"), PX("#ugf-gmail-account .plusname"), PX("#ugf-gmail-select"),
+                PX("#ugf-gmail-select a"), PX("#ugf-gmail-count a"), PX("#ugf-gmail-count span"), PX("#ugf-gmail-chat"), PX("#ugf-gmail-chat *"), PX("#ugf-gmail-navtitle"),
+                PX("#ugf-gmail-nav .ugf-gmail-navhead"), PX("#ugf-gmail-top > a"), PX("#ugf-gmail-searchrow a")].join(", ") +
+                " { color: #fff !important; text-shadow: 0 1px 1px rgba(0,0,0,.45); }",
+            PX("#ugf-gmail-chat") + " { border-top-color: rgba(255,255,255,.3) !important; }",
+            // the white Google bar of 2007-2010 over the picture (the black one of 2011-2012 stays black)
+            PX("#ugf-gmail[chrome=\"classic\"] #ugf-gmail-gbar") + " { background: rgba(0,0,0,.18) !important; border-color: rgba(255,255,255,.25) !important; }",
+            // 2018 on (Material): its own grey and white panels and dark icons gave way to the picture
+            [PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-body"), PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-logo"), PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-top"),
+                PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-nav"), PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-main")].join(", ") + " { background: transparent !important; border-color: transparent !important; }",
+            PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-logo img") + ", " + PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-nav a:not(#ugf-gmail-compose) :is(svg, img)") +
+                " { filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0,0,0,.4)); }",
+            PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-logo .hamburger i") + " { background: #fff !important; }",
+            PX("#ugf-gmail[chrome] #ugf-gmail-nav a#ugf-gmail-compose.pill") + " { color: #3c4043 !important; text-shadow: none; }",
+            PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-nav a.active") + " { background: rgba(255,255,255,.22) !important; border-left-color: transparent !important; }",
+            PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-toolbar button.icon") + ", " + PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-thread-bar button.icon") +
+                " { background: transparent !important; border-color: transparent !important; }",
+            PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-toolbar button.icon svg") + ", " + PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-thread-bar button.icon svg") +
+                " { fill: #fff !important; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }",
+            PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-account .ic svg") + ", " + PX("#ugf-gmail[chrome=\"m2018\"] #ugf-gmail-account .ic svg *") +
+                " { fill: #fff !important; }",
+            PX("#ugf-gmail-logo img.google-mark") + " { filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,.5)); }",
+            PX("#ugf-gmail-apps") + " { filter: brightness(0) invert(1); }",
+            // the toolbar's buttons, lightened over the picture
+            PX("#ugf-gmail-toolbar button") + ", " + PX("#ugf-gmail-toolbar .btn") + ", " + PX("#ugf-gmail-thread-bar button") + ", " + PX("#ugf-gmail-thread-nav button") +
+                " { background: rgba(255,255,255,.75) !important; border-color: rgba(0,0,0,.12) !important; }",
+            PX("#ugf-gmail-toolbar button:hover") + ", " + PX("#ugf-gmail-thread-bar button:hover") + " { background: rgba(255,255,255,.92) !important; }",
+            // Compose: the light button of the themed pages, not the red one
+            PX("#ugf-gmail[chrome] #ugf-gmail-nav a#ugf-gmail-compose.shot") + " { position: relative; display: block !important; width: 117px !important; height: 29px !important; box-sizing: border-box; " +
+                "background: linear-gradient(#f8f8f8, #ececec) !important; border: 1px solid rgba(0,0,0,.12) !important; border-radius: 2px; text-shadow: none; }",
+            PX("#ugf-gmail[chrome] #ugf-gmail-nav a#ugf-gmail-compose.shot:hover") + " { background: linear-gradient(#fff, #f1f1f1) !important; border-color: #c6c6c6 !important; opacity: 1; }",
+            PX("#ugf-gmail-compose.shot img") + " { visibility: hidden; }",
+            PX("#ugf-gmail-compose.shot::after") + " { content: 'COMPOSE'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: bold 11px/1 arial, sans-serif; color: #444; letter-spacing: .2px; }",
+            // the list: light (or dark) and see-through, the picture showing through it
+            PX("#ugf-gmail-list tr") + " { background: rgba(255,255,255,.62) !important; }",
+            PX("#ugf-gmail-list tr.unread") + " { background: rgba(255,255,255,.8) !important; }",
+            PX("#ugf-gmail-list tr:hover") + " { background: rgba(255,255,255,.9) !important; }",
+            PX("#ugf-gmail-list") + " { border-collapse: collapse; box-shadow: 0 0 0 1px rgba(0,0,0,.18), 0 1px 3px rgba(0,0,0,.2); }",
+            PX("#ugf-gmail-list td") + " { border-top: 1px solid rgba(0,0,0,.1) !important; border-bottom: 0 !important; }",
+            PD + " #ugf-gmail-list tr { background: rgba(0,0,0,.5) !important; }",
+            PD + " #ugf-gmail-list tr.unread { background: rgba(0,0,0,.66) !important; }",
+            PD + " #ugf-gmail-list tr:hover { background: rgba(0,0,0,.75) !important; }",
+            PD + " #ugf-gmail-list td { color: #fff !important; border-top-color: rgba(255,255,255,.1) !important; }",
+            PD + " #ugf-gmail-list { box-shadow: 0 0 0 1px rgba(255,255,255,.15), 0 1px 3px rgba(0,0,0,.3); }",
+            PD + " #ugf-gmail-list .snippet { color: rgba(255,255,255,.7) !important; }",
+            PD + " #ugf-gmail-list td.ugf-gmail-star:not(.on) { color: rgba(255,255,255,.5) !important; }",
+            PX("#ugf-gmail-list tr.checked") + " { background: rgba(255,249,196,.92) !important; }",
+            // a conversation and the settings stay on white, to be read
+            PX("#ugf-gmail-settings-body") + ", " + PX("#ugf-gmail-settings-tabs") + " { background: #fff; }",
+            PX("#ugf-gmail-thread") + " { background: rgba(255,255,255,.82); padding: 0 12px 12px; box-shadow: 0 0 0 1px rgba(0,0,0,.18), 0 1px 3px rgba(0,0,0,.2); }",
+            PD + " #ugf-gmail-thread { background: rgba(0,0,0,.6); color: #fff; }",
+            PD + " #ugf-gmail-thread .ugf-gmail-msg-addr, " + PD + " #ugf-gmail-thread .ugf-gmail-msg-to, " + PD + " #ugf-gmail-thread .ugf-gmail-msg-right { color: rgba(255,255,255,.75) !important; }",
+            PX("#ugf-gmail-thread #ugf-gmail-thread-bar") + " { background: transparent; }",
+            PX("h1#ugf-gmail-subject") + " { background: transparent; }",
+            // Soft Gray
+            'html[gplex-gmail][ugf-gmail-theme="softgray"] body, html[gplex-gmail][ugf-gmail-theme="softgray"] #ugf-gmail, html[gplex-gmail][ugf-gmail-theme="softgray"] #ugf-gmail[chrome] #ugf-gmail-top, html[gplex-gmail][ugf-gmail-theme="softgray"] #ugf-gmail[chrome] #ugf-gmail-nav { background: #e9e9e9 !important; }',
+            'html[gplex-gmail][ugf-gmail-theme="softgray"] #ugf-gmail[chrome] #ugf-gmail-main { background: #fff !important; padding: 0 12px 20px 12px; margin: 0 16px 16px 0; box-shadow: 0 1px 3px rgba(0,0,0,.2); }',
+            // High Contrast: black on white, every edge drawn
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail[chrome] #ugf-gmail-top { background: #000 !important; }',
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail[chrome] #ugf-gmail-main { box-shadow: none; border: 1px solid #000; padding: 0 12px 20px 12px; margin: 0 16px 16px 0; }',
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail-list tr { background: #fff !important; color: #000 !important; }',
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail-list td { border-bottom: 1px solid #000 !important; }',
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail-list td:not(.ugf-gmail-star):not(.ugf-gmail-imp) { color: #000 !important; }',
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail-list .snippet { color: #333 !important; }',
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail[chrome] #ugf-gmail-nav a { color: #000 !important; }',
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail[chrome] #ugf-gmail-nav a.active { color: #000 !important; border-left-color: #000 !important; text-decoration: underline; }',
+            'html[gplex-gmail][ugf-gmail-theme="contrast"] #ugf-gmail-logo img.google-mark { filter: brightness(0) invert(1); }'
+        ].join("\n");
+    }
+    // (gplex-patched) the sender column as Gmail fills it: "me, Greg (4)", "To: Greg" in Sent, "Draft"
+    function ugfGmailFromCell(tr) {
+        const cell = tr.querySelector(".yW");
+        if (!cell) {
+            return "";
+        }
+        const c = cell.cloneNode(true);
+        let count = "";
+        c.querySelectorAll(".bx0").forEach(function(n) {
+            count = (n.textContent || "").trim();
+            n.remove();
+        });
+        if (!count) {
+            const n = tr.querySelector(".bx0");
+            count = n ? (n.textContent || "").trim() : "";
+        }
+        const txt = (c.textContent || "").replace(/\s+/g, " ").trim();
+        return txt ? txt + (count ? " (" + count + ")" : "") : "";
+    }
+    // (gplex-patched) Gmail's print view says "Thu, Sep 24, 2026 at 11:21 AM" and the conversation
+    // "Sep 24, 2026, 11:21 AM": the same message is the same sender on the same day at the same minute
+    function ugfGmailMsgTime(m) {
+        const t = Date.parse(String(m.date || "").replace(/\s+at\s+/, " ").replace(/\u202f/g, " "));
+        return isNaN(t) ? 0 : t;
+    }
+    function ugfGmailMsgKey(m) {
+        const d = String(m.date || "");
+        const day = d.match(/([A-Za-z]{3})[a-z]*\.? (\d{1,2}),? (\d{4})/);
+        const tm = d.match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])?/);
+        if (!day || !tm) {
+            return "";
+        }
+        return String(m.email || "").toLowerCase() + "|" + day[1].toLowerCase() + day[2] + day[3] + "|" + tm[1] + ":" + tm[2] + (tm[3] || "").toLowerCase();
+    }
+    // (gplex-patched) the print view's "To: Lakshmipathi K <klpathi@yahoo.com>, Akhil K <you@...>" as
+    // Gmail writes it under a sender: "to Lakshmipathi, me"
+    function ugfGmailShortTo(list) {
+        const raw = String(list || "").replace(/\s*\b(Cc|Bcc):\s*/gi, ", ");
+        if (raw.indexOf("@") < 0) {
+            return raw || ugfT("to me");
+        }
+        const me = String(ugfGmailIdentity().email || "").toLowerCase();
+        const out = [];
+        (raw.match(/(?:"[^"]*"|<[^>]*>|[^,<"])+/g) || []).forEach(function(p) {
+            const mail = (p.match(/<([^>]+)>/) || [])[1] || (p.indexOf("@") > -1 ? p.trim() : "");
+            const name = p.replace(/<[^>]*>/g, "").replace(/"/g, "").trim();
+            if (mail && mail.toLowerCase() === me) {
+                out.push("me");
+            } else if (name && name.indexOf("@") < 0) {
+                out.push(name.split(" ")[0]);
+            } else if (mail) {
+                out.push(mail.split("@")[0]);
+            }
+        });
+        return out.length ? "to " + out.join(", ") : ugfT("to me");
+    }
+    // (gplex-patched) your own photo, as Gmail shows it beside its reply box
+    function ugfGmailMyPhoto() {
+        const mine = [].filter.call(document.querySelectorAll("img.ajn.bofPge[src]"), function(i) {
+            return !ugfGmailOurs(i);
+        })[0];
+        const src = mine ? mine.getAttribute("src") : ugfGmailIdentity().photo;
+        return src ? '<span class="ugf-gmail-avatar sq has-photo"><img src="' + ugfEscapeHtml(src) + '" alt=""></span>'
+            : '<span class="ugf-gmail-avatar sq"></span>';
+    }
+    // (gplex-patched) where the open conversation sits in the list it was opened from (Gmail's own
+    // counter is the list's, "1-50 of 2,002", and its Newer and Older are greyed out for a
+    // conversation opened from its address, as Gplex opens them)
+    function ugfGmailThreadPos() {
+        const o = ugfGmailOpenRow.list;
+        if (!o || !o.items.length || ugfGmailListOf(window.location.hash) !== o.hash) {
+            return null;
+        }
+        const tid = ugfGmailPrintTid();
+        let i = -1;
+        o.items.forEach(function(it, n) {
+            if (i < 0 && tid && it.tid === tid) {
+                i = n;
+            }
+        });
+        return i < 0 ? null : { list: o.items, i: i, from: o.from, total: o.total };
+    }
+    function ugfGmailThreadCounter() {
+        const p = ugfGmailThreadPos();
+        return p ? (p.from + p.i) + " of " + (p.total || p.list.length) : "";
+    }
+    function ugfGmailPrintOpen() {
+        const tid = ugfGmailPrintTid();
+        const m = /^\/mail\/u\/\d+\//.exec(window.location.pathname || "");
+        if (tid) {
+            window.open((m ? m[0] : "/mail/u/0/") + "?ui=2&view=pt&search=all&th=" + tid, "_blank");
+        } else {
+            window.print();
+        }
+    }
+    // (gplex-patched) The open conversation's own toolbar. Gmail leaves its buttons there unnamed (no
+    // tooltip or label, only its action numbers), so looking them up by name found the list's
+    // hidden toolbar instead, which acts on nothing.
+    function ugfGmailThreadBtn(names) {
+        const map = {
+            "archive": '[act="7"]', "report spam": '[act="9"]', "delete": '[act="10"]',
+            "mark as unread": '[act="2"]', "mark as read": '[act="1"]', "move to": ".ns",
+            "labels": ".mw", "label as": ".mw", "more": ".nf", "more email options": ".nf", "more options": ".nf"
+        };
+        const usable = function(el) {
+            return !ugfGmailOurs(el) && ugfGmailShown(el) && el.getAttribute("aria-disabled") !== "true";
+        };
+        for (let i = 0; i < names.length; i++) {
+            const sel = map[String(names[i]).toLowerCase()];
+            if (sel) {
+                const hit = [].filter.call(document.querySelectorAll('div[role="button"]' + sel), usable)[0];
+                if (hit) {
+                    return hit;
+                }
+            }
+        }
+        const named = ugfGmailActionBtn(names);
+        return named && ugfGmailShown(named) ? named : null;
+    }
+    // (gplex-patched) Works through the plans on the open conversation, as ugfGmailRunAction does on
+    // ticked rows: a button, then the item of the menu it opens, then Apply for labels.
+    function ugfGmailThreadAct(plans, after) {
+        const disarm = ugfGmailArm();
+        const finish = function() {
+            ugfGmailConfirm(function() {
+                setTimeout(disarm, 400);
+                if (typeof after === "function") {
+                    after();
+                } else {
+                    setTimeout(ugfGmailRender, 900);
+                }
+            });
+        };
+        const attempt = function(i) {
+            const plan = plans[i];
+            if (!plan) {
+                disarm();
+                console.log("[Gplex] Gmail: Gmail did not offer that on this conversation");
+                return;
+            }
+            let waits = 0;
+            const go = setInterval(function() {
+                waits++;
+                let btn = null;
+                try {
+                    btn = ugfGmailThreadBtn(plan.buttons);
+                } catch (e) {}
+                if (btn) {
+                    clearInterval(go);
+                    ugfGmailRealClick(btn);
+                    if (!plan.menuItem) {
+                        finish();
+                        return;
+                    }
+                    ugfGmailMenuPick(plan.menuItem, function(ok) {
+                        if (!ok) {
+                            document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, which: 27, bubbles: true }));
+                            attempt(i + 1);
+                            return;
+                        }
+                        if (plan.apply) {
+                            ugfGmailMenuPick(ugfGmailAlt(["Apply"]), function() {
+                                finish();
+                            });
+                        } else {
+                            finish();
+                        }
+                    });
+                    return;
+                }
+                if (waits > 10) {
+                    clearInterval(go);
+                    attempt(i + 1);
+                }
+            }, 150);
+        };
+        attempt(0);
+    }
+    // (gplex-patched) Gplex's own menus for what Gmail's would show in the layer Gplex hides
+    function ugfGmailOwnLabels() {
+        return ugfGmailLabels().filter(function(l) {
+            return String(l.hash).indexOf("#label/") === 0;
+        }).map(function(l) {
+            return l.name;
+        });
+    }
+    function ugfGmailMoreItems(inThread) {
+        return (inThread ? ["Mark as unread"] : ["Mark as read", "Mark as unread"])
+            .concat(["Mark as important", "Mark as not important", "Add star", "Remove star", "Mute"])
+            .concat(inThread ? ["Print all"] : []);
+    }
+    function ugfGmailMorePlans(name) {
+        return [{ buttons: [name] }, { buttons: ["More", "More email options", "More options"], menuItem: ugfGmailAlt([name]) }];
+    }
+    function ugfGmailPickMenu(anchor, chrome, head, names, onPick) {
+        const shell = document.querySelector("#ugf-gmail");
+        if (!shell || !anchor) {
+            return;
+        }
+        if (document.querySelector("#ugf-gmail-movemenu")) {
+            ugfGmailCloseMenus();
+            return;
+        }
+        ugfGmailCloseMenus();
+        const esc = ugfEscapeHtml;
+        const menu = document.createElement("div");
+        menu.id = "ugf-gmail-movemenu";
+        menu.setAttribute("chrome", chrome || "");
+        menu.innerHTML = trusted_policy.createHTML((head ? '<div class="head">' + esc(head) + "</div>" : "") +
+            (names.length
+                ? names.map(function(d, i) {
+                    return '<a href="#" data-d="' + i + '" data-ugf-raw>' + esc(d) + "</a>";
+                }).join("")
+                : '<div class="none">No labels yet</div>'));
+        document.body.appendChild(menu);
+        const r = anchor.getBoundingClientRect();
+        menu.style.left = Math.round(r.left) + "px";
+        menu.style.top = Math.round(r.bottom + 2) + "px";
+        const box = menu.getBoundingClientRect();
+        if (box.right > window.innerWidth - 8) {
+            menu.style.left = Math.max(8, Math.round(window.innerWidth - box.width - 8)) + "px";
+        }
+        menu.querySelectorAll("a[data-d]").forEach(function(a) {
+            a.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                const d = names[parseInt(a.getAttribute("data-d"), 10)];
+                ugfGmailCloseMenus();
+                if (d) {
+                    onPick(d);
+                }
+            });
+        });
+        const away = function(ev) {
+            if (!menu.contains(ev.target)) {
+                ugfGmailCloseMenus();
+                document.removeEventListener("mousedown", away);
+            }
+        };
+        setTimeout(function() {
+            document.addEventListener("mousedown", away);
+        }, 0);
+    }
+    // (gplex-patched) Reply, Reply all and Forward through Gmail's own, at the foot of the open
+    // conversation: the answer goes to whoever Gmail would send it to and stays in the conversation
+    function ugfGmailReplySend(mode, data, status) {
+        const disarm = ugfGmailArm();
+        const cls = mode === "forward" ? "bkG" : mode === "replyall" ? "bkI" : "bkH";
+        const links = [].filter.call(document.querySelectorAll(".ams." + cls), function(el) {
+            return !ugfGmailOurs(el) && ugfGmailShown(el);
+        });
+        const link = links[links.length - 1];
+        if (!link) {
+            disarm();
+            status("Gmail did not offer " + (mode === "forward" ? "Forward" : "Reply") + " here.");
+            return;
+        }
+        const bodySel = 'div[aria-label="Message Body"][contenteditable="true"], div[g_editable="true"]';
+        const toSel = 'input[peoplekit-id], textarea[name="to"], input[name="to"], input[aria-label^="To"]';
+        const sendSel = 'div[role="button"].aoO, ' + ugfGmailAlt(["Send"]).map(function(w) {
+            const v = String(w).replace(/"/g, '\\"');
+            return 'div[role="button"][data-tooltip^="' + v + '"], div[aria-label^="' + v + '"]';
+        }).join(", ");
+        const before = [].slice.call(document.querySelectorAll(bodySel));
+        ugfGmailRealClick(link);
+        let tries = 0;
+        const iv = setInterval(function() {
+            tries++;
+            const body = [].filter.call(document.querySelectorAll(bodySel), function(b) {
+                return !ugfGmailOurs(b) && ugfGmailShown(b) && before.indexOf(b) === -1;
+            })[0];
+            if (!body) {
+                if (tries > 40) {
+                    clearInterval(iv);
+                    disarm();
+                    status("Gmail's reply box did not open in time.");
+                }
+                return;
+            }
+            clearInterval(iv);
+            try {
+                if (mode === "forward") {
+                    let to = null;
+                    for (let n = body, up = 0; n && !to && up < 25; up++, n = n.parentElement) {
+                        if (n === document.body) {
+                            break;
+                        }
+                        to = n.querySelector(toSel);
+                    }
+                    if (!to || !String(data.to || "").trim()) {
+                        disarm();
+                        status(to ? "Who should it go to?" : "Could not find Gmail's To box.");
+                        return;
+                    }
+                    ugfGmailSetField(to, data.to);
+                    ugfGmailCommitTo(to);
+                }
+                // what you wrote goes above what Gmail put there (the forwarded message, a signature)
+                body.focus();
+                body.innerHTML = trusted_policy.createHTML(ugfEscapeHtml(data.body || "").replace(/\n/g, "<br>") + "<br>" + body.innerHTML);
+                body.dispatchEvent(new Event("input", { bubbles: true }));
+            } catch (e) {
+                disarm();
+                console.log("[Gplex] Gmail: could not fill the reply box - " + e);
+                status("Could not fill Gmail's reply box.");
+                return;
+            }
+            const send = ugfGmailFindSend(body, sendSel);
+            if (!send) {
+                disarm();
+                status("Could not find Gmail's Send button.");
+                return;
+            }
+            status("Sending\u2026");
+            setTimeout(function() {
+                ugfGmailRealClick(send);
+                let waited = 0;
+                let nudged = false;
+                const check = setInterval(function() {
+                    waited++;
+                    const outcome = ugfGmailSendOutcome();
+                    const open = body.isConnected && ugfGmailShown(body);
+                    if (outcome === "sent" || (!open && waited >= 6)) {
+                        clearInterval(check);
+                        disarm();
+                        status("Message sent.");
+                        setTimeout(function() {
+                            const form = document.querySelector("#ugf-gmail-compose-form");
+                            if (form) {
+                                form.remove();
+                            }
+                            ugfGmailRender();
+                        }, 900);
+                        return;
+                    }
+                    if (open && !nudged && waited >= 4) {
+                        nudged = true;
+                        ugfGmailSendKey(body);
+                        return;
+                    }
+                    if (waited > 30) {
+                        clearInterval(check);
+                        disarm();
+                        status("Gmail did not send it. Its reply box is still open.");
+                    }
+                }, 300);
+            }, 500);
+        }, 250);
+    }
+    function ugfGmailFixCss() {
+        return [
+            ".ugf-gmail-avatar.has-photo { background: none !important; border-color: transparent !important; overflow: hidden; padding: 0; }",
+            ".ugf-gmail-avatar.has-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }",
+            ".ugf-gmail-msg-body .ajR { cursor: pointer; }",
+            ".ugf-gmail-msg-body.ugf-trim-open .h5, .ugf-gmail-msg-body.ugf-trim-open .adL { display: block !important; }",
+            "#ugf-gmail-subject .labelchip .x { cursor: pointer; }",
+            "#ugf-gmail-compose-form input[readonly] { background: #f5f5f5; color: #555; }",
+            // the Compose button is a picture of the 2014 one with a strip of white page down each side (4 of its
+            // 238px) and white rounded corners, which showed on a theme
+            "#ugf-gmail-compose.shot img { clip-path: inset(0 1.69% round 2px); }",
+            // the reply button and its ▾ sat 5px apart (an icon and a character on one baseline)
+            ".ugf-gmail-msg-right .grp > button { vertical-align: top; }",
+            ".ugf-gmail-msg { position: relative; }",
+            ".ugf-gmail-msg-to { cursor: pointer; }",
+            ".ugf-gmail-details { position: absolute; z-index: 20; margin-top: -6px; background: #fff; border: 1px solid #ccc; border-color: rgba(0,0,0,.2); " +
+                "box-shadow: 0 2px 4px rgba(0,0,0,.2); padding: 8px 12px; font-size: 12px; color: #222; max-width: 520px; }",
+            ".ugf-gmail-details td { padding: 2px 4px; vertical-align: top; }",
+            ".ugf-gmail-details td.k { color: #777; text-align: right; white-space: nowrap; }"
+        ].join("\n");
+    }
     function ugfGmailRows() {
         const out = [];
         const panes = new Map();
@@ -69308,7 +70561,7 @@ html[gplex-gmail] body {
                 pane: tr.closest(".ae4, .Cp, div[role=\"main\"]") || tr.parentElement || tr,
                 tid: ugfGmailTidOf(holder.getAttribute("data-legacy-thread-id") || holder.getAttribute("data-thread-id")),
                 rowId: tr.id || "",
-                from: from ? (from.getAttribute("name") || from.textContent || "").trim() : "",
+                from: ugfGmailFromCell(tr) || (from ? (from.getAttribute("name") || from.textContent || "").trim() : ""),
                 subject: subj ? (subj.textContent || "").trim() : ugfT("(no subject)"),
                 snippet: snip ? (snip.textContent || "").replace(/^\s*-\s*/, "").trim() : "",
                 date: date ? (date.textContent || "").trim() : "",
@@ -69435,6 +70688,18 @@ html[gplex-gmail] body {
     function ugfGmailOpenRow(item) {
         // (6.5.5) remembered, so a conversation that doesn't open that way can be clicked open instead
         ugfGmailOpenRow.last = { item: item, at: Date.now(), clicked: false };
+        // (gplex-patched) and the list it was opened from, for Newer and Older and "3 of 1,795"
+        if (!ugfGmailThreadOpen()) {
+            const c = ugfGmailCount();
+            ugfGmailOpenRow.list = {
+                hash: ugfGmailListOf(window.location.hash),
+                items: ugfGmailRows().map(function(r) {
+                    return { tid: r.tid, rowId: r.rowId, subject: r.subject, row: r.row };
+                }),
+                from: c ? parseInt(String(c.from).replace(/[^\d]/g, ""), 10) || 1 : 1,
+                total: c ? c.total : ""
+            };
+        }
         // the reliable route is Gmail's own URL for the conversation
         if (item.tid) {
             window.location.hash = ugfGmailListOf(window.location.hash) + "/" + item.tid;
@@ -69451,7 +70716,8 @@ html[gplex-gmail] body {
     function ugfGmailLabels() {
         const out = [];
         const seen = {};
-        document.querySelectorAll('div[role="navigation"] a[href*="#"]').forEach(function(a) {
+        // (gplex-patched) Gmail's sidebar is no longer inside role="navigation": its label links are a.J-Ke
+        document.querySelectorAll('div[role="navigation"] a[href*="#"], a.J-Ke[href*="#label/"]').forEach(function(a) {
             // Gmail appends the unread count to the link text ("Inbox 42"), which stopped
             // these matching the era's own sidebar names
             const name = (a.textContent || "").replace(/\s+/g, " ").replace(/\s*[\d,]+\s*$/, "").trim();
@@ -70051,7 +71317,12 @@ html[gplex-gmail] body {
         if (/^#(search|category|advanced-search)\/[^/]+$/.test(h)) {
             return false;
         }
-        return /#[^/]+\/[^/]+/.test(h);
+        // (gplex-patched) a conversation's id is long (FMfcgz..., or 16 hex): #settings/general or #inbox/themes
+        // is not one, and waiting for it left an empty page
+        if (/^#settings\//.test(h)) {
+            return false;
+        }
+        return /#[^/]+\/(?:[^/]+\/)?[A-Za-z0-9_-]{16,}$/.test(h) || /#[^/]+\/[A-Za-z0-9_-]{16,}(?:\/|$)/.test(h);
     }
     function ugfGmailState() {
         if (!ugfGmailState.s) {
@@ -70245,7 +71516,7 @@ html[gplex-gmail] body {
         return null;
     }
     // Sending drives Gmail's own compose window, so the mail really is sent by Gmail.
-    function ugfGmailSend(data, status) {
+    function ugfGmailSend(data, status, asDraft) {
         // make Gmail real before opening compose, so the window can hold focus
         const disarm = ugfGmailArm();
         if (!ugfGmailClickReal('div[role="button"][gh="cm"], .T-I.T-I-KE')) {
@@ -70293,6 +71564,35 @@ html[gplex-gmail] body {
                     disarm();
                     console.log("[Gplex] Gmail: could not fill the compose window - " + e);
                     status("Could not fill Gmail's compose window.");
+                    return;
+                }
+                if (asDraft) {
+                    // (gplex-patched) a draft is Gmail's compose window closed without sending: Gmail keeps
+                    // what was in it in Drafts
+                    status("Saving\u2026");
+                    setTimeout(function() {
+                        let shut = null;
+                        for (let n = subject, up = 0; n && !shut && up < 25; up++, n = n.parentElement) {
+                            if (n === document.body) {
+                                break;
+                            }
+                            shut = n.querySelector('img.Ha, [aria-label^="Save & close"], [data-tooltip^="Save & close"]');
+                        }
+                        if (shut) {
+                            ugfGmailRealClick(shut);
+                        }
+                        setTimeout(function() {
+                            disarm();
+                            status("Draft saved.");
+                            setTimeout(function() {
+                                const form = document.querySelector("#ugf-gmail-compose-form");
+                                if (form) {
+                                    form.remove();
+                                }
+                                ugfGmailRender();
+                            }, 900);
+                        }, 1500);
+                    }, 800);
                     return;
                 }
                 status("Sending\u2026");
@@ -70387,13 +71687,15 @@ html[gplex-gmail] body {
         const box = document.createElement("div");
         box.id = "ugf-gmail-compose-form";
         box.innerHTML = trusted_policy.createHTML(
-            '<div id="ugf-gmail-compose-head">New Message<span style="float:right;cursor:pointer" id="ugf-gmail-compose-x">&times;</span></div>' +
-            '<div class="field"><label>To</label><input type="text" id="ugf-gmail-to" value="' + esc(prefill.to || "") + '"></div>' +
-            '<div class="field"><label>Subject</label><input type="text" id="ugf-gmail-subj" value="' + esc(prefill.subject || "") + '"></div>' +
+            '<div id="ugf-gmail-compose-head">' + esc(prefill.mode === "forward" ? "Forward" : prefill.mode ? "Reply" : "New Message") + '<span style="float:right;cursor:pointer" id="ugf-gmail-compose-x">&times;</span></div>' +
+            '<div class="field"><label>To</label><input type="text" id="ugf-gmail-to" value="' + esc(prefill.to || "") + '"' +
+                (prefill.mode && prefill.mode !== "forward" ? " readonly" : "") + "></div>" +
+            '<div class="field"><label>Subject</label><input type="text" id="ugf-gmail-subj" value="' + esc(prefill.subject || "") + '"' +
+                (prefill.mode ? " readonly" : "") + "></div>" +
             '<textarea id="ugf-gmail-msgbody">' + esc(prefill.body || "") + "</textarea>" +
             '<div id="ugf-gmail-compose-actions">' +
                 '<button class="send" id="ugf-gmail-do-send">Send</button>' +
-                (feat.saveLabel ? '<button id="ugf-gmail-do-save">' + esc(feat.saveLabel) + "</button>" : "") +
+                (feat.saveLabel && !prefill.mode ? '<button id="ugf-gmail-do-save">' + esc(feat.saveLabel) + "</button>" : "") +
                 '<button id="ugf-gmail-do-discard">Discard</button>' +
                 '<span id="ugf-gmail-compose-status"></span>' +
             "</div>");
@@ -70414,6 +71716,13 @@ html[gplex-gmail] body {
             ugfGmailRender();
         };
         box.querySelector("#ugf-gmail-do-send").addEventListener("click", function() {
+            if (prefill.mode) {
+                ugfGmailReplySend(prefill.mode, {
+                    to: box.querySelector("#ugf-gmail-to").value,
+                    body: box.querySelector("#ugf-gmail-msgbody").value
+                }, status);
+                return;
+            }
             ugfGmailSend({
                 to: box.querySelector("#ugf-gmail-to").value,
                 subject: box.querySelector("#ugf-gmail-subj").value,
@@ -70428,7 +71737,12 @@ html[gplex-gmail] body {
         const save = box.querySelector("#ugf-gmail-do-save");
         if (save) {
             save.addEventListener("click", function() {
-                status("Draft saved at " + new Date().toLocaleTimeString() + ".");
+                // (gplex-patched) saved for real, by Gmail (it only said so before)
+                ugfGmailSend({
+                    to: box.querySelector("#ugf-gmail-to").value,
+                    subject: box.querySelector("#ugf-gmail-subj").value,
+                    body: box.querySelector("#ugf-gmail-msgbody").value
+                }, status, true);
             });
         }
         box.querySelector("#ugf-gmail-to").focus();
@@ -70441,6 +71755,17 @@ html[gplex-gmail] body {
         const last = String(window.location.hash || "").split("/").pop();
         if (/^[0-9a-f]{12,20}$/.test(last)) {
             return last;
+        }
+        // (gplex-patched) Gmail's addresses carry its new kind of id (#inbox/FMfcgz...), which the print
+        // view doesn't take; the conversation Gmail has open gives its old one on its subject line
+        const heads = [].filter.call(document.querySelectorAll("h2[data-legacy-thread-id]"), function(h) {
+            return !ugfGmailOurs(h) && /^[0-9a-f]{12,20}$/.test(h.getAttribute("data-legacy-thread-id") || "");
+        });
+        const head = heads.filter(function(h) {
+            return h.getClientRects().length;
+        })[0] || (heads.length === 1 ? heads[0] : null);
+        if (head) {
+            return head.getAttribute("data-legacy-thread-id");
         }
         const o = ugfGmailOpenRow.last;
         return o && o.item && /^[0-9a-f]{12,20}$/.test(o.item.tid || "") ? o.item.tid : "";
@@ -70479,7 +71804,9 @@ html[gplex-gmail] body {
             const out = { loading: false, msgs: [], subject: "", chips: [], counter: "", danger: "" };
             try {
                 const doc = new DOMParser().parseFromString(ugfTT(xhr.responseText), "text/html");
-                const subj = doc.querySelector("font[size='+1'] b, .maincontent font b, h2, title");
+                // (gplex-patched) its own subject line first: the <title> comes first in the page, and says the
+                // account's name before the subject
+                const subj = doc.querySelector(".maincontent font[size='+1'] b") || doc.querySelector("font[size='+1'] b, .maincontent font b, h2, title");
                 out.subject = subj ? (subj.textContent || "").trim().replace(/^Gmail - /, "") : "";
                 doc.querySelectorAll("table.message").forEach(function(t) {
                     const rows = t.rows || [];
@@ -70526,13 +71853,84 @@ html[gplex-gmail] body {
     }
     function ugfGmailThread() {
         const t = ugfGmailThreadLive();
-        if (!t.msgs.length && ugfGmailPrintFetch.cache) {
-            const got = ugfGmailPrintFetch.cache[ugfGmailPrintTid()];
+        // (gplex-patched) Gmail folds a conversation's older messages, and a folded message's text is not
+        // in the page at all (only its sender and a line of it): those came out with an empty body,
+        // "to me", and the ones Gmail gathers under "n older messages" not at all. Gmail's print view
+        // has every message in full, so the conversation is read from there too and filled in from it.
+        const tid = ugfGmailPrintTid();
+        const cache = ugfGmailPrintFetch.cache || {};
+        if (tid && t.msgs.length) {
+            const had = cache[tid];
+            // (a reply has come in since it was read)
+            if (had && !had.loading && had.msgs && had.msgs.length && had.msgs.length < t.msgs.length) {
+                delete cache[tid];
+            }
+            ugfGmailPrintFetch(tid);
+        }
+        const got = tid && ugfGmailPrintFetch.cache ? ugfGmailPrintFetch.cache[tid] : null;
+        if (!t.msgs.length) {
             if (got && got.msgs && got.msgs.length) {
                 return { subject: got.subject || t.subject, msgs: got.msgs, chips: t.chips, counter: t.counter, danger: t.danger };
             }
+            return t;
         }
-        return t;
+        const norm = function(s) {
+            return String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+        };
+        // (the print page's subject can come with the account's name before it: "School Mail - AP Bio")
+        const gs = norm(got && got.subject);
+        const ts = norm(t.subject);
+        // (all of it open in the page already: nothing to fill in)
+        if (got && got.msgs && got.msgs.length === t.msgs.length && !t.msgs.some(function(m) {
+            return !m.html;
+        })) {
+            return t;
+        }
+        if (!got || got.loading || !got.msgs || got.msgs.length < t.msgs.length ||
+                (gs && ts && gs !== ts && gs.slice(-ts.length - 3) !== " - " + ts)) {
+            return t;
+        }
+        // Gmail's own copy where it has the message open (its quoted part folds and unfolds there), the
+        // print view's for the rest, and Gmail's photos for all
+        const live = {};
+        const photos = {};
+        t.msgs.forEach(function(m) {
+            const k = ugfGmailMsgKey(m);
+            if (k) {
+                live[k] = m;
+            }
+            if (m.photo && m.email) {
+                photos[m.email.toLowerCase()] = m.photo;
+            }
+        });
+        document.querySelectorAll("img.ajn[jid][src]").forEach(function(i) {
+            const k = (i.getAttribute("jid") || "").toLowerCase();
+            if (k && !photos[k] && !ugfGmailOurs(i)) {
+                photos[k] = i.getAttribute("src");
+            }
+        });
+        const msgs = got.msgs.map(function(p) {
+            let l = live[ugfGmailMsgKey(p)];
+            if (!l) {
+                // (the print view can round the minute the other way)
+                const pt = ugfGmailMsgTime(p);
+                l = t.msgs.filter(function(m) {
+                    return pt && m.email && p.email && m.email.toLowerCase() === p.email.toLowerCase() &&
+                        Math.abs(ugfGmailMsgTime(m) - pt) <= 120000;
+                })[0];
+            }
+            return {
+                from: (l && l.from) || p.from,
+                email: p.email || (l && l.email) || "",
+                to: l && l.toKnown ? l.to : ugfGmailShortTo(p.to),
+                toFull: String(p.to || "").indexOf("@") > -1 ? p.to : "",
+                date: (l && l.date) || p.date,
+                dateFull: p.date,
+                html: l && l.html ? l.html : p.html,
+                photo: (l && l.photo) || photos[String(p.email || "").toLowerCase()] || ""
+            };
+        });
+        return { subject: t.subject || got.subject, msgs: msgs, chips: t.chips, counter: t.counter, danger: t.danger };
     }
     function ugfGmailThreadLive() {
         const subject = document.querySelector("h2.hP, h2[data-thread-perm-id], .ha h2, [data-legacy-thread-id] h2");
@@ -70572,12 +71970,25 @@ html[gplex-gmail] body {
             if (!body && !sender) {
                 return;
             }
+            // (gplex-patched) a folded message (.kv) has no body in the page, only a line of it; and the
+            // sender's photo, as Gmail shows it beside the message
+            const folded = !!m.closest(".kv");
+            const mail = sender ? (sender.getAttribute("email") || "") : "";
+            const holder2 = m.closest(".adn, .kv, .h7") || m;
+            let pic = holder2.querySelector("img.ajn[src]");
+            if (!pic && mail) {
+                pic = [].filter.call(document.querySelectorAll("img.ajn[jid][src]"), function(i) {
+                    return (i.getAttribute("jid") || "").toLowerCase() === mail.toLowerCase();
+                })[0] || null;
+            }
             msgs.push({
                 from: sender ? (sender.getAttribute("name") || sender.textContent || "").trim() : "",
-                email: sender ? (sender.getAttribute("email") || "") : "",
+                email: mail,
                 to: to ? (to.textContent || "").trim() : ugfT("to me"),
+                toKnown: !!to,
                 date: when ? (when.getAttribute("title") || when.textContent || "").trim() : "",
-                html: body ? body.innerHTML : ""
+                html: body && !folded ? body.innerHTML : "",
+                photo: pic ? pic.getAttribute("src") : ""
             });
         });
         // the label chips Gmail puts beside the subject, and its "n of m" counter
@@ -70669,7 +72080,8 @@ html[gplex-gmail] body {
                 '<button class="icon" data-act="labels" title="Labels">' + ugfGmailIcon("labels") + "</button>" +
                 '<button class="icon" data-act="more" title="More">' + ugfGmailIcon("more") + "</button>";
         }
-        const counter = t.counter || "1 of " + Math.max(1, ugfGmailRows().length);
+        // (gplex-patched) Gmail's own counter is the list's ("1-50 of 2,002"): where this conversation sits in it
+        const counter = ugfGmailThreadCounter();
         const nav = classic
             ? '<div id="ugf-gmail-thread-nav"><a href="#" data-nav="prev">&laquo; Newer</a> ' + esc(counter) +
               ' <a href="#" data-nav="next">Older &raquo;</a></div>'
@@ -70697,7 +72109,8 @@ html[gplex-gmail] body {
         t.msgs.forEach(function(m) {
             const initial = (m.from || m.email || "?").trim().charAt(0) || "?";
             html += '<div class="ugf-gmail-msg"><div class="ugf-gmail-msg-head">' +
-                '<span class="ugf-gmail-avatar">' + esc(initial) + "</span>" +
+                (m.photo ? '<span class="ugf-gmail-avatar has-photo"><img src="' + esc(m.photo) + '" alt=""></span>'
+                    : '<span class="ugf-gmail-avatar">' + esc(initial) + "</span>") +
                 '<span class="ugf-gmail-msg-who"><span class="ugf-gmail-msg-from">' + esc(m.from || m.email) + "</span>" +
                 (m.email ? ' <span class="ugf-gmail-msg-addr">&lt;' + esc(m.email) + "&gt;</span>" : "") +
                 '<span class="ugf-gmail-msg-to">' + esc(m.to || ugfT("to me")) + " &#9662;</span></span>" +
@@ -70715,7 +72128,7 @@ html[gplex-gmail] body {
                 '<div class="ugf-gmail-msg-body">' + m.html + "</div></div>";
         });
         if (chrome === "kennedy" || chrome === "m2013") {
-            html += '<div id="ugf-gmail-replybox"><span class="ugf-gmail-avatar sq"></span>' +
+            html += '<div id="ugf-gmail-replybox">' + ugfGmailMyPhoto() +
                 '<div class="box">Click here to <a href="#" data-msg="reply">Reply</a> or <a href="#" data-msg="forward">Forward</a></div></div>';
         } else {
             html += '<div id="ugf-gmail-thread-actions">' +
@@ -70729,6 +72142,87 @@ html[gplex-gmail] body {
         html += "</div>";
         const main = shell.querySelector("#ugf-gmail-main");
         main.innerHTML = trusted_policy.createHTML(html);
+        // (gplex-patched) Gmail's "..." for the trimmed (quoted) part of a message
+        main.querySelectorAll(".ugf-gmail-msg-body .ajR").forEach(function(dots) {
+            dots.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                const body = dots.closest(".ugf-gmail-msg-body");
+                if (body) {
+                    body.classList.toggle("ugf-trim-open");
+                }
+            });
+        });
+        // (gplex-patched) the ▾ beside "to me": the message's details, as Gmail showed them under it
+        main.querySelectorAll(".ugf-gmail-msg").forEach(function(row, i) {
+            const who = row.querySelector(".ugf-gmail-msg-to");
+            const m = t.msgs[i];
+            if (!who || !m) {
+                return;
+            }
+            who.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const had = row.querySelector(".ugf-gmail-details");
+                main.querySelectorAll(".ugf-gmail-details").forEach(function(d) {
+                    d.remove();
+                });
+                if (had) {
+                    return;
+                }
+                const line = function(k, v) {
+                    return v ? '<tr><td class="k">' + esc(k) + ":</td><td>" + v + "</td></tr>" : "";
+                };
+                const box = document.createElement("div");
+                box.className = "ugf-gmail-details";
+                box.innerHTML = trusted_policy.createHTML("<table>" +
+                    line("from", "<b>" + esc(m.from || m.email) + "</b>" + (m.email && m.from ? " &lt;" + esc(m.email) + "&gt;" : "")) +
+                    line("to", esc(String(m.toFull || m.to || "").replace(/^to\s+/i, "").replace(/\s*\b(Cc|Bcc):\s*/gi, ", "))) +
+                    line("date", esc(m.dateFull || m.date)) +
+                    line("subject", esc(t.subject || "")) + "</table>");
+                const head = row.querySelector(".ugf-gmail-msg-head") || row;
+                head.parentNode.insertBefore(box, head.nextSibling);
+                const r = who.getBoundingClientRect();
+                const rr = row.getBoundingClientRect();
+                box.style.left = Math.max(0, Math.round(r.left - rr.left)) + "px";
+                const away = function(e2) {
+                    if (!box.contains(e2.target) && !who.contains(e2.target)) {
+                        box.remove();
+                        document.removeEventListener("mousedown", away);
+                    }
+                };
+                setTimeout(function() {
+                    document.addEventListener("mousedown", away);
+                }, 0);
+            });
+        });
+        // (gplex-patched) the x on the label beside the subject: Gmail's own "Remove label"
+        const chipX = main.querySelector("#ugf-gmail-subject .labelchip .x");
+        if (chipX) {
+            chipX.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                const all = [].filter.call(document.querySelectorAll('[aria-label^="Remove label"], .hO'), function(x) {
+                    return !ugfGmailOurs(x) && ugfGmailShown(x);
+                });
+                const rm = all.filter(function(x) {
+                    return (x.getAttribute("aria-label") || "").indexOf(" " + label + " ") > -1;
+                })[0] || all[0];
+                if (!rm) {
+                    return;
+                }
+                const disarmX = ugfGmailArm();
+                ugfGmailRealClick(rm);
+                setTimeout(disarmX, 400);
+                const listHash0 = ugfGmailListHash();
+                setTimeout(function() {
+                    // (the mailbox's own label taken off: the conversation has left it)
+                    if (ugfGmailThreadOpen() && ugfGmailThreadLabel() === label && window.location.hash !== listHash0) {
+                        window.location.hash = listHash0;
+                    }
+                    ugfGmailRender();
+                }, 800);
+            });
+        }
         // history.back() went nowhere when the conversation was opened straight from
         // a link, and elsewhere when Gmail had put its own steps in the history. The
         // mailbox is in the address itself: #trash/<id> -> #trash.
@@ -70747,25 +72241,38 @@ html[gplex-gmail] body {
         if (foot) {
             foot.addEventListener("click", goBack);
         }
+        // (gplex-patched) Reply and Forward are Gmail's own on this conversation (see ugfGmailReplySend): a
+        // new message to the last sender went to yourself when the last message was yours, and
+        // started a conversation of its own
         main.querySelectorAll("[data-msg]").forEach(function(b) {
-            b.addEventListener("click", function() {
-                const last = t.msgs[t.msgs.length - 1];
-                if (b.getAttribute("data-msg") === "reply") {
-                    ugfGmailCompose({
-                        to: last.email,
-                        subject: /^re:/i.test(t.subject) ? t.subject : "Re: " + t.subject,
-                        body: "\n\n---------- On " + last.date + ", " + (last.from || last.email) + " wrote: ----------\n"
-                    });
-                } else {
-                    ugfGmailCompose({ to: "", subject: "Fwd: " + t.subject });
+            b.addEventListener("click", function(ev) {
+                if (ev) {
+                    ev.preventDefault();
                 }
+                const mode = b.getAttribute("data-msg") === "forward" ? "forward" : "reply";
+                const me = String(ugfGmailIdentity().email || "").toLowerCase();
+                const others = t.msgs.filter(function(m) {
+                    return m.email && m.email.toLowerCase() !== me;
+                });
+                const last = others[others.length - 1] || t.msgs[t.msgs.length - 1];
+                ugfGmailCompose({
+                    mode: mode,
+                    to: mode === "forward" ? "" : (last.from || last.email),
+                    subject: mode === "forward" ? "Fwd: " + t.subject : (/^re:/i.test(t.subject) ? t.subject : "Re: " + t.subject)
+                });
             });
         });
         main.querySelectorAll("[data-nav]").forEach(function(b) {
             b.addEventListener("click", function(ev) {
                 ev.preventDefault();
-                const which = b.getAttribute("data-nav") === "prev" ? "Newer" : "Older";
-                if (!ugfGmailClickReal(ugfGmailLabelSel([which]))) {
+                // (gplex-patched) Gmail greys out its own Newer and Older for a conversation opened from its
+                // address (as Gplex opens them): the next one is taken from the list it was opened from
+                const step = b.getAttribute("data-nav") === "prev" ? -1 : 1;
+                const pos = ugfGmailThreadPos();
+                const next = pos ? pos.list[pos.i + step] : null;
+                if (next) {
+                    ugfGmailOpenRow(next);
+                } else {
                     goBack();
                 }
                 setTimeout(ugfGmailRender, 900);
@@ -70779,55 +72286,75 @@ html[gplex-gmail] body {
                     ugfGmailRender();
                     return;
                 }
+                // (gplex-patched) Gmail's own print page of the conversation (it prints itself), not the Gplex page
                 if (act === "print") {
-                    window.print();
+                    ugfGmailPrintOpen();
                     return;
                 }
-                if (act === "delete") {
-                    const inBin = /^#trash|^#spam/.test(window.location.hash || "");
-                    const disarm = ugfGmailArm();
-                    let btn = null;
-                    try {
-                        btn = ugfGmailActionBtn(inBin ? ["Delete forever", "Delete"]
-                            : ["Delete", "Move to Trash", "Delete forever"]);
-                    } catch (e) {}
-                    if (!btn) {
-                        disarm();
-                        console.log("[Gplex] Gmail: Gmail did not offer Delete on this conversation");
-                        return;
-                    }
+                if (act === "popout") {
+                    window.open(window.location.href, "_blank", "width=900,height=760");
+                    return;
+                }
+                // (gplex-patched) Every action goes to the conversation's own toolbar (see ugfGmailThreadBtn):
+                // by name they reached the list's hidden one and did nothing, and Delete then went back to
+                // the list as if the conversation had gone. Move to, Labels and More are Gplex's own menus,
+                // since Gmail's open in the layer Gplex hides.
+                const leave = function() {
                     const listHash = ugfGmailListHash();
-                    ugfGmailRealClick(btn);
-                    ugfGmailConfirm(function() {
-                        setTimeout(disarm, 400);
-                        setTimeout(function() {
-                            if (/^#[^/]+\/.+/.test(window.location.hash || "") &&
-                                    window.location.hash !== listHash) {
-                                window.location.hash = listHash;
-                            }
-                            ugfGmailRender();
-                        }, 700);
+                    setTimeout(function() {
+                        if (ugfGmailThreadOpen() && window.location.hash !== listHash) {
+                            window.location.hash = listHash;
+                        }
+                        ugfGmailRender();
+                    }, 700);
+                };
+                if (act === "move") {
+                    ugfGmailMoveMenu(b, chrome, function(dest) {
+                        ugfGmailThreadAct(ugfGmailMovePlans(dest), leave);
                     });
                     return;
                 }
-                // Gmail's own words for each, in whatever language Gmail is set to
-                const map = {
-                    archive: ugfGmailLabelSel(["Archive"]),
-                    spam: ugfGmailLabelSel(["Report spam"]),
-                    notspam: ugfGmailLabelSel(["Not spam"]),
-                    "delete": ugfGmailLabelSel(["Delete", "Delete forever"]),
-                    unread: ugfGmailLabelSel(["Mark as unread"]),
-                    snooze: ugfGmailLabelSel(["Snooze"]),
-                    move: ugfGmailLabelSel(["Move to"]),
-                    labels: ugfGmailLabelSel(["Labels"]),
-                    more: ugfGmailLabelSel(["More"]),
-                    star: '[aria-label*="Star"], .T-KT',
-                    popout: ugfGmailLabelSel(["In new window"])
-                };
-                if (!map[act] || !ugfGmailClickReal(map[act])) {
+                if (act === "labels") {
+                    ugfGmailPickMenu(b, chrome, "Label as", ugfGmailOwnLabels(), function(name) {
+                        ugfGmailThreadAct([{ buttons: ["Labels", "Label as"], menuItem: [name], apply: true }]);
+                    });
                     return;
                 }
-                setTimeout(ugfGmailRender, 1200);
+                if (act === "more") {
+                    ugfGmailPickMenu(b, chrome, "", ugfGmailMoreItems(true), function(name) {
+                        if (name === "Print all") {
+                            ugfGmailPrintOpen();
+                            return;
+                        }
+                        ugfGmailThreadAct(ugfGmailMorePlans(name), name === "Mark as unread" || name === "Mute" ? leave : null);
+                    });
+                    return;
+                }
+                if (act === "star") {
+                    // the star of the conversation's last message, not the first star anywhere on the page
+                    const stars = [].filter.call(document.querySelectorAll("div.adn .T-KT"), function(s) {
+                        return !ugfGmailOurs(s) && ugfGmailShown(s);
+                    });
+                    if (stars.length) {
+                        const disarmStar = ugfGmailArm();
+                        ugfGmailRealClick(stars[stars.length - 1]);
+                        setTimeout(disarmStar, 300);
+                        b.classList.toggle("on");
+                    }
+                    return;
+                }
+                const inBin = /^#trash|^#spam/.test(window.location.hash || "");
+                const plans = {
+                    archive: [{ buttons: ["Archive"] }],
+                    spam: [{ buttons: ["Report spam", "Report as spam", "Mark as spam"] }],
+                    notspam: [{ buttons: ["Not spam"] }],
+                    "delete": inBin ? [{ buttons: ["Delete forever", "Delete"] }] : [{ buttons: ["Delete", "Move to Trash"] }],
+                    unread: [{ buttons: ["Mark as unread"] }]
+                };
+                if (!plans[act]) {
+                    return;
+                }
+                ugfGmailThreadAct(plans[act], leave);
             });
         });
         return true;
@@ -70836,7 +72363,8 @@ html[gplex-gmail] body {
     function ugfGmailGeneralRows(era) {
         const rows = [
             ["Language", 'Gmail display language: <b>English (US)</b><span class="note">Show all language options</span>'],
-            ["Maximum page size", "Show <b>50</b> conversations per page"],
+            // (gplex-patched) a real setting: Gmail's own, saved there on Save Changes
+            ["Maximum page size", "Show " + ugfGmailPageSizeSelect() + " conversations per page"],
             ["Keyboard shortcuts", '<label><input type="radio" name="ugfks" checked> Keyboard shortcuts off</label>' +
                 '<label><input type="radio" name="ugfks"> Keyboard shortcuts on</label>'],
             ["Personal level indicators", '<label><input type="radio" name="ugfpli" checked> No indicators</label>' +
@@ -71003,6 +72531,21 @@ html[gplex-gmail] body {
                 '<span class="note">Offline Mail uses Gears to store your mail on this computer.</span>']];
         }
         if (tab === "Themes") {
+            // (gplex-patched) themes that work: on the 2016 layout "Set Theme" opens Gmail's window of the time; on
+            // the others the themes are here to pick from
+            const cur = ugfGmailTheme();
+            if (ugfGmailThemesHere() && era === "g2013") {
+                return [["Themes", '<button id="ugf-gmail-settheme">Set Theme</button>' +
+                    '<span class="note">' + esc(cur.plain || cur.name ? "Now: " + (cur.name || "") : "Now: a featured photo") + "</span>"]];
+            }
+            let ht = '<div class="ugf-gmail-themes">';
+            ugfGmailThemes().forEach(function(t) {
+                const img = t.plain ? "" : ugfGmailThemeImg(t, true);
+                ht += '<a href="#" class="theme' + (t.id === cur.id ? " on" : "") + '" data-theme="' + esc(t.id) + '"' + (t.plain ? ' data-plain="' + t.id + '"' : "") + ">" +
+                    "<i>" + (img ? '<img loading="lazy" alt="" src="' + esc(img) + '">' : "") + "</i>" + esc(t.name || "") + "</a>";
+            });
+            ht += "</div>";
+            return [["Choose a theme", ht]];
             const themes = era === "g2018"
                 ? ["Default", "Dark", "Soft Grey", "High Contrast", "Terminal", "Mountains", "Beach", "Tree"]
                 : ["Classic", "Shiny", "Soft Grey", "High Contrast", "Ninja", "Tree", "Beach", "Planets"];
@@ -71093,6 +72636,27 @@ html[gplex-gmail] body {
                 ugfGmailRender();
             });
         });
+        // (gplex-patched) a theme from the grid takes at once
+        main.querySelectorAll(".ugf-gmail-themes .theme[data-theme]").forEach(function(t) {
+            t.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                const st = ugfGmailThemeState();
+                st.id = t.getAttribute("data-theme");
+                ugfGmailSaveTheme(st);
+                main.querySelectorAll(".ugf-gmail-themes .theme").forEach(function(o) {
+                    o.classList.toggle("on", o === t);
+                });
+            });
+        });
+        // (gplex-patched) Set Theme: Gmail's "Pick your theme" window
+        const setTheme = main.querySelector("#ugf-gmail-settheme");
+        if (setTheme) {
+            setTheme.addEventListener("click", function() {
+                ugfGmailThemePicker(function() {
+                    ugfGmailRender();
+                });
+            });
+        }
         main.querySelectorAll('input[name="ugfcats"]').forEach(function(r) {
             r.addEventListener("change", function() {
                 ugfGmailSetCategories(r.value === "true");
@@ -71117,7 +72681,25 @@ html[gplex-gmail] body {
             ugfGmailRender();
         };
         main.querySelector("#ugf-gmail-settings-cancel").addEventListener("click", back);
-        main.querySelector("#ugf-gmail-settings-save").addEventListener("click", back);
+        main.querySelector("#ugf-gmail-settings-save").addEventListener("click", function() {
+            // (gplex-patched) the page size is Gmail's own setting: saved there, then back to the mail
+            const ps = main.querySelector("#ugf-gmail-pagesize");
+            const want = ps ? parseInt(ps.value, 10) : 0;
+            if (!want || String(want) === ps.getAttribute("data-now")) {
+                back();
+                return;
+            }
+            let note = main.querySelector("#ugf-gmail-settings-status");
+            if (!note) {
+                note = document.createElement("span");
+                note.id = "ugf-gmail-settings-status";
+                note.style.marginLeft = "10px";
+                main.querySelector("#ugf-gmail-settings-actions").appendChild(note);
+            }
+            ugfGmailSetPageSize(want, function(msg) {
+                note.textContent = msg;
+            }, back);
+        });
         const real = main.querySelector("#ugf-gmail-realsettings");
         if (real) {
             real.addEventListener("click", function(ev) {
@@ -71563,7 +73145,12 @@ html[gplex-gmail] body {
                     ugfGmailRealClick(btn);
                     if (plan.menuItem) {
                         ugfGmailMenuPick(plan.menuItem, function(ok) {
-                            if (ok) {
+                            if (ok && plan.apply) {
+                                // (gplex-patched) Gmail's label menu ticks, then applies on Apply
+                                ugfGmailMenuPick(ugfGmailAlt(["Apply"]), function() {
+                                    settle();
+                                });
+                            } else if (ok) {
                                 settle();
                             } else {
                                 attempt(i + 1);
@@ -71631,7 +73218,7 @@ html[gplex-gmail] body {
             n++;
             let hit = null;
             let rank = Infinity;
-            document.querySelectorAll('[role="menuitem"], .J-N, .J-LC .J-N').forEach(function(el) {
+            document.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"], .J-N, .J-LC').forEach(function(el) {
                 if (ugfGmailOurs(el)) {
                     return;
                 }
@@ -72082,6 +73669,7 @@ html[gplex-gmail] body {
         shell.setAttribute("skin", era);
         shell.setAttribute("chrome", chrome);
         h.setAttribute("gplex-gmail", era);
+        ugfGmailApplyTheme(chrome);
         // the ported grid styles key off [layout], which only google.com was setting
         h.setAttribute("layout", String(layout || ""));
         const realLabels = ugfGmailLabels();
@@ -72159,7 +73747,8 @@ html[gplex-gmail] body {
                 ("#" + n.name.toLowerCase().replace(/\s+/g, ""));
             const here = ugfGmailViewFromHash(window.location.hash);
             const active = here === hash.split("/")[0];
-            const count = n.name === "Inbox" && unread ? unread : 0;
+            // (gplex-patched) Gmail's own figure ("Inbox (1,792)"), not the unread rows on this page
+            const count = ugfGmailNavCount(hash) || (n.name === "Inbox" && unread ? unread : 0);
             navHTML += '<a data-n="' + i + '" data-hash="' + esc(hash) + '" href="' + esc(ugfGmailMailUrl(hash)) + '"' +
                 (active ? ' class="active"' : "") + ">" +
                 (feat.navIcons ? ugfGmailNavIcon(n.name) : "") +
@@ -72488,6 +74077,7 @@ html[gplex-gmail] body {
                 setTimeout(ugfGmailRender, 1200);
             });
         });
+        ugfGmailFoldNav(shell, chrome);
         shell.querySelectorAll("#ugf-gmail-nav a[data-n]").forEach(function(a) {
             a.addEventListener("click", function(ev) {
                 const n = navItems[parseInt(a.getAttribute("data-n"), 10)];
@@ -72564,7 +74154,9 @@ html[gplex-gmail] body {
         if (/^#search\//.test(hashNow) && ugfGmailIsRealSearch()) {
             try {
                 shell.querySelector("#ugf-gmail-q").value =
-                    decodeURIComponent(hashNow.slice(8).replace(/\+/g, " "));
+                    // (gplex-patched) the search alone: with a conversation open from the results the address
+                    // goes on with its id (#search/greg+bork/FMfcgz...), which came into the box with it
+                    decodeURIComponent(ugfGmailListOf(hashNow).slice(8).replace(/\+/g, " "));
             } catch (e) {}
         }
         shell.querySelector("#ugf-gmail-search").addEventListener("click", doSearch);
@@ -72651,6 +74243,20 @@ html[gplex-gmail] body {
                 // never see it. Offer the destinations ourselves. On the oldest layouts
                 // there is no Move to button - moving lived under More actions - so that
                 // is where it belongs there.
+                // (gplex-patched) Labels and More open Gmail's own menus, in the layer Gplex hides: offered
+                // here instead, as Move to already is
+                if (act === "labels") {
+                    ugfGmailPickMenu(b, chrome, "Label as", ugfGmailOwnLabels(), function(name) {
+                        ugfGmailRunAction(picked, [{ buttons: ["Labels", "Label as"], menuItem: [name], apply: true }]);
+                    });
+                    return;
+                }
+                if (act === "more" && chrome !== "classic") {
+                    ugfGmailPickMenu(b, chrome, "", ugfGmailMoreItems(false), function(name) {
+                        ugfGmailRunAction(picked, ugfGmailMorePlans(name));
+                    });
+                    return;
+                }
                 if (act === "move" || (act === "more" && chrome === "classic" &&
                         !shell.querySelector('#ugf-gmail-toolbar [data-act="move"]'))) {
                     ugfGmailMoveMenu(b, chrome, function(dest) {
@@ -72908,7 +74514,7 @@ html[gplex-gmail] body {
         }
         const styles = document.createElement("style");
         styles.id = "ugf-gmail-styles";
-        styles.textContent = ugfGmailCss();
+        styles.textContent = ugfGmailCss() + "\n" + ugfGmailFixCss() + "\n" + ugfGmailThemeCss();
         (document.head || document.documentElement).appendChild(styles);
         ugfGmailSetFavicon();
         ugfGmailLoadingStart();
@@ -97812,7 +99418,7 @@ html[gplex-gmail] body {
     if (!(onDrive || (window.location.host === "docs.google.com" && /^\/(document|spreadsheets|presentation|forms)\//.test(window.location.pathname))) || window.top !== window.self) {
         return;
     }
-    const CSS = "/* Gplex Docs 2014 fixes: geometry from the 2014 reference, in CSS px at 100%. Appended to Gplex by gplex-plus-link-patch.py. */\n\n/* ---- header: title row 0-30, menu row 30-59 --------------------------------- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-header { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar-container { margin-left: 53px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }\n\n/* the app's square: a full-height blue block in the corner */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-logo.square {\n    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;\n    background: #4285f4 !important; display: flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-logo.square img { width: 40px !important; height: 40px !important; }\n\n/* \"Untitled document\": grey italic until named */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-title-untitled,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }\n\n/* star and folder beside the title */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-titlebar-badges .docs-star-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar #docs-star,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar #docs-folder { display: inline-block !important; }\n\n/* menus: text starts at x 60, baseline ~47 */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }\n\n/* account, Comments and Share: right edge 50px in, Share's top at 26 */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-saved { position: relative !important; top: -3px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar-share-client-button .scb-button-icon {\n    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;\n}\n\n/* ---- toolbar: 59-96, grey, buttons on a 26px pitch from x 57 ----------------- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {\n    display: flex !important; align-items: center !important; min-height: 0 !important;\n    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;\n    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }\n/* Editing and the menus' \ufe3d live in Google's side toolbar, which Gplex hides whole: show it, with just those two */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-wrapper #docs-side-toolbar { display: flex !important; align-items: center !important; flex: 0 0 auto !important; height: 35px !important; margin: 0 37px 0 0 !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar > :not(#docs-toolbar-mode-switcher):not(#viewModeButton) { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }\n\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .goog-toolbar-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .goog-toolbar-menu-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .goog-toolbar-button { width: 24px !important; min-width: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > * .goog-toolbar-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }\n\n/* the drop-downs' captions: bold 11px, as then */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-input { font: bold 11px Arial, sans-serif !important; color: #444 !important; }\n\n/* 2014's order: print, undo, redo, paint | zoom | style | font | size | B I U A | link comment | align | spacing | numbered bulleted | outdent indent | clear */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #printButton { order: 1 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #undoButton { order: 2 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #redoButton { order: 3 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #formatPainterButton { order: 4 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #zoomSelect { order: 5 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #headingStyleSeparator { order: 6 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #headingStyleSelect { order: 7 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #fontFamilySelectSeparator { order: 8 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-font-family { order: 9 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #fontSizeSelectSeparator { order: 10 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #fontSizeSelect { order: 11 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #textControlsInsertSeparator { order: 12 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #boldButton { order: 13 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #italicButton { order: 14 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #underlineButton { order: 15 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #textColorButton { order: 16 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #commentSeparator { order: 17 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #insertLinkButton { order: 18 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #insertCommentButton { order: 19 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #alignSeparator { order: 20 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #alignButton { order: 21 !important; display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .ugf-d14-button { order: 21 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-align-justify { margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #lineSpacingMenuButton { order: 22 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #addNumberedBulletButton { order: 23 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #numberedListPresetMenuButton { order: 24 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #addBulletButton { order: 25 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #bulletedListPresetMenuButton { order: 26 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #outdentButton { order: 27 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #indentButton { order: 28 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #clearFormattingButton { order: 29 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > :not([id]) { order: 99 !important; }\n\n/* the separators 2014 had where today's toolbar has none */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #formatPainterButton::after,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-align-justify::after,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #lineSpacingMenuButton::after,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #indentButton::after {\n    content: \"\" !important; position: absolute !important; right: -7px !important; top: 3px !important; width: 1px !important; height: 21px !important; background: #ddd !important;\n}\n\n/* what 2014 didn't have */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #bgColorButton,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #insertImageButton { display: none !important; }\n\n/* the list buttons' own drop-down arrows */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #numberedListPresetMenuButton,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #bulletedListPresetMenuButton { display: inline-flex !important; width: 13px !important; min-width: 0 !important; margin: 0 1px 0 -1px !important; }\n\n/* Editing \u25be and the \ufe3d that hides the menus, at the toolbar's right */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar #docs-toolbar-mode-switcher { display: inline-flex !important; align-items: center !important; width: 120px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar #viewModeButton { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 24px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 0 0 11px !important; }\n\n/* ---- the page: no vertical ruler --------------------------------------------- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #kix-vertical-ruler,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #kix-vertical-ruler-container { display: none !important; }\n\n/* today's empty Meet / side-panel slots add extra gaps between Comments and Share */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }\n\n/* ---- v3 ----------------------------------------------------------------------- */\n/* the side panel's rail is hidden, but Docs still keeps its 56px: give it back */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-editor.companion-enabled { width: 100% !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper { width: auto !important; margin-right: 0 !important; }\n\n/* Gemini's \"write a document about...\" bar at the bottom */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .kixWizBarkickContainer,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] [class*=\"SidekickBarkick\"] { display: none !important; }\n\n/* the ruler sits on the grey */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #kix-horizontal-ruler { background: transparent !important; }\n\n/* every drop-down caption on one line, centred in the 27px button */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-inner-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-inner-box {\n    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 7px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }\n/* icon-only drop-downs (text colour, align, spacing, list arrows): no caption padding */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #textColorButton .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #alignButton .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #lineSpacingMenuButton .goog-toolbar-menu-button-caption { padding: 0 0 0 4px !important; flex: 0 0 auto !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #numberedListPresetMenuButton .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #bulletedListPresetMenuButton .goog-toolbar-menu-button-dropdown { margin: 0 2px !important; }\n/* the widths they had */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar #zoomSelect { width: 56px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar #headingStyleSelect { width: 95px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar #docs-font-family { width: 92px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar #fontSizeSelect { width: 56px !important; }\n\n/* Editing \u25be: 12px, its arrow back inside the button */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-inner-box {\n    display: flex !important; align-items: center !important; width: 100% !important; height: 25px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; height: 25px !important; line-height: 25px !important; font: 12px Arial, sans-serif !important; color: #444 !important; padding: 0 0 0 4px !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-icon { margin: 0 6px 0 0 !important; filter: grayscale(1) brightness(.4) !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-label { font: 12px Arial, sans-serif !important; color: #444 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown { position: static !important; flex: 0 0 9px !important; margin: 0 6px 0 0 !important; align-self: center !important; top: 0 !important; }\n\n/* \ufe3d in place of today's single chevron */\n/* the side toolbar's box starts a pixel lower and is a pixel taller than the main toolbar's, which\n   left Editing and the arrow 2px below the other buttons (66 against 64): lifted level with them */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar #docs-toolbar-mode-switcher,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar #viewModeButton { position: relative !important; top: -2px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #viewModeButton .docs-icon { visibility: hidden !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #viewModeButton .goog-toolbar-button-inner-box {\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23666' stroke-width='1.6'%3E%3Cpath d='M2 6.5l4-4 4 4M2 10.5l4-4 4 4'/%3E%3C/svg%3E\") center / 12px 12px no-repeat !important;\n}\n\n/* ---- v4 ----------------------------------------------------------------------- */\n/* drop-down arrows: the box as tall as its 16px icon, so the \u25be sits beside the text */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }\n/* Editing's \u25be is drawn with borders: a real triangle, not a 9px bar */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown {\n    width: 0 !important; height: 0 !important; flex: 0 0 0 !important; border-style: solid !important; border-width: 4px 4px 0 !important;\n    border-color: #444 transparent transparent !important; background: none !important; margin: 0 8px 0 0 !important;\n}\n/* the doc mark inside the blue block at the period's size */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }\n\n/* ---- v5: menus: icons in the gutter, words at 30px, no \"New\"/\"Updated\" badges ---- */\n/* icons in the left gutter, clear of the words (they were crowding them) */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-icon {\n    display: block !important; position: absolute !important; left: 5px !important; top: 50% !important; margin: -10px 0 0 0 !important;\n    width: 20px !important; height: 20px !important; opacity: .6 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-content { position: static !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .docs-action-badge,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .docs-new-badge { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem { padding: 6px 7em 6px 30px !important; min-height: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-label { font: 13px Arial, sans-serif !important; line-height: 17px !important; color: #333 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-disabled .goog-menuitem-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-disabled .goog-menuitem-label { color: #ccc !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-accel { color: #999 !important; font: 13px Arial, sans-serif !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-checkbox { left: 8px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuseparator { border-top: 1px solid #ebebeb !important; margin: 6px 0 !important; }\n\n/* Google's menus, while the 2014 buttons work them, stay out of sight */\nhtml.ugf-d14-busy[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu:not(.ugf-d14-keep):not(#ugf-d14-table-dd) { opacity: 0 !important; pointer-events: none !important; }\nhtml.ugf-d14-busy[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu.ugf-d14-keep { position: fixed !important; z-index: 1004 !important; }\n\n/* the Table menu */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-table-dd { position: fixed !important; z-index: 1003 !important; min-width: 190px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-table-dd .goog-menuitem { cursor: default !important; position: relative !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-table-dd .ugf-d14-subarrow { position: absolute; right: 10px; color: #999; font-size: 11px; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-table-menu { cursor: default !important; }\n#ugf-d14-note { position: fixed; z-index: 1005; display: none; padding: 5px 8px; background: #2d2d2d; color: #fff; font: 12px Arial, sans-serif; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.3); }\n\n/* ---- v6: document tabs (today's), only for documents that have more than one ------ */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container { display: block !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container *,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container * { letter-spacing: normal !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container { background: #ebebeb !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-label-content { font-size: 13px !important; color: #333 !important; }\n/* today's \"this document has content in multiple tabs\" pop-up: the panel says as much */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] [class*=\"ChapterTooltipPromo\"] { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget { background: transparent !important; }\n/* the period's plain grey button, in place of today's floating tab switcher */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-tabs-btn {\n    position: absolute; left: 16px; top: 16px; z-index: 101; height: 27px; line-height: 25px; padding: 0 10px; box-sizing: border-box;\n    background: linear-gradient(#f5f5f5, #f1f1f1); border: 1px solid rgba(0,0,0,.1); border-radius: 2px; color: #444;\n    font: bold 11px Arial, sans-serif; cursor: default; user-select: none;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-tabs-btn:hover { border-color: #c6c6c6; color: #222; box-shadow: 0 1px 1px rgba(0,0,0,.1); }\n\n/* ---- v7: the tabs panel shown as it stands (Google keeps it collapsed and unseen) ---- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container-content { overflow: visible !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget {\n    display: block !important; opacity: 1 !important; pointer-events: auto !important; top: 40px !important; bottom: auto !important;\n    height: auto !important; max-height: calc(100% - 56px) !important; overflow-y: auto !important; width: 240px !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget * { pointer-events: auto !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget-content { visibility: visible !important; opacity: 1 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs][ugf-d14-tabs-hidden] .left-sidebar-container { display: none !important; }\n\n/* ---- v8: the tabs panel in the period's dress: a white card like the menus, a grey\n   header like the toolbar, plain Arial rows, a flat grey highlight for the open tab ---- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget {\n    background: #fff !important; border: 1px solid rgba(0,0,0,.2) !important; border-radius: 0 !important;\n    box-shadow: 0 2px 4px rgba(0,0,0,.2) !important; padding: 0 0 6px !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-hat,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-shadow,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-resizer-drag-handle { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents {\n    height: 36px !important; min-height: 0 !important; background: #f5f5f5 !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; width: auto !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents { border-bottom: 1px solid #e5e5e5 !important; padding: 0 8px 0 12px !important; align-items: center !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-text-chaptered { font: bold 13px Arial, sans-serif !important; color: #222 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-chapter-count { font: 12px Arial, sans-serif !important; color: #777 !important; }\n/* + (add tab): the period's small grey button */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .jfk-button {\n    width: 24px !important; height: 24px !important; min-width: 0 !important; padding: 0 !important; margin: 0 !important; border-radius: 2px !important;\n    background: linear-gradient(#f5f5f5, #f1f1f1) !important; border: 1px solid rgba(0,0,0,.1) !important; box-shadow: none !important;\n    display: inline-flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .jfk-button:hover { border-color: #c6c6c6 !important; box-shadow: 0 1px 1px rgba(0,0,0,.1) !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .docs-icon { transform: scale(.8) !important; opacity: .7 !important; }\n/* the rows */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item { padding: 0 !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container {\n    border-radius: 0 !important; background: transparent !important; height: 28px !important; min-height: 0 !important; margin: 0 !important; padding: 0 6px 0 12px !important; box-shadow: none !important; outline: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:hover { background: #eee !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:not([class=\"chapter-item-label-and-buttons-container\"]) { background: #e5e5e5 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:not([class=\"chapter-item-label-and-buttons-container\"]) .chapter-label-content { font-weight: bold !important; color: #222 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-label-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-label-container {\n    font: 13px Arial, sans-serif !important; color: #333 !important; letter-spacing: normal !important; border-radius: 0 !important; background: transparent !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-icon .docs-icon { transform: scale(.85) !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-icon .docs-icon-img { filter: grayscale(1) !important; opacity: .55 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-overflow-menu-button { border-radius: 2px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-overflow-menu-button .docs-icon-img { opacity: .5 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-doco-indicator,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-doco-indicator * { background: transparent !important; color: #999 !important; font: 11px Arial, sans-serif !important; border-radius: 0 !important; }\n/* the headings under each tab (the outline) in the same type */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-item-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-empty-content { font: 12px Arial, sans-serif !important; color: #777 !important; }\n\n/* ---- v9: the button above the panel, the card fitted to its tabs ---- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-tabs-btn {\n    left: 16px !important; top: 16px !important; width: 240px !important; height: 27px !important;\n    display: flex !important; align-items: center !important; justify-content: center !important; line-height: normal !important; padding: 0 !important; text-align: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container { left: 16px !important; width: 240px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget {\n    left: 0 !important; top: 51px !important; width: 240px !important; box-sizing: border-box !important; max-height: calc(100% - 67px) !important;\n}\n/* everything inside at the card's full width (today's panel is laid out 208px wide) */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .outlines-widget,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .outlines-widget-chaptered,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .topLevelChapterContainerChaptered,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container {\n    width: auto !important; max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; left: auto !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .updating-navigation-item-list { height: auto !important; max-height: none !important; overflow: visible !important; position: static !important; }\n/* the header on one line, its words where the rows' words begin */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents { display: flex !important; justify-content: space-between !important; padding: 0 8px 0 12px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-text-chaptered { white-space: nowrap !important; margin: 0 !important; padding: 0 !important; flex: 1 1 auto !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-chapter-count:empty { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container { padding: 0 6px 0 8px !important; }\n\n/* ---- the Docs list: \"Start a new document\", as the list had it from autumn 2015 ------ */\n/* it sits at the top of the scrolling list, stretched back out over the list's side and top\n   padding (24px calc(50% - 440px)) to the full width: cqw is the list page's width */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home { container-type: inline-size; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl {\n    background: #434448; color: #fff; font-family: Roboto, Arial, sans-serif; position: relative;\n    margin: -24px min(0px, calc(440px - 50cqw)) 16px;\n}\n/* on the list's own left edge (its padding is calc(50% - 440px)), like \"Recent documents\" */\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tin { width: 880px; max-width: calc(100% - 48px); margin: 0 0 0 max(24px, calc(50cqw - 440px)); padding: 0 0 18px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .thead { display: flex; align-items: center; height: 44px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tt { font-size: 14px; color: rgba(255,255,255,.87); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .more { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: rgba(255,255,255,.87); font-size: 12px; font-weight: 500; letter-spacing: .5px; text-decoration: none; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .more:hover { color: #fff; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .more .ar {\n    display: inline-block; width: 10px; height: 14px;\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%23ddd' stroke-width='1.5'%3E%3Cpath d='M2 5l3-3 3 3M2 9l3 3 3-3'/%3E%3C/svg%3E\") center / 10px 14px no-repeat;\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tiles { display: grid; grid-template-columns: repeat(7, 112px); gap: 18px 16px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile { display: block; width: 112px; color: #fff; text-decoration: none; cursor: pointer; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .pg { display: block; position: relative; width: 112px; height: 142px; background: #fff; overflow: hidden; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .pg img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #4285f4; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; margin: -19px 0 0 -19px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus::after { content: \"\"; position: absolute; background: #4285f4; left: 50%; top: 50%; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus::before { width: 38px; height: 3px; margin: -1.5px 0 0 -19px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus::after { width: 3px; height: 38px; margin: -19px 0 0 -1.5px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .lb { display: block; margin-top: 10px; font-size: 12px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .st { display: block; margin-top: 1px; font-size: 11px; color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n/* with Blank on the strip, the list had no round \"+\" (it stays for search results, where the strip isn't) */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home:has(#ugf-d14-tpl) .fab { display: none !important; }\n\n/* \"Owned by anyone \u25be\" on the right of \"Recent documents\", and its menu */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .rhead .ugf-d14-own {\n    margin-left: auto; display: inline-flex; align-items: center; height: 24px; padding: 0 6px 0 10px; border-radius: 4px;\n    cursor: pointer; user-select: none; font: 14px Roboto, Arial, sans-serif; color: #444746;\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .rhead .ugf-d14-own:hover { background: rgba(0,0,0,.05); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .rhead .ugf-d14-own.open { background: #d6e3fb; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .rhead .ugf-d14-own .ar { width: 0; height: 0; margin: 0 4px 0 10px; border-style: solid; border-width: 5px 5px 0; border-color: currentColor transparent transparent; }\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu {\n    position: fixed; z-index: 60; min-width: 200px; padding: 6px 0; background: #fff; border-radius: 4px;\n    box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 4px 12px rgba(0,0,0,.15); font: 14px Roboto, Arial, sans-serif; color: #1f1f1f;\n}\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu .it { position: relative; height: 34px; line-height: 34px; padding: 0 24px 0 47px; cursor: pointer; white-space: nowrap; }\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu .it:hover { background: #f1f1f1; }\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu .it.on { font-weight: 700; color: #333; }\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu .it.on::before {\n    content: \"\"; position: absolute; left: 18px; top: 50%; width: 14px; height: 11px; margin-top: -6px;\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='11' viewBox='0 0 14 11' fill='none' stroke='%23000' stroke-width='1.8'%3E%3Cpath d='M1 5.5l4 4 8-8.5'/%3E%3C/svg%3E\") center / 14px 11px no-repeat;\n}\n\n/* MORE: the whole gallery, by category, in the band; LESS folds it back */\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .cat { margin: 26px 0 14px; font-size: 14px; color: rgba(255,255,255,.87); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl.open .tin { padding-bottom: 28px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl.open .more .ar {\n    background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%23ddd' stroke-width='1.5'%3E%3Cpath d='M2 2l3 3 3-3M2 12l3-3 3 3'/%3E%3C/svg%3E\");\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile.ph { cursor: default; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile.ph .pg { background: rgba(255,255,255,.08); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile.ph::after { content: \"\"; display: block; height: 30px; }\n\n/* ---- the Slides list: the same strip, with Slides' landscape tiles, five to a row ---- */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tiles,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tiles,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tiles { grid-template-columns: repeat(5, 160px); gap: 18px 20px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .pg { width: 160px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .pg { height: 90px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus { width: 34px; height: 34px; margin: -17px 0 0 -17px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus::after { background: #f4b400; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus::before { width: 34px; height: 4px; margin: -2px 0 0 -17px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus::after { width: 4px; height: 34px; margin: -17px 0 0 -2px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #f4b400; }\n/* the period's rhythm, measured from the 2016 gallery: label 19px under the slide, a\n   46px label block (room for a \"by ...\" credit), 26px to the next row: 162px a row */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tiles,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tiles,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tiles { row-gap: 26px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile { min-height: 136px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .lb,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .lb,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .lb { margin-top: 12px; font-size: 13px; line-height: 16px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .st,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .st,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .st { margin-top: 3px; font-size: 13px; line-height: 16px; color: rgba(255,255,255,.7); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl:not(.open) .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl:not(.open) .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .cat,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .cat,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .cat { margin: 8px 0 22px; font-size: 18px; line-height: 24px; color: rgba(255,255,255,.87); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .cat.first,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .cat.first,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .cat.first { margin-top: 6px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tile.ph::after,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile.ph::after,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile.ph::after { height: 28px; }\n\n/* ---- Slides' gallery as its own page: \"\u2190 Start a new presentation\" and the gallery alone ---- */\n/* the Google bar slides up out of sight (and back); the list stays under the growing band\n   while the drawer moves (.ugf-d14-anim), and goes once it has filled the page */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .gtop { transition: margin-top .35s cubic-bezier(.4, 0, .2, 1); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] { overflow: hidden; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] .gtop { margin-top: -60px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] .appbar,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery]:not(.ugf-d14-anim) .content > :not(#ugf-d14-tpl),\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl .thead { display: none !important; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #434448; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl { margin-bottom: 0; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl .tin { padding: 22px 0 60px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-galbar {\n    flex: 0 0 auto; position: relative; z-index: 2; display: flex; align-items: center; height: 64px; padding: 0 8px;\n    background: #4285f4; color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,.26); font-family: Roboto, Arial, sans-serif;\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-galbar { background: #f4b400; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-galbar .back {\n    width: 48px; height: 48px; border-radius: 50%; cursor: pointer;\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z'/%3E%3C/svg%3E\") center / 24px 24px no-repeat;\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-galbar .back:hover { background-color: rgba(255,255,255,.12); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-galbar .t { margin-left: 16px; font-size: 20px; color: #fff; }\n\n/* ---- the Slides list's cards: four landscape slides to a row, as the 2016 list had them ---- */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] .cards,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] .cards,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] .cards { grid-template-columns: repeat(4, 201px) !important; gap: 20px !important; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] .card,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] .card,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] .card { width: 201px !important; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] .card .th,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] .card .th,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] .card .th { width: auto !important; height: 113px !important; overflow: hidden !important; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] .card .th img,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] .card .th img,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] .card .th img { width: 100% !important; height: 100% !important; object-fit: cover !important; object-position: top center !important; }\n\n/* ---- the Sheets list: Slides' strip, gallery page and cards (above), with Sheets' own\n   4:3 tiles, green + and slate band, measured from the 2016 list at 2.04x ---- */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"][ugf-d14-gallery]:not(.ugf-d14-anim) .content,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"][ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #394242; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .thead,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .thead { height: 54px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tt,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tt { font-size: 16px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl:not(.open) .tin,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl:not(.open) .tin { padding-bottom: 32px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .pg { height: 120px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile { min-height: 166px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl:not(.open) .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .lb,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .lb { margin-top: 10px; font-size: 14px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus { width: 44px; height: 44px; margin: -22px 0 0 -22px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus::after,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::after { background: #1ba866; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::before { width: 44px; height: 5px; margin: -2.5px 0 0 -22px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus::after,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::after { width: 5px; height: 44px; margin: -22px 0 0 -2.5px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile:hover .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #1ba866; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-galbar,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-galbar { background: #0f9d58; }\n\n/* ---- the Forms list: the Sheets strip (4:3 tiles), gallery page and cards, in Forms' purple ---- */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"][ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #434448; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::after { background: #673ab7; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #7e57c2; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-galbar { background: #673ab7; }\n\n/* ==== the Slides editor: the same 2014 frame as Docs (header 0-59, toolbar 59-96,\n   buttons on a 26px pitch from x 57), with Slides' own toolbar ==== */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-header { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar-container { margin-left: 53px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #ugf-docs-logo.square {\n    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;\n    background: #f4b400 !important; display: flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-title-untitled,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-titlebar-badges .docs-star-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar #docs-star,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar #docs-folder { display: inline-block !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #ugf-docs-saved { position: relative !important; top: -3px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }\n/* Present, Comments and Share: top at 26, 10px apart, right edge 50px in */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar-share-client-button .scb-button-icon {\n    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] .punch-start-presentation-container { height: 27px !important; margin: 0 !important; }\n\n/* the toolbar band */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {\n    display: flex !important; align-items: center !important; min-height: 0 !important; width: auto !important; margin-right: 0 !important;\n    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;\n    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > .goog-toolbar-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > .goog-toolbar-menu-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > .goog-toolbar-button:not(.docs-toolbar-text-button) { width: 24px !important; min-width: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > * .goog-toolbar-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-inner-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-inner-box {\n    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 5px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-input,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .docs-toolbar-text-button .goog-toolbar-button-inner-box { font: bold 11px Arial, sans-serif !important; color: #444 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .docs-toolbar-text-button { width: auto !important; padding: 0 8px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar #zoomSelect { width: 56px !important; }\n/* the period's order: New slide | print, undo, redo, paint format | zoom | the tools ... */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > * { order: 20 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #newSlideButton { order: 1 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #newSlideSeparator { order: 2 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #printButton { order: 3 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #undoButton { order: 4 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #redoButton { order: 5 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #paintFormatButton { order: 6 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #zoomButton { order: 7 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #zoomSelect { order: 8 !important; }\n/* the slide's \"Background\" button the period had beside Layout, Theme and Transition */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar #slideBackgroundButton { display: inline-flex !important; }\n/* \ufe3d (hide the menus) at the toolbar's right, as in Docs */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar-wrapper #docs-side-toolbar { display: flex !important; align-items: center !important; flex: 0 0 auto !important; height: 35px !important; margin: 0 37px 0 0 !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-side-toolbar > :not(#viewModeButton) { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-side-toolbar #viewModeButton { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 24px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #viewModeButton .docs-icon { visibility: hidden !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #viewModeButton .goog-toolbar-button-inner-box {\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23666' stroke-width='1.6'%3E%3Cpath d='M2 6.5l4-4 4 4M2 10.5l4-4 4 4'/%3E%3C/svg%3E\") center / 12px 12px no-repeat !important;\n}\n/* today's content-library rail down the right: gone, its room given back to the slide */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #content-library-rail-server-rendered-refreshed,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] [class*=\"ContentLibraryRail\"] { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-editor { width: 100% !important; }\n\n/* ==== the Sheets editor: the same 2014 frame (header 0-59, toolbar 59-96, buttons on a\n   26px pitch from x 57), measured against the 2016 editor ==== */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-header { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar-container { margin-left: 53px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-logo.square {\n    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;\n    background: #0f9d58 !important; display: flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-title-untitled,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-titlebar-badges .docs-star-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar #docs-star,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar #docs-folder { display: inline-block !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-saved { position: relative !important; top: -3px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }\n/* Comments and Share: top at 26, 10px apart, right edge 50px in */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar-share-client-button .scb-button-icon {\n    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;\n}\n\n/* the toolbar band */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {\n    display: flex !important; align-items: center !important; min-height: 0 !important; width: auto !important; margin-right: 0 !important;\n    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;\n    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > .goog-toolbar-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > .goog-toolbar-menu-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > .goog-toolbar-button:not(.docs-toolbar-text-button) { width: 24px !important; min-width: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > * .goog-toolbar-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-inner-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-inner-box {\n    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 5px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-input,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .docs-toolbar-text-button .goog-toolbar-button-inner-box { font: bold 11px Arial, sans-serif !important; color: #444 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .docs-toolbar-text-button { width: auto !important; padding: 0 8px !important; }\n/* the green block carries the period's white grid, not the 2013 square's + */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-logo.square img { visibility: hidden !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-logo.square { background: #0f9d58 url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16' fill='none' stroke='%23fff' stroke-width='2'%3E%3Crect x='1' y='1' width='18' height='14'/%3E%3Cpath d='M1 5.5h18M1 10.5h18M7 1v14'/%3E%3C/svg%3E\") center / 20px 16px no-repeat !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #docs-font-family { width: 100px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #fontSizeSelect { width: 56px !important; }\n/* the period's order: print, undo, redo, paint format | $ % .0 .00 123 | ... | link, comment, chart, filter, functions */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > * { order: 20 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #t-print { order: 1 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #t-undo { order: 2 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #t-redo { order: 3 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #t-paintformat { order: 4 !important; }\n/* the link button, which 2016 had before comment */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #t-insert-link[ugf-hide] { display: inline-flex !important; }\n/* the filter's \u25be beside the funnel, not today's \"Filter views\" table icon */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #t-autofilter-menu { width: 15px !important; min-width: 0 !important; margin-left: -1px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #t-autofilter-menu .goog-toolbar-menu-button-caption { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #t-autofilter-menu .goog-toolbar-menu-button-dropdown { margin: 0 3px !important; }\n/* today's side-panel rail's room given back to the grid */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-editor,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-additional-bars,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #formula-bar,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #grid-bottom-bar,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-feature-level-banner,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-inset-notification-banner { width: 100% !important; }\n\n/* ==== the Forms editor (Gplex's, over Google's): 2016's Add-ons and Colour palette ==== */\n#ugf-fe .ugf-d14-feb { cursor: pointer; }\n#ugf-fe .ugf-d14-feb.open { background: rgba(0,0,0,.08); }\n#ugf-fe .ugf-d14-feb svg { fill: currentColor; display: block; }\n#ugf-d14-fepop {\n    position: fixed; z-index: 80; background: #fff; border-radius: 2px; font: 14px Roboto, Arial, sans-serif; color: #212121;\n    box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.12), 0 1px 5px 0 rgba(0,0,0,.2);\n}\n#ugf-d14-fepop.palette { padding: 16px; }\n#ugf-d14-fepop .sw { display: grid; grid-template-columns: repeat(4, 32px); gap: 12px; }\n#ugf-d14-fepop .c { width: 32px; height: 32px; border-radius: 50% !important; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); }\n#ugf-d14-fepop .c:hover { box-shadow: inset 0 0 0 1px rgba(0,0,0,.1), 0 1px 3px rgba(0,0,0,.35); }\n#ugf-d14-fepop .c svg { fill: #fff; display: block; }\n#ugf-d14-fepop.addons { min-width: 200px; padding: 8px 0; }\n#ugf-d14-fepop .it { height: 32px; line-height: 32px; padding: 0 24px; cursor: pointer; white-space: nowrap; }\n#ugf-d14-fepop .it:hover { background: #eee; }\n#ugf-d14-fepop .sep { height: 1px; margin: 8px 0; background: #e0e0e0; }\n#ugf-d14-fenote { position: fixed; z-index: 80; display: none; max-width: 320px; padding: 8px 12px; background: #323232; color: #fff; font: 13px Roboto, Arial, sans-serif; border-radius: 2px; }\n/* an add-on's dialog (or the add-ons store) over Gplex's editor, on a scrim */\nhtml[ugf-d14-fe-lift] #ugf-fe::after { content: \"\"; position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.5); }\nhtml[ugf-d14-fe-lift] [role=\"dialog\"]:not(#ugf-fe *) { z-index: 2147483300 !important; }\n\n/* ==== Drive (Gplex's, 2014-2016 look): on the 2016 layouts (Gplex's new Google logo), the\n   Drive triangle of 2014-2016 before \"Drive\" ==== */\nhtml[gplex-dv=\"dv14\"] #ugf-drive:has(.gtop .glogo img.n) .dbar .app { display: flex; align-items: center; gap: 12px; }\nhtml[gplex-dv=\"dv14\"] #ugf-drive:has(.gtop .glogo img.n) .dbar .app::before {\n    content: \"\"; flex: 0 0 24px; width: 24px; height: 24px;\n    background: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAHn0lEQVR4nO1Za2wU1xU+586+vFmMHQIhjyoSMlBiIBC3StV/kVqpVVsrLcUNEaBCItS0alERalWkpAuo+WFCpCZKaJ0CTpM6aa2WBlEqqlQ4IkRJmh+EV2IIj8brGPzG9j7mce+p7sw+Zmbn7nqdhP4I32rXO3funvm+c88592GAG7iBzzfwkxpoP/LjA1vvuNaKiAhApRtU+O5qK17n27S6LlzSufb/JuAHR3YtPTVy6eTeO0f1rzSYUS9ZnwAKugcA8YVLceHuszPlwGb6QyLCC5MfvyiA4Im+umiWM5qBFYBs6iVp67oL+NbhHa0TZvYeQoJzPAwHh0JIMxlRyqyAMz/69nUV8PT5w9FUeni/9KD90gB2DdwE/TmUPsXK4RMAMdxJZ/4SuW4C/nr2jS05bjSUrCBMIoM/DcRIkq08Ev7kJgDSGwEP/3wmXGoe8k1Hf3/LsavvXbEE94oXAGgK+HPTON5TbzrG5YCUeT9AgA1NQOS+W3HJthH4LEfgxNiHz5nCKv+dBkAhhGf6Y2QJxy9ENTiIOAPr5LO18qlJwKp//mb5mD7xfft5/pf0NCM4lo3CayOlcPaGk8L7lL/kU2109mdLPxMBstR9ODXUJYSwydqE/X1kzIQA2lN1NKZL3k6fwMRWTXDWwMu1lNVpC/j6we3fnTTSd3umo7wQ91smdB+E4MBQuKgRi4kQUI3Idy3SzdC7sfVTFZA8uj+Wygzudz9T9RayQwhh99UEXMwyhcf9esj71xj7I51/OvqpCfjX+Pu/1IUxqxDv1SAnN11D2JuKEdrjUIl8AIQ+C/R3fgHTQNVYW3dk17y3Rs5fMQUHe702TaAgiORwx5mWYYtpfIeaPCn+hgDqFs3DxbuHP9EInJ7o65DkbdOK5PVD9hGA15bNvvMJFl3RToKu1UZewgLQ+zqgCioK+OarO1aO6ZlW1wJYmbyeRAaAeoqs725LGticNITQ1js/dFtXVSMX+OQD9MGjy2EmApKUZP/NDnYJJy1tuJNVBXkPBZx4b92zhwpt2r1/P0QmnPBaKXwvwGfVdgQBGFdeIUoqeSpvvHYwt2rKyix2TJcnr6oKyY85mFiDKBenDuR3pIY1yj0BVBqFzBfh9IUHahLww6P7Y4PpsX3+mC+bfctEEWicvfDuut/2+m3il1/q5RxemBZ58o2QGO+k8z+NTlvAqdFT2zLcuKlkzxvfftKFFwq0Fofu2AwKaNaCzUTcKpGj6uRtAXoCcld/FWSzrC6u/kf7/P+Mn/vYyleewE4KhM3wTy5u7NhTqQ9/t/VRFjKDF21UITdQA0jcNR+bfjdYcQTeT/d1mNzyhU715EXBBloSX6te9lqiHcRpoCbyEsQB0sPPgw8eAfcfeKxlLDdZ3N4FhY0qeRMi8mB3W1tp2BRA7Obcij5YMkjVyRcgJr5DZx5eGShAls1UbujlIG8H1Xk3NIu9fnbDnmMwTYTve/UYWeL12qpSnpU59Ip7n1EUcOjAVNuUmW1yVxZV6HgECQHzw/F1UCNyRv1aEoHuUpDPj5bILITTa1Z7BKx+86m6wczYHwrenW7dlwhxtvvttc+kahUQ/2p3Pxf0ZPkTKpAvwBrfR5eSsaKADz66+LjBzbjTL7juB0JA9vZEw+MwQ4TM5l8TQUZdHgLI24cARhymTj5m25AfI+kJeydVCCy3CJQ7FIVvGiaXxOf2rUp/78ltgKG6ms8IVr3joqXQ4G53bx+EkdYA/uYIWMTY9l7BNwuG9rC4afjtFu6FzDg0XlpJ6bAJkWgY0PSSr7RqLbtDwfdU5Ilbuca4vr0YQj0bOnNhCze5O1eKSGm4frSZwvxmEBxBmKV9snrGDrBJ3i1CEHlPe6FNtzZ1b/lCtihAYuMjC7qYoFTZ+idguRzT58Gc1AoALQqgRYBns2VeDEp4lRLyEQ/cQRfaTLPv39qcrvJ5AJMiziNr/MTLl7kADf3LCFkdIIsCogbEBXBDrzxbB5uCqiHju+Cm8RAkUQTOxBce2XucWeyNgMpffCem7oJZowuBhaKAmsx8tBOD6zmw67pqqi6z5CVOqpBxtVuGfvzozluPV1wLxTRcX1zY+woosyLQ2N9CKEMHwkBMcw5N7DNEAGHqfnNK0hWJQ4BoOyKMsgmzTMDlDZ2XNYGeRVPB+OxriyCWvg0gFAViYZDnT85z5LkVAjdMEIKr499FuiJx8l7aMIzne5K3Xa4qQKIewlsFgTPR53MhZCSg8aMvkR06GAFgDFASz3vf/gqyIplKwv4YpyrEC5dEQuQyYmsQ10ABvQ/vm0TBSsfdBDB7ZBlpYhYAk5VHc8LGjn8shREiCC5AWHI5Xj45VSuloMgPkc1tOd4+dxJq2RM3L1iwBziMyiyoy94ON6eWA7CY431kgPL40okcW4RzZoSADIFkGDn/J1DPKdMgTvakZY6SNvc5FU+lgJ77k1Yopz2EBNTYf69dNpkmQ8dJXCdgUG4j8090BBUf7trReRhWIS7hHjmhZ9f2JDG/DS1H1cVL01M7z8298I0mZGFgWhxAc2KfMQbE7LWS7XXpC9v7hdFABBYKBz4iaJVB/mtZ6YU43bPzlornQjdwA593/A+qk8M06+lwrAAAAABJRU5ErkJggg==\") center / 24px 24px no-repeat;\n}\n";
+    const CSS = "/* Gplex Docs 2014 fixes: geometry from the 2014 reference, in CSS px at 100%. Appended to Gplex by gplex-plus-link-patch.py. */\n\n/* ---- header: title row 0-30, menu row 30-59 --------------------------------- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-header { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar-container { margin-left: 53px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }\n\n/* the app's square: a full-height blue block in the corner */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-logo.square {\n    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;\n    background: #4285f4 !important; display: flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-logo.square img { width: 40px !important; height: 40px !important; }\n\n/* \"Untitled document\": grey italic until named */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-title-untitled,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }\n\n/* star and folder beside the title */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-titlebar-badges .docs-star-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar #docs-star,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar #docs-folder { display: inline-block !important; }\n\n/* menus: text starts at x 60, baseline ~47 */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }\n\n/* account, Comments and Share: right edge 50px in, Share's top at 26 */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-saved { position: relative !important; top: -3px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-titlebar-share-client-button .scb-button-icon {\n    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;\n}\n\n/* ---- toolbar: 59-96, grey, buttons on a 26px pitch from x 57 ----------------- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {\n    display: flex !important; align-items: center !important; min-height: 0 !important;\n    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;\n    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }\n/* Editing and the menus' \ufe3d live in Google's side toolbar, which Gplex hides whole: show it, with just those two */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-wrapper #docs-side-toolbar { display: flex !important; align-items: center !important; flex: 0 0 auto !important; height: 35px !important; margin: 0 37px 0 0 !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar > :not(#docs-toolbar-mode-switcher):not(#viewModeButton) { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }\n\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .goog-toolbar-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .goog-toolbar-menu-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .goog-toolbar-button { width: 24px !important; min-width: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > * .goog-toolbar-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }\n\n/* the drop-downs' captions: bold 11px, as then */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-input { font: bold 11px Arial, sans-serif !important; color: #444 !important; }\n\n/* 2014's order: print, undo, redo, paint | zoom | style | font | size | B I U A | link comment | align | spacing | numbered bulleted | outdent indent | clear */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #printButton { order: 1 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #undoButton { order: 2 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #redoButton { order: 3 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #formatPainterButton { order: 4 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #zoomSelect { order: 5 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #headingStyleSeparator { order: 6 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #headingStyleSelect { order: 7 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #fontFamilySelectSeparator { order: 8 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-font-family { order: 9 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #fontSizeSelectSeparator { order: 10 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #fontSizeSelect { order: 11 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #textControlsInsertSeparator { order: 12 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #boldButton { order: 13 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #italicButton { order: 14 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #underlineButton { order: 15 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #textColorButton { order: 16 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #commentSeparator { order: 17 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #insertLinkButton { order: 18 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #insertCommentButton { order: 19 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #alignSeparator { order: 20 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #alignButton { order: 21 !important; display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > .ugf-d14-button { order: 21 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-align-justify { margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #lineSpacingMenuButton { order: 22 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #addNumberedBulletButton { order: 23 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #numberedListPresetMenuButton { order: 24 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #addBulletButton { order: 25 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #bulletedListPresetMenuButton { order: 26 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #outdentButton { order: 27 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #indentButton { order: 28 !important; margin-right: 11px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #clearFormattingButton { order: 29 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar > :not([id]) { order: 99 !important; }\n\n/* the separators 2014 had where today's toolbar has none */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #formatPainterButton::after,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-align-justify::after,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #lineSpacingMenuButton::after,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #indentButton::after {\n    content: \"\" !important; position: absolute !important; right: -7px !important; top: 3px !important; width: 1px !important; height: 21px !important; background: #ddd !important;\n}\n\n/* what 2014 didn't have */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #bgColorButton,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #insertImageButton { display: none !important; }\n\n/* the list buttons' own drop-down arrows */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #numberedListPresetMenuButton,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #bulletedListPresetMenuButton { display: inline-flex !important; width: 13px !important; min-width: 0 !important; margin: 0 1px 0 -1px !important; }\n\n/* Editing \u25be and the \ufe3d that hides the menus, at the toolbar's right */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar #docs-toolbar-mode-switcher { display: inline-flex !important; align-items: center !important; width: 120px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar #viewModeButton { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 24px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 0 0 11px !important; }\n\n/* ---- the page: no vertical ruler --------------------------------------------- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #kix-vertical-ruler,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #kix-vertical-ruler-container { display: none !important; }\n\n/* today's empty Meet / side-panel slots add extra gaps between Comments and Share */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }\n\n/* ---- v3 ----------------------------------------------------------------------- */\n/* the side panel's rail is hidden, but Docs still keeps its 56px: give it back */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-editor.companion-enabled { width: 100% !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper { width: auto !important; margin-right: 0 !important; }\n\n/* Gemini's \"write a document about...\" bar at the bottom */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .kixWizBarkickContainer,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] [class*=\"SidekickBarkick\"] { display: none !important; }\n\n/* the ruler sits on the grey */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #kix-horizontal-ruler { background: transparent !important; }\n\n/* every drop-down caption on one line, centred in the 27px button */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-inner-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-inner-box {\n    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 7px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }\n/* icon-only drop-downs (text colour, align, spacing, list arrows): no caption padding */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #textColorButton .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #alignButton .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #lineSpacingMenuButton .goog-toolbar-menu-button-caption { padding: 0 0 0 4px !important; flex: 0 0 auto !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #numberedListPresetMenuButton .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #bulletedListPresetMenuButton .goog-toolbar-menu-button-dropdown { margin: 0 2px !important; }\n/* the widths they had */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar #zoomSelect { width: 56px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar #headingStyleSelect { width: 95px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar #docs-font-family { width: 92px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar #fontSizeSelect { width: 56px !important; }\n\n/* Editing \u25be: 12px, its arrow back inside the button */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-inner-box {\n    display: flex !important; align-items: center !important; width: 100% !important; height: 25px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; height: 25px !important; line-height: 25px !important; font: 12px Arial, sans-serif !important; color: #444 !important; padding: 0 0 0 4px !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-icon { margin: 0 6px 0 0 !important; filter: grayscale(1) brightness(.4) !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-label { font: 12px Arial, sans-serif !important; color: #444 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown { position: static !important; flex: 0 0 9px !important; margin: 0 6px 0 0 !important; align-self: center !important; top: 0 !important; }\n\n/* \ufe3d in place of today's single chevron */\n/* the side toolbar's box starts a pixel lower and is a pixel taller than the main toolbar's, which\n   left Editing and the arrow 2px below the other buttons (66 against 64): lifted level with them */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar #docs-toolbar-mode-switcher,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-side-toolbar #viewModeButton { position: relative !important; top: -2px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #viewModeButton .docs-icon { visibility: hidden !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #viewModeButton .goog-toolbar-button-inner-box {\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23666' stroke-width='1.6'%3E%3Cpath d='M2 6.5l4-4 4 4M2 10.5l4-4 4 4'/%3E%3C/svg%3E\") center / 12px 12px no-repeat !important;\n}\n\n/* ---- v4 ----------------------------------------------------------------------- */\n/* drop-down arrows: the box as tall as its 16px icon, so the \u25be sits beside the text */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }\n/* Editing's \u25be is drawn with borders: a real triangle, not a 9px bar */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #docs-toolbar-mode-switcher .goog-toolbar-menu-button-dropdown {\n    width: 0 !important; height: 0 !important; flex: 0 0 0 !important; border-style: solid !important; border-width: 4px 4px 0 !important;\n    border-color: #444 transparent transparent !important; background: none !important; margin: 0 8px 0 0 !important;\n}\n/* the doc mark inside the blue block at the period's size */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }\n\n/* ---- v5: menus: icons in the gutter, words at 30px, no \"New\"/\"Updated\" badges ---- */\n/* icons in the left gutter, clear of the words (they were crowding them) */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-icon {\n    display: block !important; position: absolute !important; left: 5px !important; top: 50% !important; margin: -10px 0 0 0 !important;\n    width: 20px !important; height: 20px !important; opacity: .6 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-content { position: static !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .docs-action-badge,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .docs-new-badge { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem { padding: 6px 7em 6px 30px !important; min-height: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-label { font: 13px Arial, sans-serif !important; line-height: 17px !important; color: #333 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-disabled .goog-menuitem-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-disabled .goog-menuitem-label { color: #ccc !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-accel { color: #999 !important; font: 13px Arial, sans-serif !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuitem-checkbox { left: 8px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu .goog-menuseparator { border-top: 1px solid #ebebeb !important; margin: 6px 0 !important; }\n\n/* Google's menus, while the 2014 buttons work them, stay out of sight */\nhtml.ugf-d14-busy[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu:not(.ugf-d14-keep):not(#ugf-d14-table-dd) { opacity: 0 !important; pointer-events: none !important; }\nhtml.ugf-d14-busy[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] .goog-menu.ugf-d14-keep { position: fixed !important; z-index: 1004 !important; }\n\n/* the Table menu */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-table-dd { position: fixed !important; z-index: 1003 !important; min-width: 190px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-table-dd .goog-menuitem { cursor: default !important; position: relative !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-table-dd .ugf-d14-subarrow { position: absolute; right: 10px; color: #999; font-size: 11px; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-table-menu { cursor: default !important; }\n#ugf-d14-note { position: fixed; z-index: 1005; display: none; padding: 5px 8px; background: #2d2d2d; color: #fff; font: 12px Arial, sans-serif; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.3); }\n\n/* ---- v6: document tabs (today's), only for documents that have more than one ------ */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container { display: block !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container *,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container * { letter-spacing: normal !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container { background: #ebebeb !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-label-content { font-size: 13px !important; color: #333 !important; }\n/* today's \"this document has content in multiple tabs\" pop-up: the panel says as much */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] [class*=\"ChapterTooltipPromo\"] { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget { background: transparent !important; }\n/* the period's plain grey button, in place of today's floating tab switcher */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-tabs-btn {\n    position: absolute; left: 16px; top: 16px; z-index: 101; height: 27px; line-height: 25px; padding: 0 10px; box-sizing: border-box;\n    background: linear-gradient(#f5f5f5, #f1f1f1); border: 1px solid rgba(0,0,0,.1); border-radius: 2px; color: #444;\n    font: bold 11px Arial, sans-serif; cursor: default; user-select: none;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-tabs-btn:hover { border-color: #c6c6c6; color: #222; box-shadow: 0 1px 1px rgba(0,0,0,.1); }\n\n/* ---- v7: the tabs panel shown as it stands (Google keeps it collapsed and unseen) ---- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container-content { overflow: visible !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget {\n    display: block !important; opacity: 1 !important; pointer-events: auto !important; top: 40px !important; bottom: auto !important;\n    height: auto !important; max-height: calc(100% - 56px) !important; overflow-y: auto !important; width: 240px !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget * { pointer-events: auto !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget-content { visibility: visible !important; opacity: 1 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs][ugf-d14-tabs-hidden] .left-sidebar-container { display: none !important; }\n\n/* ---- v8: the tabs panel in the period's dress: a white card like the menus, a grey\n   header like the toolbar, plain Arial rows, a flat grey highlight for the open tab ---- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget {\n    background: #fff !important; border: 1px solid rgba(0,0,0,.2) !important; border-radius: 0 !important;\n    box-shadow: 0 2px 4px rgba(0,0,0,.2) !important; padding: 0 0 6px !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-hat,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-shadow,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-resizer-drag-handle { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents {\n    height: 36px !important; min-height: 0 !important; background: #f5f5f5 !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; width: auto !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents { border-bottom: 1px solid #e5e5e5 !important; padding: 0 8px 0 12px !important; align-items: center !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-text-chaptered { font: bold 13px Arial, sans-serif !important; color: #222 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-chapter-count { font: 12px Arial, sans-serif !important; color: #777 !important; }\n/* + (add tab): the period's small grey button */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .jfk-button {\n    width: 24px !important; height: 24px !important; min-width: 0 !important; padding: 0 !important; margin: 0 !important; border-radius: 2px !important;\n    background: linear-gradient(#f5f5f5, #f1f1f1) !important; border: 1px solid rgba(0,0,0,.1) !important; box-shadow: none !important;\n    display: inline-flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .jfk-button:hover { border-color: #c6c6c6 !important; box-shadow: 0 1px 1px rgba(0,0,0,.1) !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-add-chapter-button .docs-icon { transform: scale(.8) !important; opacity: .7 !important; }\n/* the rows */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item { padding: 0 !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container {\n    border-radius: 0 !important; background: transparent !important; height: 28px !important; min-height: 0 !important; margin: 0 !important; padding: 0 6px 0 12px !important; box-shadow: none !important; outline: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:hover { background: #eee !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:not([class=\"chapter-item-label-and-buttons-container\"]) { background: #e5e5e5 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container:not([class=\"chapter-item-label-and-buttons-container\"]) .chapter-label-content { font-weight: bold !important; color: #222 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-label-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-label-container {\n    font: 13px Arial, sans-serif !important; color: #333 !important; letter-spacing: normal !important; border-radius: 0 !important; background: transparent !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-icon .docs-icon { transform: scale(.85) !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-icon .docs-icon-img { filter: grayscale(1) !important; opacity: .55 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-overflow-menu-button { border-radius: 2px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-overflow-menu-button .docs-icon-img { opacity: .5 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-doco-indicator,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-doco-indicator * { background: transparent !important; color: #999 !important; font: 11px Arial, sans-serif !important; border-radius: 0 !important; }\n/* the headings under each tab (the outline) in the same type */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-item-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-empty-content { font: 12px Arial, sans-serif !important; color: #777 !important; }\n\n/* ---- v9: the button above the panel, the card fitted to its tabs ---- */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"] #ugf-d14-tabs-btn {\n    left: 16px !important; top: 16px !important; width: 240px !important; height: 27px !important;\n    display: flex !important; align-items: center !important; justify-content: center !important; line-height: normal !important; padding: 0 !important; text-align: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container { left: 16px !important; width: 240px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs]:not([ugf-d14-tabs-hidden]) .left-sidebar-container .navigation-widget {\n    left: 0 !important; top: 51px !important; width: 240px !important; box-sizing: border-box !important; max-height: calc(100% - 67px) !important;\n}\n/* everything inside at the card's full width (today's panel is laid out 208px wide) */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .outlines-widget,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .outlines-widget-chaptered,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .topLevelChapterContainerChaptered,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container {\n    width: auto !important; max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; left: auto !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .navigation-widget-content,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .updating-navigation-item-list { height: auto !important; max-height: none !important; overflow: visible !important; position: static !important; }\n/* the header on one line, its words where the rows' words begin */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-contents { display: flex !important; justify-content: space-between !important; padding: 0 8px 0 12px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-text-chaptered { white-space: nowrap !important; margin: 0 !important; padding: 0 !important; flex: 1 1 auto !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .kix-outlines-widget-header-chapter-count:empty { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"docs\"][ugf-d14-tabs] .left-sidebar-container .chapter-item-label-and-buttons-container { padding: 0 6px 0 8px !important; }\n\n/* ---- the Docs list: \"Start a new document\", as the list had it from autumn 2015 ------ */\n/* it sits at the top of the scrolling list, stretched back out over the list's side and top\n   padding (24px calc(50% - 440px)) to the full width: cqw is the list page's width */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home { container-type: inline-size; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl {\n    background: #434448; color: #fff; font-family: Roboto, Arial, sans-serif; position: relative;\n    margin: -24px min(0px, calc(440px - 50cqw)) 16px;\n}\n/* on the list's own left edge (its padding is calc(50% - 440px)), like \"Recent documents\" */\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tin { width: 880px; max-width: calc(100% - 48px); margin: 0 0 0 max(24px, calc(50cqw - 440px)); padding: 0 0 18px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .thead { display: flex; align-items: center; height: 44px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tt { font-size: 14px; color: rgba(255,255,255,.87); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .more { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; color: rgba(255,255,255,.87); font-size: 12px; font-weight: 500; letter-spacing: .5px; text-decoration: none; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .more:hover { color: #fff; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .more .ar {\n    display: inline-block; width: 10px; height: 14px;\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%23ddd' stroke-width='1.5'%3E%3Cpath d='M2 5l3-3 3 3M2 9l3 3 3-3'/%3E%3C/svg%3E\") center / 10px 14px no-repeat;\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tiles { display: grid; grid-template-columns: repeat(7, 112px); gap: 18px 16px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile { display: block; width: 112px; color: #fff; text-decoration: none; cursor: pointer; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .pg { display: block; position: relative; width: 112px; height: 142px; background: #fff; overflow: hidden; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .pg img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #4285f4; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; margin: -19px 0 0 -19px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus::after { content: \"\"; position: absolute; background: #4285f4; left: 50%; top: 50%; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus::before { width: 38px; height: 3px; margin: -1.5px 0 0 -19px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .plus::after { width: 3px; height: 38px; margin: -19px 0 0 -1.5px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .lb { display: block; margin-top: 10px; font-size: 12px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .st { display: block; margin-top: 1px; font-size: 11px; color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n/* with Blank on the strip, the list had no round \"+\" (it stays for search results, where the strip isn't) */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home:has(#ugf-d14-tpl) .fab { display: none !important; }\n\n/* \"Owned by anyone \u25be\" on the right of \"Recent documents\", and its menu */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .rhead .ugf-d14-own {\n    margin-left: auto; display: inline-flex; align-items: center; height: 24px; padding: 0 6px 0 10px; border-radius: 4px;\n    cursor: pointer; user-select: none; font: 14px Roboto, Arial, sans-serif; color: #444746;\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .rhead .ugf-d14-own:hover { background: rgba(0,0,0,.05); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .rhead .ugf-d14-own.open { background: #d6e3fb; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .rhead .ugf-d14-own .ar { width: 0; height: 0; margin: 0 4px 0 10px; border-style: solid; border-width: 5px 5px 0; border-color: currentColor transparent transparent; }\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu {\n    position: fixed; z-index: 60; min-width: 200px; padding: 6px 0; background: #fff; border-radius: 4px;\n    box-shadow: 0 1px 3px rgba(0,0,0,.2), 0 4px 12px rgba(0,0,0,.15); font: 14px Roboto, Arial, sans-serif; color: #1f1f1f;\n}\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu .it { position: relative; height: 34px; line-height: 34px; padding: 0 24px 0 47px; cursor: pointer; white-space: nowrap; }\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu .it:hover { background: #f1f1f1; }\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu .it.on { font-weight: 700; color: #333; }\nhtml[gplex-docs-home=\"d2014\"] .ugf-d14-ownmenu .it.on::before {\n    content: \"\"; position: absolute; left: 18px; top: 50%; width: 14px; height: 11px; margin-top: -6px;\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='11' viewBox='0 0 14 11' fill='none' stroke='%23000' stroke-width='1.8'%3E%3Cpath d='M1 5.5l4 4 8-8.5'/%3E%3C/svg%3E\") center / 14px 11px no-repeat;\n}\n\n/* MORE: the whole gallery, by category, in the band; LESS folds it back */\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .cat { margin: 26px 0 14px; font-size: 14px; color: rgba(255,255,255,.87); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl.open .tin { padding-bottom: 28px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl.open .more .ar {\n    background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%23ddd' stroke-width='1.5'%3E%3Cpath d='M2 2l3 3 3-3M2 12l3-3 3 3'/%3E%3C/svg%3E\");\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile.ph { cursor: default; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile.ph .pg { background: rgba(255,255,255,.08); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-tpl .tile.ph::after { content: \"\"; display: block; height: 30px; }\n\n/* ---- the Slides list: the same strip, with Slides' landscape tiles, five to a row ---- */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tiles,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tiles,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tiles { grid-template-columns: repeat(5, 160px); gap: 18px 20px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .pg { width: 160px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .pg { height: 90px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus { width: 34px; height: 34px; margin: -17px 0 0 -17px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus::after { background: #f4b400; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus::before { width: 34px; height: 4px; margin: -2px 0 0 -17px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .plus::after { width: 4px; height: 34px; margin: -17px 0 0 -2px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #f4b400; }\n/* the period's rhythm, measured from the 2016 gallery: label 19px under the slide, a\n   46px label block (room for a \"by ...\" credit), 26px to the next row: 162px a row */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tiles,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tiles,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tiles { row-gap: 26px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile { min-height: 136px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .lb,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .lb,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .lb { margin-top: 12px; font-size: 13px; line-height: 16px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .st,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .st,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .st { margin-top: 3px; font-size: 13px; line-height: 16px; color: rgba(255,255,255,.7); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl:not(.open) .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl:not(.open) .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .cat,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .cat,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .cat { margin: 8px 0 22px; font-size: 18px; line-height: 24px; color: rgba(255,255,255,.87); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .cat.first,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .cat.first,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .cat.first { margin-top: 6px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-tpl .tile.ph::after,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile.ph::after,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile.ph::after { height: 28px; }\n\n/* ---- Slides' gallery as its own page: \"\u2190 Start a new presentation\" and the gallery alone ---- */\n/* the Google bar slides up out of sight (and back); the list stays under the growing band\n   while the drawer moves (.ugf-d14-anim), and goes once it has filled the page */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home .gtop { transition: margin-top .35s cubic-bezier(.4, 0, .2, 1); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] { overflow: hidden; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] .gtop { margin-top: -60px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] .appbar,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery]:not(.ugf-d14-anim) .content > :not(#ugf-d14-tpl),\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl .thead { display: none !important; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #434448; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl { margin-bottom: 0; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[ugf-d14-gallery] #ugf-d14-tpl .tin { padding: 22px 0 60px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-galbar {\n    flex: 0 0 auto; position: relative; z-index: 2; display: flex; align-items: center; height: 64px; padding: 0 8px;\n    background: #4285f4; color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,.26); font-family: Roboto, Arial, sans-serif;\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] #ugf-d14-galbar { background: #f4b400; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-galbar .back {\n    width: 48px; height: 48px; border-radius: 50%; cursor: pointer;\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z'/%3E%3C/svg%3E\") center / 24px 24px no-repeat;\n}\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-galbar .back:hover { background-color: rgba(255,255,255,.12); }\nhtml[gplex-docs-home=\"d2014\"] #ugf-d14-galbar .t { margin-left: 16px; font-size: 20px; color: #fff; }\n\n/* ---- the Slides list's cards: four landscape slides to a row, as the 2016 list had them ---- */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] .cards,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] .cards,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] .cards { grid-template-columns: repeat(4, 201px) !important; gap: 20px !important; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] .card,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] .card,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] .card { width: 201px !important; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] .card .th,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] .card .th,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] .card .th { width: auto !important; height: 113px !important; overflow: hidden !important; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"slides\"] .card .th img,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] .card .th img,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] .card .th img { width: 100% !important; height: 100% !important; object-fit: cover !important; object-position: top center !important; }\n\n/* ---- the Sheets list: Slides' strip, gallery page and cards (above), with Sheets' own\n   4:3 tiles, green + and slate band, measured from the 2016 list at 2.04x ---- */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"][ugf-d14-gallery]:not(.ugf-d14-anim) .content,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"][ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #394242; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .thead,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .thead { height: 54px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tt,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tt { font-size: 16px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl:not(.open) .tin,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl:not(.open) .tin { padding-bottom: 32px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .pg { height: 120px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile { min-height: 166px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl:not(.open) .tile,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl:not(.open) .tile { min-height: 0; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .lb,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .lb { margin-top: 10px; font-size: 14px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus { width: 44px; height: 44px; margin: -22px 0 0 -22px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus::after,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::after { background: #1ba866; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::before { width: 44px; height: 5px; margin: -2.5px 0 0 -22px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .plus::after,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::after { width: 5px; height: 44px; margin: -22px 0 0 -2.5px; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-tpl .tile:hover .pg,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #1ba866; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"sheets\"] #ugf-d14-galbar,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-galbar { background: #0f9d58; }\n\n/* ---- the Forms list: the Sheets strip (4:3 tiles), gallery page and cards, in Forms' purple ---- */\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"][ugf-d14-gallery]:not(.ugf-d14-anim) .content { background: #434448; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::before,\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .plus::after { background: #673ab7; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-tpl .tile:hover .pg { box-shadow: 0 0 0 2px #7e57c2; }\nhtml[gplex-docs-home=\"d2014\"] #ugf-docs-home[app=\"forms\"] #ugf-d14-galbar { background: #673ab7; }\n\n/* ==== the Slides editor: the same 2014 frame as Docs (header 0-59, toolbar 59-96,\n   buttons on a 26px pitch from x 57), with Slides' own toolbar ==== */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-header { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar-container { margin-left: 53px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #ugf-docs-logo.square {\n    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;\n    background: #f4b400 !important; display: flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-title-untitled,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-titlebar-badges .docs-star-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar #docs-star,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar #docs-folder { display: inline-block !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #ugf-docs-saved { position: relative !important; top: -3px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }\n/* Present, Comments and Share: top at 26, 10px apart, right edge 50px in */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-titlebar-share-client-button .scb-button-icon {\n    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] .punch-start-presentation-container { height: 27px !important; margin: 0 !important; }\n\n/* the toolbar band */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {\n    display: flex !important; align-items: center !important; min-height: 0 !important; width: auto !important; margin-right: 0 !important;\n    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;\n    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > .goog-toolbar-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > .goog-toolbar-menu-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > .goog-toolbar-button:not(.docs-toolbar-text-button) { width: 24px !important; min-width: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > * .goog-toolbar-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-inner-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-inner-box {\n    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 5px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-input,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .docs-toolbar-text-button .goog-toolbar-button-inner-box { font: bold 11px Arial, sans-serif !important; color: #444 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar .docs-toolbar-text-button { width: auto !important; padding: 0 8px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar #zoomSelect { width: 56px !important; }\n/* the period's order: New slide | print, undo, redo, paint format | zoom | the tools ... */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar > * { order: 20 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #newSlideButton { order: 1 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #newSlideSeparator { order: 2 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #printButton { order: 3 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #undoButton { order: 4 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #redoButton { order: 5 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #paintFormatButton { order: 6 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #zoomButton { order: 7 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #zoomSelect { order: 8 !important; }\n/* the slide's \"Background\" button the period had beside Layout, Theme and Transition */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar #slideBackgroundButton { display: inline-flex !important; }\n/* \ufe3d (hide the menus) at the toolbar's right, as in Docs */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-toolbar-wrapper #docs-side-toolbar { display: flex !important; align-items: center !important; flex: 0 0 auto !important; height: 35px !important; margin: 0 37px 0 0 !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-side-toolbar > :not(#viewModeButton) { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-side-toolbar #viewModeButton { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 24px !important; height: 27px !important; box-sizing: border-box !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #viewModeButton .docs-icon { visibility: hidden !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #viewModeButton .goog-toolbar-button-inner-box {\n    background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23666' stroke-width='1.6'%3E%3Cpath d='M2 6.5l4-4 4 4M2 10.5l4-4 4 4'/%3E%3C/svg%3E\") center / 12px 12px no-repeat !important;\n}\n/* today's content-library rail down the right: gone, its room given back to the slide */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #content-library-rail-server-rendered-refreshed,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] [class*=\"ContentLibraryRail\"] { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"slides\"] #docs-editor { width: 100% !important; }\n\n/* ==== the Sheets editor: the same 2014 frame (header 0-59, toolbar 59-96, buttons on a\n   26px pitch from x 57), measured against the 2016 editor ==== */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-header { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar { height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar-container { margin-left: 53px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-title-outer { padding-top: 4px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-logo.square {\n    left: 0 !important; top: 0 !important; width: 40px !important; height: 59px !important;\n    background: #0f9d58 !important; display: flex !important; align-items: center !important; justify-content: center !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-logo.square img { width: 30px !important; height: 30px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-title-untitled,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-title-untitled .docs-title-input-label-inner { font-style: italic !important; color: #777 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-titlebar-badges .docs-star-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar .docs-titlebar-badges .docs-folder-container { display: inline-flex !important; align-items: center !important; width: auto !important; height: 24px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar #docs-star,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar #docs-folder { display: inline-block !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-menubars { margin-left: 50px !important; height: 29px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-menubar .menu-button { padding: 3px 9px 8px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-saved { position: relative !important; top: -3px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-acct.mail { top: 6px !important; right: 50px !important; }\n/* Comments and Share: top at 26, 10px apart, right edge 50px in */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-header .docs-titlebar-buttons { top: 22px !important; right: 38px !important; gap: 10px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-header .docs-titlebar-buttons > .docs-meet-in-editors-entrypoint-container,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-header .docs-titlebar-buttons > .docs-sidekick-button-container { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-docos-commentsbutton { padding: 0 10px !important; margin: 0 !important; height: 27px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar-share-client-button .jfk-button { padding: 0 8px !important; margin: 0 !important; gap: 4px !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-titlebar-share-client-button .scb-button-icon {\n    display: inline-block !important; filter: brightness(0) invert(1) !important; transform: scale(.75) !important; margin: 0 !important;\n}\n\n/* the toolbar band */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-chrome #docs-toolbar-wrapper#docs-toolbar-wrapper {\n    display: flex !important; align-items: center !important; min-height: 0 !important; width: auto !important; margin-right: 0 !important;\n    height: 35px !important; padding: 0 0 0 54px !important; box-sizing: content-box !important;\n    border-top: 1px solid #e5e5e5 !important; border-bottom: 1px solid #dcdcdc !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar-wrapper #docs-primary-toolbars { display: flex !important; align-items: center !important; flex: 1 1 auto !important; min-width: 0 !important; height: 35px !important; min-height: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar { display: flex !important; align-items: center !important; flex: 1 1 auto !important; height: 35px !important; padding: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > .goog-toolbar-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > .goog-toolbar-menu-button,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > .goog-toolbar-combo-button { height: 27px !important; margin: 0 1px !important; position: relative !important; box-sizing: border-box !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > .goog-toolbar-button:not(.docs-toolbar-text-button) { width: 24px !important; min-width: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > * .goog-toolbar-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > * .goog-toolbar-button-inner-box { display: flex !important; align-items: center !important; justify-content: center !important; width: 100% !important; height: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-inner-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-outer-box,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-inner-box {\n    display: flex !important; align-items: center !important; height: 25px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; width: 100% !important; box-sizing: border-box !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-caption {\n    display: flex !important; align-items: center !important; flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; height: 25px !important; line-height: 25px !important; margin: 0 !important; padding: 0 0 0 5px !important; overflow: hidden !important; white-space: nowrap !important; top: 0 !important;\n}\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-caption,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-input,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .docs-toolbar-text-button .goog-toolbar-button-inner-box { font: bold 11px Arial, sans-serif !important; color: #444 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-input { height: 25px !important; line-height: 25px !important; padding: 0 !important; width: 100% !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-dropdown,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-dropdown { flex: 0 0 9px !important; height: 16px !important; line-height: 16px !important; display: flex !important; align-items: center !important; margin: 0 6px 0 2px !important; top: 0 !important; align-self: center !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-menu-button-dropdown > .docs-icon,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .goog-toolbar-combo-button-dropdown > .docs-icon { top: 0 !important; vertical-align: top !important; margin: 0 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar .docs-toolbar-text-button { width: auto !important; padding: 0 8px !important; }\n/* the green block carries the period's white grid, not the 2013 square's + */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-logo.square img { visibility: hidden !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #ugf-docs-logo.square { background: #0f9d58 url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16' fill='none' stroke='%23fff' stroke-width='2'%3E%3Crect x='1' y='1' width='18' height='14'/%3E%3Cpath d='M1 5.5h18M1 10.5h18M7 1v14'/%3E%3C/svg%3E\") center / 20px 16px no-repeat !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #docs-font-family { width: 100px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #fontSizeSelect { width: 56px !important; }\n/* the period's order: print, undo, redo, paint format | $ % .0 .00 123 | ... | link, comment, chart, filter, functions */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar > * { order: 20 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #t-print { order: 1 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #t-undo { order: 2 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #t-redo { order: 3 !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #t-paintformat { order: 4 !important; }\n/* the link button, which 2016 had before comment */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #t-insert-link[ugf-hide] { display: inline-flex !important; }\n/* the filter's \u25be beside the funnel, not today's \"Filter views\" table icon */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #t-autofilter-menu { width: 15px !important; min-width: 0 !important; margin-left: -1px !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #t-autofilter-menu .goog-toolbar-menu-button-caption { display: none !important; }\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-toolbar #t-autofilter-menu .goog-toolbar-menu-button-dropdown { margin: 0 3px !important; }\n/* today's side-panel rail's room given back to the grid */\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-editor,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-additional-bars,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #formula-bar,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #grid-bottom-bar,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-feature-level-banner,\nhtml[gplex-docs=\"d2014\"][gplex-docs-app=\"sheets\"] #docs-inset-notification-banner { width: 100% !important; }\n\n/* ==== the Forms editor (Gplex's, over Google's): 2016's Add-ons and Colour palette ==== */\n#ugf-fe .ugf-d14-feb { cursor: pointer; }\n#ugf-fe .ugf-d14-feb.open { background: rgba(0,0,0,.08); }\n#ugf-fe .ugf-d14-feb svg { fill: currentColor; display: block; }\n#ugf-d14-fepop {\n    position: fixed; z-index: 80; background: #fff; border-radius: 2px; font: 14px Roboto, Arial, sans-serif; color: #212121;\n    box-shadow: 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.12), 0 1px 5px 0 rgba(0,0,0,.2);\n}\n#ugf-d14-fepop.palette { padding: 16px; }\n#ugf-d14-fepop .sw { display: grid; grid-template-columns: repeat(4, 32px); gap: 12px; }\n#ugf-d14-fepop .c { width: 32px; height: 32px; border-radius: 50% !important; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); }\n#ugf-d14-fepop .c:hover { box-shadow: inset 0 0 0 1px rgba(0,0,0,.1), 0 1px 3px rgba(0,0,0,.35); }\n#ugf-d14-fepop .c svg { fill: #fff; display: block; }\n#ugf-d14-fepop.addons { min-width: 200px; padding: 8px 0; }\n#ugf-d14-fepop .it { height: 32px; line-height: 32px; padding: 0 24px; cursor: pointer; white-space: nowrap; }\n#ugf-d14-fepop .it:hover { background: #eee; }\n#ugf-d14-fepop .sep { height: 1px; margin: 8px 0; background: #e0e0e0; }\n#ugf-d14-fenote { position: fixed; z-index: 80; display: none; max-width: 320px; padding: 8px 12px; background: #323232; color: #fff; font: 13px Roboto, Arial, sans-serif; border-radius: 2px; }\n/* an add-on's dialog (or the add-ons store) over Gplex's editor, on a scrim */\nhtml[ugf-d14-fe-lift] #ugf-fe::after { content: \"\"; position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.5); }\nhtml[ugf-d14-fe-lift] [role=\"dialog\"]:not(#ugf-fe *) { z-index: 2147483300 !important; }\n\n/* ==== Drive (Gplex's, 2014-2016 look): on the 2016 layouts (Gplex's new Google logo), the\n   Drive triangle of 2014-2016 before \"Drive\" ==== */\nhtml[gplex-dv=\"dv14\"] #ugf-drive:has(.gtop .glogo img.n) .dbar .app { display: flex; align-items: center; gap: 12px; }\nhtml[gplex-dv=\"dv14\"] #ugf-drive:has(.gtop .glogo img.n) .dbar .app::before {\n    content: \"\"; flex: 0 0 24px; width: 24px; height: 24px;\n    background: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAHn0lEQVR4nO1Za2wU1xU+586+vFmMHQIhjyoSMlBiIBC3StV/kVqpVVsrLcUNEaBCItS0alERalWkpAuo+WFCpCZKaJ0CTpM6aa2WBlEqqlQ4IkRJmh+EV2IIj8brGPzG9j7mce+p7sw+Zmbn7nqdhP4I32rXO3funvm+c88592GAG7iBzzfwkxpoP/LjA1vvuNaKiAhApRtU+O5qK17n27S6LlzSufb/JuAHR3YtPTVy6eTeO0f1rzSYUS9ZnwAKugcA8YVLceHuszPlwGb6QyLCC5MfvyiA4Im+umiWM5qBFYBs6iVp67oL+NbhHa0TZvYeQoJzPAwHh0JIMxlRyqyAMz/69nUV8PT5w9FUeni/9KD90gB2DdwE/TmUPsXK4RMAMdxJZ/4SuW4C/nr2jS05bjSUrCBMIoM/DcRIkq08Ev7kJgDSGwEP/3wmXGoe8k1Hf3/LsavvXbEE94oXAGgK+HPTON5TbzrG5YCUeT9AgA1NQOS+W3HJthH4LEfgxNiHz5nCKv+dBkAhhGf6Y2QJxy9ENTiIOAPr5LO18qlJwKp//mb5mD7xfft5/pf0NCM4lo3CayOlcPaGk8L7lL/kU2109mdLPxMBstR9ODXUJYSwydqE/X1kzIQA2lN1NKZL3k6fwMRWTXDWwMu1lNVpC/j6we3fnTTSd3umo7wQ91smdB+E4MBQuKgRi4kQUI3Idy3SzdC7sfVTFZA8uj+Wygzudz9T9RayQwhh99UEXMwyhcf9esj71xj7I51/OvqpCfjX+Pu/1IUxqxDv1SAnN11D2JuKEdrjUIl8AIQ+C/R3fgHTQNVYW3dk17y3Rs5fMQUHe702TaAgiORwx5mWYYtpfIeaPCn+hgDqFs3DxbuHP9EInJ7o65DkbdOK5PVD9hGA15bNvvMJFl3RToKu1UZewgLQ+zqgCioK+OarO1aO6ZlW1wJYmbyeRAaAeoqs725LGticNITQ1js/dFtXVSMX+OQD9MGjy2EmApKUZP/NDnYJJy1tuJNVBXkPBZx4b92zhwpt2r1/P0QmnPBaKXwvwGfVdgQBGFdeIUoqeSpvvHYwt2rKyix2TJcnr6oKyY85mFiDKBenDuR3pIY1yj0BVBqFzBfh9IUHahLww6P7Y4PpsX3+mC+bfctEEWicvfDuut/2+m3il1/q5RxemBZ58o2QGO+k8z+NTlvAqdFT2zLcuKlkzxvfftKFFwq0Fofu2AwKaNaCzUTcKpGj6uRtAXoCcld/FWSzrC6u/kf7/P+Mn/vYyleewE4KhM3wTy5u7NhTqQ9/t/VRFjKDF21UITdQA0jcNR+bfjdYcQTeT/d1mNzyhU715EXBBloSX6te9lqiHcRpoCbyEsQB0sPPgw8eAfcfeKxlLDdZ3N4FhY0qeRMi8mB3W1tp2BRA7Obcij5YMkjVyRcgJr5DZx5eGShAls1UbujlIG8H1Xk3NIu9fnbDnmMwTYTve/UYWeL12qpSnpU59Ip7n1EUcOjAVNuUmW1yVxZV6HgECQHzw/F1UCNyRv1aEoHuUpDPj5bILITTa1Z7BKx+86m6wczYHwrenW7dlwhxtvvttc+kahUQ/2p3Pxf0ZPkTKpAvwBrfR5eSsaKADz66+LjBzbjTL7juB0JA9vZEw+MwQ4TM5l8TQUZdHgLI24cARhymTj5m25AfI+kJeydVCCy3CJQ7FIVvGiaXxOf2rUp/78ltgKG6ms8IVr3joqXQ4G53bx+EkdYA/uYIWMTY9l7BNwuG9rC4afjtFu6FzDg0XlpJ6bAJkWgY0PSSr7RqLbtDwfdU5Ilbuca4vr0YQj0bOnNhCze5O1eKSGm4frSZwvxmEBxBmKV9snrGDrBJ3i1CEHlPe6FNtzZ1b/lCtihAYuMjC7qYoFTZ+idguRzT58Gc1AoALQqgRYBns2VeDEp4lRLyEQ/cQRfaTLPv39qcrvJ5AJMiziNr/MTLl7kADf3LCFkdIIsCogbEBXBDrzxbB5uCqiHju+Cm8RAkUQTOxBce2XucWeyNgMpffCem7oJZowuBhaKAmsx8tBOD6zmw67pqqi6z5CVOqpBxtVuGfvzozluPV1wLxTRcX1zY+woosyLQ2N9CKEMHwkBMcw5N7DNEAGHqfnNK0hWJQ4BoOyKMsgmzTMDlDZ2XNYGeRVPB+OxriyCWvg0gFAViYZDnT85z5LkVAjdMEIKr499FuiJx8l7aMIzne5K3Xa4qQKIewlsFgTPR53MhZCSg8aMvkR06GAFgDFASz3vf/gqyIplKwv4YpyrEC5dEQuQyYmsQ10ABvQ/vm0TBSsfdBDB7ZBlpYhYAk5VHc8LGjn8shREiCC5AWHI5Xj45VSuloMgPkc1tOd4+dxJq2RM3L1iwBziMyiyoy94ON6eWA7CY431kgPL40okcW4RzZoSADIFkGDn/J1DPKdMgTvakZY6SNvc5FU+lgJ77k1Yopz2EBNTYf69dNpkmQ8dJXCdgUG4j8090BBUf7trReRhWIS7hHjmhZ9f2JDG/DS1H1cVL01M7z8298I0mZGFgWhxAc2KfMQbE7LWS7XXpC9v7hdFABBYKBz4iaJVB/mtZ6YU43bPzlornQjdwA593/A+qk8M06+lwrAAAAABJRU5ErkJggg==\") center / 24px 24px no-repeat;\n}\n\n/* ---- the other periods' toolbars (Docs, Sheets and Slides), measured on each ------------------- */\n/* 2011-2013: Gplex draws the buttons 29px high but leaves their icon, words and \u25be at the top of\n   them (3px high, the \u25be 8-10px), so the font size box, drawn centred, sat low beside them */\nhtml[gplex-docs=\"d2011\"] #docs-toolbar :is(.goog-toolbar-button-inner-box, .goog-toolbar-menu-button-inner-box) { display: inline-flex !important; align-items: center !important; height: 27px !important; vertical-align: top !important; padding-top: 0 !important; padding-bottom: 0 !important; }\nhtml[gplex-docs=\"d2011\"] #docs-toolbar #alignButton .goog-toolbar-menu-button-dropdown { position: relative !important; top: -2px !important; }\n/* 2007-2010: \"Normal text\" and \"Arial\" sat 3px above the icons, and the dividers were pinned to the\n   toolbar's top, 10px above the buttons they divide */\nhtml:is([gplex-docs=\"d2007\"], [gplex-docs=\"d2009\"], [gplex-docs=\"d2010\"]) #docs-toolbar .goog-toolbar-menu-button-caption { line-height: 28px !important; height: 28px !important; vertical-align: top !important; }\nhtml:is([gplex-docs=\"d2007\"], [gplex-docs=\"d2009\"], [gplex-docs=\"d2010\"]) #docs-toolbar .goog-toolbar-separator { margin-top: 10px !important; }\n";
     const html = document.documentElement;
     // the Docs editor (the Slides editor is left as Gplex draws it)
     const wanted = function() {
@@ -99243,9 +100849,12 @@ html[gplex-gmail] body {
         kick();
     })();
 
-    // the bell's years: the 2015-2017 bar (2013-2014 had the red count box instead)
+    // what each period's bar had: 2011-2014 the Google+ count square (Gplex draws it, with a "0" in it), 2015-2017
+    // the bell in a circle, 2018 on the Material bell; before 2011 the bar had nothing of the kind
     const layout = String(gv("UGF_LAYOUT", "2015"));
-    if (["2015", "2015L", "2016", "2016C", "2016L", "2017"].indexOf(layout) < 0) {
+    const MODE = /^(2015|2016|2017)/.test(layout) ? "circle" : /^(2011|2012|2013|2014)/.test(layout) ? "square" :
+        /^(2018|2019|202)/.test(layout) ? "material" : "";
+    if (!MODE) {
         return;
     }
     const html = document.documentElement;
@@ -99266,6 +100875,14 @@ html[gplex-gmail] body {
         "#ugf-nb-bell.ugf-nb-has .gi { visibility: hidden; }",
         "#ugf-nb-bell.ugf-nb-has:hover .ugf-nb-count, #ugf-nb-bell.ugf-nb-has.open .ugf-nb-count { background: #c23321; }",
         ".kic.bell[data-ugf-nb] { position: relative; cursor: pointer; }",
+        "[data-ugf-nb] { cursor: pointer; }",
+        // 2018 on: Gplex's Material bell kept, its made-up "1" gone, the count as a red badge on its corner
+        "[data-ugf-nb-material] { position: relative; }",
+        "[data-ugf-nb-material] > .n { display: none !important; }",
+        "[data-ugf-nb-material] .ugf-nb-count { left: auto; right: -5px; top: -3px; transform: none; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font-size: 10px; line-height: 16px; }",
+        // 2011-2014: the count square shows the count, and turns red with anything new, as Google+'s did
+        "[data-ugf-nb-square].ugf-nb-has, [data-ugf-nb-square].ugf-nb-has .ugf-plus-button-text { background: #d14836 !important; border-color: #b0281a !important; color: #fff !important; }",
+        "[data-ugf-nb-square].ugf-nb-has span, [data-ugf-nb-square].ugf-nb-has .ugf-plus-button-text span { color: #fff !important; font-weight: bold; }",
         // Gplex's own bells, as the 2016 circle too (their Material bell set aside)
         ".ugf-nb-g { display: inline-flex !important; align-items: center; justify-content: center; }",
         ".ugf-nb-g > :not(.gi):not(.ugf-nb-count) { display: none !important; }",
@@ -99757,7 +101374,15 @@ html[gplex-gmail] body {
     let counts = { yt: 0, gp: 0 };
     const paint = function() {
         const n = counts.yt + counts.gp;
-        document.querySelectorAll("#ugf-nb-bell, .kic.bell[data-ugf-nb]").forEach(function(b) {
+        document.querySelectorAll("#ugf-nb-bell, [data-ugf-nb]").forEach(function(b) {
+            // the 2011-2014 square: its own figure is the count
+            if (b.hasAttribute("data-ugf-nb-square")) {
+                const t = b.querySelector(".ugf-plus-button-text span") || b;
+                t.textContent = n > 99 ? "99+" : String(n);
+                b.classList.toggle("ugf-nb-has", n > 0);
+                b.setAttribute("title", n ? "Notifications (" + n + ")" : "All caught up!");
+                return;
+            }
             let c = b.querySelector(".ugf-nb-count");
             if (!c) {
                 c = el("i", "ugf-nb-count");
@@ -99793,7 +101418,7 @@ html[gplex-gmail] body {
         if (b) {
             b.remove();
         }
-        document.querySelectorAll("#ugf-nb-bell.open, .kic.bell.open").forEach(function(x) {
+        document.querySelectorAll("#ugf-nb-bell.open, [data-ugf-nb].open").forEach(function(x) {
             x.classList.remove("open");
         });
     };
@@ -100214,7 +101839,7 @@ html[gplex-gmail] body {
     };
     document.addEventListener("mousedown", function(e) {
         const b = document.getElementById("ugf-nb-box");
-        if (e.isTrusted && b && !b.contains(e.target) && !e.target.closest("#ugf-nb-bell, .kic.bell[data-ugf-nb]")) {
+        if (e.isTrusted && b && !b.contains(e.target) && !e.target.closest("#ugf-nb-bell, [data-ugf-nb]")) {
             close();
         }
     }, true);
@@ -100230,11 +101855,42 @@ html[gplex-gmail] body {
     const bellClick = function(e) {
         e.preventDefault();
         e.stopPropagation();
+        // (before the page's own handler, which opened Gplex's empty box on the 2011-2014 square)
+        e.stopImmediatePropagation();
         open(e.currentTarget);
+    };
+    const hook = function(b, kind) {
+        b.setAttribute("data-ugf-nb", "");
+        if (kind) {
+            b.setAttribute("data-ugf-nb-" + kind, "");
+        }
+        b.addEventListener("click", bellClick, true);
     };
     const place = function() {
         let changed = false;
-        document.querySelectorAll(".kic.bell:not([data-ugf-nb]), #ugf-cal-account .ic.bell:not([data-ugf-nb])").forEach(function(b) {
+        if (MODE === "square") {
+            // google.com's square (and Search's), and the one in Gmail's and Maps' bars
+            document.querySelectorAll("#ugf-fake-notifs-button:not([data-ugf-nb]), .nbox:not([data-ugf-nb])").forEach(function(b) {
+                hook(b, "square");
+                changed = true;
+            });
+            if (changed) {
+                paint();
+            }
+            return;
+        }
+        if (MODE === "material") {
+            document.querySelectorAll(".kic.bell:not([data-ugf-nb]), .ic.bell:not([data-ugf-nb]), .ib.bell:not([data-ugf-nb])").forEach(function(b) {
+                hook(b, "material");
+                changed = true;
+            });
+            if (changed) {
+                paint();
+            }
+            return;
+        }
+        // (Gplex's Gmail bar has one too, with a "1" that never changes)
+        document.querySelectorAll(".kic.bell:not([data-ugf-nb]), #ugf-cal-account .ic.bell:not([data-ugf-nb]), #ugf-gmail-account .ic.bell:not([data-ugf-nb])").forEach(function(b) {
             b.setAttribute("data-ugf-nb", "");
             b.classList.add("kic", "bell", "ugf-nb-g");
             b.appendChild(el("span", "gi"));
@@ -100261,9 +101917,10 @@ html[gplex-gmail] body {
             changed = true;
         });
         // Gplex's own bar on google.com (Google's is hidden under it): after its app grid
+        // (laid out is not enough: Gplex keeps Gmail's own bar laid out but hidden, under its own)
         const shown = function(n) {
             const r = n && n.getBoundingClientRect();
-            return !!r && r.width > 0 && r.height > 0;
+            return !!r && r.width > 0 && r.height > 0 && getComputedStyle(n).visibility !== "hidden";
         };
         let bell = document.getElementById("ugf-nb-bell");
         const gapps = document.querySelector("#ugf-top-right #ugf-apps");
