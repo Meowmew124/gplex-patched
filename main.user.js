@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.15.32
+// @version      7.2.15.33
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -100753,10 +100753,8 @@ var ugfPatchedPlus = (function() {
     const isGplex = function(l) {
         return /^https?:\/\/plus\.gplexextended\.com(\/|$)/i.test(l === undefined ? link() : l);
     };
-    const me = function() {
-        if (!isGplex()) {
-            return null;
-        }
+    // who you are on Gplex+ ({ name, user }), as Gplex last saw it there
+    const account = function() {
         try {
             const v = typeof GM_getValue === "function" ? GM_getValue("UGF_PLUS_ME", "") : "";
             const m = v ? JSON.parse(String(v)) : null;
@@ -100765,6 +100763,10 @@ var ugfPatchedPlus = (function() {
             }
         } catch (e) {}
         return null;
+    };
+    // (counted only while the link leads to Gplex+)
+    const me = function() {
+        return isGplex() ? account() : null;
     };
     const first = function() {
         const m = me();
@@ -100846,7 +100848,7 @@ var ugfPatchedPlus = (function() {
             }
         } catch (e) {}
     };
-    return { HOME: HOME, link: link, name: name, me: me, first: first, profile: profile, kind: kind, isGplex: isGplex,
+    return { HOME: HOME, link: link, name: name, me: me, account: account, first: first, profile: profile, kind: kind, isGplex: isGplex,
         items: items, readKeys: readKeys, markRead: markRead };
 })();
 
@@ -101198,7 +101200,21 @@ var ugfPatchedPlus = (function() {
         "#ugf-nb-box .ask input { flex: 1 1 auto; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9; border-top-color: #c0c0c0; border-radius: 0; font: 13px Arial, sans-serif; outline: none; background: #fff; }",
         "#ugf-nb-box .ask input:focus { border-color: #4d90fe; }",
         "#ugf-nb-box .ask button { height: 30px; padding: 0 12px; border: 1px solid #3079ed; border-radius: 2px; background: linear-gradient(#4d90fe, #4787ed); color: #fff; font: bold 11px Arial, sans-serif; cursor: pointer; }",
-        "#ugf-nb-box .who2 { margin-top: 6px; color: #777; font-size: 12px; }"
+        "#ugf-nb-box .who2 { margin-top: 6px; color: #777; font-size: 12px; }",
+        // where the Google+ part comes from: Gplex+ (your sign-in there) or Loogle+ (a username)
+        "#ugf-nb-box .sbody { overflow: auto; min-height: 0; }",
+        "#ugf-nb-box .sbody .lead2 { font-size: 15px; color: #555; margin: 22px 0 6px; }",
+        "#ugf-nb-box .src { display: flex; align-items: flex-start; gap: 14px; padding: 9px 0; }",
+        "#ugf-nb-box .src .rd { position: relative; width: 18px; height: 18px; flex: 0 0 18px; box-sizing: border-box; border: 1px solid #bbb; border-radius: 50%; background: #fff; cursor: pointer; }",
+        "#ugf-nb-box .src .rd.on { border-color: #666; }",
+        "#ugf-nb-box .src .rd.on::after { content: ''; position: absolute; left: 4px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: #666; }",
+        "#ugf-nb-box .src .bd { flex: 1 1 auto; min-width: 0; }",
+        "#ugf-nb-box .src .nm { color: #222; font-size: 14px; cursor: pointer; }",
+        "#ugf-nb-box .src .dt { margin-top: 3px; color: #777; font-size: 12px; line-height: 16px; }",
+        "#ugf-nb-box .src .dt a { color: #427fed; text-decoration: none; cursor: pointer; }",
+        "#ugf-nb-box .src .ask { margin-top: 8px; }",
+        "#ugf-nb-box .src .who2 { margin-top: 4px; }",
+        "#ugf-nb-box .sbody .fine { margin-top: 12px; color: #999; font-size: 12px; line-height: 16px; }"
     ].join("\n");
 
     const el = function(tag, cls, text) {
@@ -101638,6 +101654,16 @@ var ugfPatchedPlus = (function() {
             throw new Error("Gplex+ said " + r.status);
         }
         const doc = parseHtml(String(r.responseText || ""));
+        const n = doc.querySelector("#me a.n");
+        const u = n ? (String(n.getAttribute("href")).match(/^\/u\/([a-z0-9_]{3,20})$/) || [])[1] : null;
+        // (who is signed in there, for the +Name buttons, as Gplex+'s own page tells Gplex)
+        try {
+            const was = typeof GM_getValue === "function" ? GM_getValue("UGF_PLUS_ME", "") : "";
+            const is = u ? JSON.stringify({ name: n.textContent.trim().slice(0, 50), user: u }) : "";
+            if (doc.body && (u || doc.body.classList.contains("out")) && was !== is) {
+                sv("UGF_PLUS_ME", is);
+            }
+        } catch (e) {}
         if (!doc.body || doc.body.classList.contains("out") || !doc.querySelector("#me")) {
             throw new Error("signed out");
         }
@@ -102114,11 +102140,45 @@ var ugfPatchedPlus = (function() {
             row.appendChild(c);
             body.appendChild(row);
         });
-        if (kind !== "loogle") {
-            const me = PLUS.me && PLUS.me();
-            body.appendChild(el("div", "who2", kind === "gplex" ? (me ? PLUS.name() + " notifications for +" + me.name : "Sign in to " + PLUS.name() + " in this browser, and its notifications will show here.") :
-                "Your Gplex+ link (" + PLUS.link() + ") leads somewhere without notifications. Point it at Gplex+ or Loogle+ in the Gplex settings to see them here."));
-        }
+        // where the Google+ part comes from, which is where the Gplex+ link leads: picking one here
+        // changes that setting (so every Gplex+ button follows), as the Gplex settings page does
+        body.appendChild(el("div", "lead2", PLUS.name() + " notifications come from:"));
+        const pick = function(link) {
+            sv("UGF_PLUS_LINK", link);
+            body.querySelectorAll(".src .rd").forEach(function(r) {
+                r.classList.toggle("on", r.getAttribute("data-k") === PLUS.kind());
+            });
+            changed = true;
+        };
+        const source = function(k, label, link, detail) {
+            const row = el("div", "src");
+            const rd = el("span", "rd" + (kind === k ? " on" : ""));
+            rd.setAttribute("role", "radio");
+            rd.setAttribute("aria-label", label);
+            rd.setAttribute("data-k", k);
+            const bd = el("div", "bd");
+            const nm = el("div", "nm", label);
+            bd.appendChild(nm);
+            detail(bd);
+            [rd, nm].forEach(function(x) {
+                x.addEventListener("click", function() {
+                    pick(link);
+                });
+            });
+            row.appendChild(rd);
+            row.appendChild(bd);
+            body.appendChild(row);
+        };
+        // Gplex+: whoever is signed in to it in this browser (it has no usernames to give)
+        source("gplex", "Gplex+", "https://plus.gplexextended.com/", function(bd) {
+            const acct = PLUS.account ? PLUS.account() : null;
+            const dt = el("div", "dt", acct ? "Signed in as +" + acct.name + " · " : "Not signed in · ");
+            const a = el("a", "", acct ? "Switch account" : "Sign in");
+            a.href = GPX + (acct ? "/" : "/signin");
+            a.target = "_blank";
+            dt.appendChild(a);
+            bd.appendChild(dt);
+        });
         // who you are on Loogle+ (its notifications are asked for by username)
         const f = el("form", "ask");
         const inp = el("input");
@@ -102129,22 +102189,24 @@ var ugfPatchedPlus = (function() {
         ok.type = "submit";
         f.appendChild(inp);
         f.appendChild(ok);
-        const said = el("div", "who2", loogleUser() ? "Google+ notifications from Loogle+ for +" + loogleUser() : "Google+ notifications come from Loogle+: give your username there.");
+        const said = el("div", "who2", loogleUser() ? "Notifications for +" + loogleUser() : "Give your Loogle+ username.");
         f.addEventListener("submit", function(e) {
             e.preventDefault();
             sv("UGF_LOOGLE_USER", inp.value.trim().replace(/^\+/, ""));
             said.textContent = inp.value.trim() ? "Saved: +" + inp.value.trim().replace(/^\+/, "") : "Cleared";
             changed = true;
         });
-        if (kind === "loogle") {
-            body.appendChild(f);
-            body.appendChild(said);
-        }
+        source("loogle", "Loogle+", loogleBase() + "/", function(bd) {
+            bd.appendChild(f);
+            bd.appendChild(said);
+        });
+        body.appendChild(el("div", "fine", kind ? "This is your Gplex+ link: changing it here changes it in the Gplex settings too, and every Gplex+ button follows." :
+            "Your Gplex+ link (" + PLUS.link() + ") leads somewhere without notifications. Pick one above to see them here."));
         v.appendChild(body);
         back.addEventListener("click", function() {
             if (changed) {
                 // start again with what was chosen
-                const bell = document.querySelector("#ugf-nb-bell.open, .kic.bell.open");
+                const bell = document.querySelector("#ugf-nb-bell.open, [data-ugf-nb].open");
                 close();
                 refresh();
                 if (bell) {
