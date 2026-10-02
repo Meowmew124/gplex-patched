@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.15.31
+// @version      7.2.15.32
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -100779,7 +100779,93 @@ var ugfPatchedPlus = (function() {
         const l = link();
         return isGplex(l) ? "gplex" : /^https?:\/\/[^\/]*loogle[^\/]*/i.test(l) ? "loogle" : "";
     };
-    return { HOME: HOME, link: link, name: name, me: me, first: first, profile: profile, kind: kind, isGplex: isGplex };
+    // Gplex+'s Notifications page, one .person each (the ones new since it was last opened
+    // tinted): the photo, or the coloured letter of a member without one; who; what (a link to
+    // the post); when. Read by the bell, and by Gplex+'s own page when you open it there.
+    const GPX = "https://plus.gplexextended.com/";
+    const abs = function(u) {
+        try {
+            return new URL(u, GPX).href;
+        } catch (e) {
+            return GPX;
+        }
+    };
+    const items = function(doc) {
+        return [].map.call(doc.querySelectorAll("#main .person"), function(p) {
+            const who = p.querySelector("a.who");
+            const pt = p.querySelector(".pt") || p;
+            let msg = "";
+            let url = "";
+            for (let c = pt.firstChild; c && c.nodeName !== "BR"; c = c.nextSibling) {
+                if (c === who) {
+                    continue;
+                }
+                msg += c.textContent;
+                if (!url && c.nodeName === "A" && c.getAttribute("href")) {
+                    url = c.getAttribute("href");
+                }
+            }
+            const img = p.querySelector(".av img");
+            const letter = p.querySelector(".av span");
+            const n = {
+                who: who ? who.textContent.trim() : "",
+                msg: msg.replace(/\s+/g, " ").trim(),
+                url: abs(url || (who && who.getAttribute("href")) || "/notifications"),
+                tm: ((p.querySelector(".muted") || {}).textContent || "").trim(),
+                fresh: /background/i.test(p.getAttribute("style") || ""),
+                img: img && img.getAttribute("src") ? abs(img.getAttribute("src")) : "",
+                letter: letter ? letter.textContent.trim().slice(0, 1) : "",
+                color: letter ? letter.style.backgroundColor : ""
+            };
+            // (Gplex+ gives them no id: who, what and where; the time reads differently by tomorrow)
+            n.key = [n.url, n.who, n.msg].join("|");
+            return n;
+        });
+    };
+    // which ones you have read: clicked, dismissed or marked read in the bell's box, or seen on
+    // Gplex+'s own Notifications page. (Gplex+ itself counts every one as read once its page has
+    // been asked for, which the bell has to do to show them at all.)
+    const READ = "UGF_NB_GPX_READ";
+    const readKeys = function() {
+        try {
+            return JSON.parse(get(READ) || "[]") || [];
+        } catch (e) {
+            return [];
+        }
+    };
+    const markRead = function(keys) {
+        const r = readKeys();
+        keys.forEach(function(k) {
+            if (r.indexOf(k) < 0) {
+                r.push(k);
+            }
+        });
+        try {
+            if (typeof GM_setValue === "function") {
+                GM_setValue(READ, JSON.stringify(r.slice(-500)));
+            }
+        } catch (e) {}
+    };
+    return { HOME: HOME, link: link, name: name, me: me, first: first, profile: profile, kind: kind, isGplex: isGplex,
+        items: items, readKeys: readKeys, markRead: markRead };
+})();
+
+// on Gplex+'s own Notifications page: what is on it has been read
+(function ugfPlusSeen() {
+    "use strict";
+    if (window.top !== window.self || !/^plus\.gplexextended\.com$/i.test(window.location.hostname) || window.location.pathname !== "/notifications") {
+        return;
+    }
+    const run = function() {
+        ugfPatchedPlus.markRead(ugfPatchedPlus.items(document).map(function(n) {
+            return n.key;
+        }));
+    };
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", run);
+    } else {
+        run();
+    }
 })();
 
 // Gplex reads the settings when it draws a page, so the buttons already drawn (in this tab and
@@ -100894,6 +100980,13 @@ var ugfPatchedPlus = (function() {
         name: function() {
             return String(gv("UGF_PLUS_NAME", "")).trim() || "Gplex+";
         },
+        items: function() {
+            return [];
+        },
+        readKeys: function() {
+            return [];
+        },
+        markRead: function() {},
         kind: function() {
             const l = String(gv("UGF_PLUS_LINK", ""));
             return /loogle/i.test(l) ? "loogle" : /^https?:\/\/plus\.google\.com\/?$|^\s*$|plus\.gplexextended\.com/i.test(l) ? "gplex" : "";
@@ -101557,13 +101650,6 @@ var ugfPatchedPlus = (function() {
     const gpxUnread = async function() {
         return gpxCount(await gpxPage("/rules"));
     };
-    const gpxAbs = function(u) {
-        try {
-            return new URL(u, GPX + "/").href;
-        } catch (e) {
-            return GPX + "/";
-        }
-    };
     // its pictures are for signed-in members only: they come through the script too
     const gpxPics = {};
     const gpxAvatar = function(u) {
@@ -101576,38 +101662,10 @@ var ugfPatchedPlus = (function() {
         }
         return gpxPics[u];
     };
-    // the Notifications page: one .person each, the new ones tinted; the photo (or the
-    // coloured letter of a member without one), who, what (a link to the post), when
+    // the Notifications page (read by the block before this one, which Gplex+'s own page uses too)
     let gpxLast = null;
     const gpxList = async function() {
-        const doc = await gpxPage("/notifications");
-        gpxLast = [].map.call(doc.querySelectorAll("#main .person"), function(p) {
-            const who = p.querySelector("a.who");
-            const pt = p.querySelector(".pt") || p;
-            let msg = "";
-            let url = "";
-            for (let c = pt.firstChild; c && c.nodeName !== "BR"; c = c.nextSibling) {
-                if (c === who) {
-                    continue;
-                }
-                msg += c.textContent;
-                if (!url && c.nodeName === "A" && c.getAttribute("href")) {
-                    url = c.getAttribute("href");
-                }
-            }
-            const img = p.querySelector(".av img");
-            const letter = p.querySelector(".av span");
-            return {
-                who: who ? who.textContent.trim() : "",
-                msg: msg.replace(/\s+/g, " ").trim(),
-                url: gpxAbs(url || (who && who.getAttribute("href")) || "/notifications"),
-                tm: ((p.querySelector(".muted") || {}).textContent || "").trim(),
-                unread: /background/i.test(p.getAttribute("style") || ""),
-                img: img && img.getAttribute("src") ? gpxAbs(img.getAttribute("src")) : "",
-                letter: letter ? letter.textContent.trim().slice(0, 1) : "",
-                color: letter ? letter.style.backgroundColor : ""
-            };
-        });
+        gpxLast = PLUS.items(await gpxPage("/notifications"));
         return gpxLast;
     };
 
@@ -101892,11 +101950,28 @@ var ugfPatchedPlus = (function() {
         });
         settle(box, list, "ok");
     };
-    // a Gplex+ notification as a card
-    const gpxCard = function(n, read) {
+    // a Gplex+ notification as a card; an unread one is read once it is opened or dismissed
+    const gpxCard = function(n, read, gone) {
         const a = el("a", "it" + (read ? " read" : ""));
         a.href = n.url;
         a.target = "_blank";
+        if (!read) {
+            a.addEventListener("click", function() {
+                PLUS.markRead([n.key]);
+                setTimeout(function() {
+                    gone(a);
+                }, 0);
+            });
+            const x = el("span", "x", "×");
+            x.setAttribute("title", "Dismiss");
+            x.addEventListener("click", function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                PLUS.markRead([n.key]);
+                gone(a);
+            });
+            a.appendChild(x);
+        }
         const av = el("span", "av");
         if (n.img) {
             gpxAvatar(n.img).then(function(u) {
@@ -101917,8 +101992,8 @@ var ugfPatchedPlus = (function() {
         if (n.tm) {
             tx.appendChild(el("div", "tm", n.tm));
         }
-        a.appendChild(av);
-        a.appendChild(tx);
+        a.insertBefore(tx, a.firstChild);
+        a.insertBefore(av, tx);
         return a;
     };
     // the new ones on the front; the rest under "Previously read"
@@ -101934,22 +102009,71 @@ var ugfPatchedPlus = (function() {
             settle(box, list, "ok");
             return;
         }
-        // (opening the page has read them)
+        // (Gplex+ has counted them read now that its page was asked for: the bell's number is
+        // the new ones since the box was last opened, as Google's was)
         counts.gp = 0;
         paint();
-        const fresh = items.filter(function(n) {
-            return n.unread;
+        // on the front: every one you haven't read yet
+        const read = PLUS.readKeys();
+        const left = items.filter(function(n) {
+            return read.indexOf(n.key) < 0;
         });
-        if (!fresh.length) {
+        if (!left.length) {
             settle(box, list, "empty");
             return;
         }
         list.textContent = "";
-        fresh.forEach(function(n) {
-            list.appendChild(gpxCard(n, false));
+        const gone = function(a) {
+            a.remove();
+            const rest = list.querySelectorAll(".it");
+            if (!rest.length) {
+                list.textContent = "";
+                settle(box, list, "empty");
+                return;
+            }
+            // (one of the folded ones moves up)
+            [].forEach.call(rest, function(c, i) {
+                c.classList.toggle("more", i >= FEW_GP);
+            });
+            const tog = list.querySelector(".tog");
+            if (tog && rest.length <= FEW_GP) {
+                tog.remove();
+                list.classList.remove("collapsed");
+            }
+        };
+        const markAll = list.parentNode.querySelector(".sh .hl");
+        if (markAll) {
+            markAll.addEventListener("click", function(e) {
+                e.preventDefault();
+                PLUS.markRead(left.map(function(n) {
+                    return n.key;
+                }));
+                list.textContent = "";
+                settle(box, list, "empty");
+            });
+        }
+        // the newest few (Gplex+ lists them newest first); the rest behind "Show all"
+        left.slice(0, 50).forEach(function(n, i) {
+            const c = gpxCard(n, false, gone);
+            if (i >= FEW_GP) {
+                c.classList.add("more");
+            }
+            list.appendChild(c);
         });
+        const shown = Math.min(left.length, 50);
+        if (shown > FEW_GP) {
+            list.classList.add("collapsed");
+            const tg = el("a", "tog", "Show all " + shown + " ▾");
+            tg.addEventListener("click", function(e) {
+                e.preventDefault();
+                const open = list.classList.toggle("collapsed") === false;
+                tg.textContent = open ? "Show fewer ▴" : "Show all " + shown + " ▾";
+            });
+            list.appendChild(tg);
+        }
         settle(box, list, "ok");
     };
+    const FEW_GP = 5;
     // the gear's page: "Allow notifications here from:", as the panel had it
     const settingsView = function(box) {
         const v = el("div", "view settings");
@@ -102055,8 +102179,9 @@ var ugfPatchedPlus = (function() {
         if (PLUS.kind() === "gplex") {
             (gpxLast ? Promise.resolve(gpxLast) : gpxList()).then(function(items) {
                 list.textContent = "";
+                const read = PLUS.readKeys();
                 const old = items.filter(function(n) {
-                    return !n.unread;
+                    return read.indexOf(n.key) > -1;
                 });
                 if (!old.length) {
                     none(list, "Nothing read yet.", "Open " + PLUS.name(), GPX + "/notifications");
@@ -102164,7 +102289,7 @@ var ugfPatchedPlus = (function() {
         }
         if (showing("gp") && kind === "gplex") {
             any = true;
-            fillGplex(section(box, "gp", PLUS.name(), "See all", GPX + "/notifications"), box);
+            fillGplex(section(box, "gp", PLUS.name(), "Mark all as read", ""), box);
         } else if (showing("gp") && kind === "loogle") {
             any = true;
             fillGooglePlus(section(box, "gp", PLUS.name(), loogleUser() ? "Mark all as read" : "", ""), box);
