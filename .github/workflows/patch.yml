@@ -11,6 +11,7 @@ on:
       - docs2014/**
       - notify/**
       - gmail/**
+      - plus/**
       - .github/workflows/patch.yml
 
 permissions:
@@ -47,7 +48,7 @@ jobs:
       - name: Check for changes
         id: state
         run: |
-          key=$(cat upstream.user.js gplex-plus-link-patch.py gmail/*.py docs2014/* notify/* | sha256sum | cut -d' ' -f1)
+          key=$(cat upstream.user.js gplex-plus-link-patch.py gmail/*.py docs2014/* notify/* plus/* | sha256sum | cut -d' ' -f1)
           if [ -f main.user.js ] && [ "$key" = "$(cat .state 2>/dev/null)" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else

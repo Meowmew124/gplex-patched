@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Re-apply Akhil's changes to a new Gplex Extended release: the Google+ link fix, the
-Gmail fixes (gmail/edits.py), the Docs 2014 fixes (docs2014/: the editor's layout, menus, Table menu and alignment
-buttons, appended as their own block) and the notifications bell (notify/: YouTube and
-Loogle+ notifications in the 2015-2017 bar, and sharp profile photos).
+"""Re-apply Akhil's changes to a new Gplex Extended release: the Gmail fixes (gmail/edits.py),
+the Docs 2014 fixes (docs2014/: the editor's layout, menus, Table menu and alignment buttons,
+appended as their own block), the notifications bell (notify/: YouTube and Gplex+ or Loogle+
+notifications in the bar, and sharp profile photos) and plus/: the Gplex+ buttons already on a
+page follow the "Gplex+ link" and "Gplex+ name" settings as soon as they are saved.
 
-Makes every Google+ button honour the "Custom link for Google+ buttons" setting
-(UGF_PLUS_LINK): the waffle menu's Google+ tile and the hardcoded +You links,
-mirrors the setting to GM storage so other Google origins see it, and updates
-links already on the page when the setting is saved.
+Gplex 7.2.8 and later have the Gplex+ link setting themselves; for older releases the edits
+below make every Google+ button honour the "Custom link for Google+ buttons" setting
+(UGF_PLUS_LINK).
 
 Usage: python3 gplex-plus-link-patch.py path/to/main.user.js [--out FILE]
            [--strict] [--update-url URL] [--version-suffix N]
@@ -29,9 +29,12 @@ DEFAULT = "https://plus.google.com/"
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS_MARK = "ugfDocs2014Fixes"
 NOTIFY_MARK = "ugfNotify"
-# what the notifications bell needs: YouTube's and Loogle+'s servers (Gplex itself is not
+PLUS_MARK = "ugfPlusLive"
+# what the Gplex+ buttons need to hear a setting saved in another tab
+PLUS_HEADERS = [("grant", "GM_addValueChangeListener")]
+# what the notifications bell needs: YouTube's, Gplex+'s and Loogle+'s servers (Gplex itself is not
 # run on Loogle+: its main block would draw the google.com homepage over any other site)
-NOTIFY_HEADERS = [("connect", "www.youtube.com"), ("connect", "plus.loogle.mooo.com")]
+NOTIFY_HEADERS = [("connect", "www.youtube.com"), ("connect", "plus.loogle.mooo.com"), ("connect", "plus.gplexextended.com")]
 # the Gmail fixes (gmail/edits.py): edits inside Gplex's Gmail code, which has no hooks to append to
 sys.path.insert(0, os.path.join(HERE, "gmail"))
 from edits import EDITS as GMAIL_EDITS  # noqa: E402
@@ -158,13 +161,21 @@ def main():
     else:
         text = text.rstrip("\n") + "\n\n" + docs2014_block().rstrip("\n") + "\n"
         print("appended  Docs 2014 fixes (layout, menus, Table menu, alignment buttons)")
+    # (before the bell, which reads the settings through it)
+    if PLUS_MARK in text:
+        print("already has the live Gplex+ buttons; not appended again")
+    else:
+        text = text.rstrip("\n") + "\n\n" + open(os.path.join(HERE, "plus", "plus-live.js")).read().replace("\r\n", "\n").rstrip("\n") + "\n"
+        for key, value in PLUS_HEADERS:
+            text = add_header(text, key, value)
+        print("appended  live Gplex+ buttons (link and name follow the settings at once, in every tab)")
     if NOTIFY_MARK in text:
         print("already has the notifications bell; not appended again")
     else:
         text = text.rstrip("\n") + "\n\n" + open(os.path.join(HERE, "notify", "notify.js")).read().replace("\r\n", "\n").rstrip("\n") + "\n"
         for key, value in NOTIFY_HEADERS:
             text = add_header(text, key, value)
-        print("appended  notifications bell (YouTube + Loogle+, sharp profile photos)")
+        print("appended  notifications bell (YouTube + Gplex+ or Loogle+, sharp profile photos)")
     leftover = text.count('href="' + DEFAULT + '"')
     if leftover:
         print("note: %d other hardcoded href=\"%s\" left; check whether they're new Google+ buttons" % (leftover, DEFAULT))
