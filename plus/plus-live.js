@@ -54,7 +54,93 @@ var ugfPatchedPlus = (function() {
         const l = link();
         return isGplex(l) ? "gplex" : /^https?:\/\/[^\/]*loogle[^\/]*/i.test(l) ? "loogle" : "";
     };
-    return { HOME: HOME, link: link, name: name, me: me, first: first, profile: profile, kind: kind, isGplex: isGplex };
+    // Gplex+'s Notifications page, one .person each (the ones new since it was last opened
+    // tinted): the photo, or the coloured letter of a member without one; who; what (a link to
+    // the post); when. Read by the bell, and by Gplex+'s own page when you open it there.
+    const GPX = "https://plus.gplexextended.com/";
+    const abs = function(u) {
+        try {
+            return new URL(u, GPX).href;
+        } catch (e) {
+            return GPX;
+        }
+    };
+    const items = function(doc) {
+        return [].map.call(doc.querySelectorAll("#main .person"), function(p) {
+            const who = p.querySelector("a.who");
+            const pt = p.querySelector(".pt") || p;
+            let msg = "";
+            let url = "";
+            for (let c = pt.firstChild; c && c.nodeName !== "BR"; c = c.nextSibling) {
+                if (c === who) {
+                    continue;
+                }
+                msg += c.textContent;
+                if (!url && c.nodeName === "A" && c.getAttribute("href")) {
+                    url = c.getAttribute("href");
+                }
+            }
+            const img = p.querySelector(".av img");
+            const letter = p.querySelector(".av span");
+            const n = {
+                who: who ? who.textContent.trim() : "",
+                msg: msg.replace(/\s+/g, " ").trim(),
+                url: abs(url || (who && who.getAttribute("href")) || "/notifications"),
+                tm: ((p.querySelector(".muted") || {}).textContent || "").trim(),
+                fresh: /background/i.test(p.getAttribute("style") || ""),
+                img: img && img.getAttribute("src") ? abs(img.getAttribute("src")) : "",
+                letter: letter ? letter.textContent.trim().slice(0, 1) : "",
+                color: letter ? letter.style.backgroundColor : ""
+            };
+            // (Gplex+ gives them no id: who, what and where; the time reads differently by tomorrow)
+            n.key = [n.url, n.who, n.msg].join("|");
+            return n;
+        });
+    };
+    // which ones you have read: clicked, dismissed or marked read in the bell's box, or seen on
+    // Gplex+'s own Notifications page. (Gplex+ itself counts every one as read once its page has
+    // been asked for, which the bell has to do to show them at all.)
+    const READ = "UGF_NB_GPX_READ";
+    const readKeys = function() {
+        try {
+            return JSON.parse(get(READ) || "[]") || [];
+        } catch (e) {
+            return [];
+        }
+    };
+    const markRead = function(keys) {
+        const r = readKeys();
+        keys.forEach(function(k) {
+            if (r.indexOf(k) < 0) {
+                r.push(k);
+            }
+        });
+        try {
+            if (typeof GM_setValue === "function") {
+                GM_setValue(READ, JSON.stringify(r.slice(-500)));
+            }
+        } catch (e) {}
+    };
+    return { HOME: HOME, link: link, name: name, me: me, first: first, profile: profile, kind: kind, isGplex: isGplex,
+        items: items, readKeys: readKeys, markRead: markRead };
+})();
+
+// on Gplex+'s own Notifications page: what is on it has been read
+(function ugfPlusSeen() {
+    "use strict";
+    if (window.top !== window.self || !/^plus\.gplexextended\.com$/i.test(window.location.hostname) || window.location.pathname !== "/notifications") {
+        return;
+    }
+    const run = function() {
+        ugfPatchedPlus.markRead(ugfPatchedPlus.items(document).map(function(n) {
+            return n.key;
+        }));
+    };
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", run);
+    } else {
+        run();
+    }
 })();
 
 // Gplex reads the settings when it draws a page, so the buttons already drawn (in this tab and
