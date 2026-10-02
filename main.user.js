@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.15.30
+// @version      7.2.15.31
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -84,8 +84,10 @@
 // @run-at     document-start
 // @downloadURL https://raw.githubusercontent.com/Meowmew124/gplex-patched/main/main.user.js
 // @updateURL https://raw.githubusercontent.com/Meowmew124/gplex-patched/main/main.user.js
+// @grant      GM_addValueChangeListener
 // @connect      www.youtube.com
 // @connect      plus.loogle.mooo.com
+// @connect      plus.gplexextended.com
 // ==/UserScript==
 // ugf-async-gm >>>
 // (7.2.4) Userscript managers with only the newer, asynchronous storage functions (GM.getValue and
@@ -100721,10 +100723,144 @@ html[gplex-gmail] body {
     tryStart();
 })();
 
+// ---- Gplex+ settings, and the buttons following them at once (gplex-patched) -------------
+// Gplex's own Gplex+ helpers (ugfPlusLink and the rest) are private to its code, so the same
+// rules are kept here for the blocks after it (the notifications bell reads them too): the
+// "Gplex+ link" setting (empty or Google's old address = Gplex+ itself), the "Gplex+ name",
+// and who you are on Gplex+ (counted only while the link leads to Gplex+).
+var ugfPatchedPlus = (function() {
+    "use strict";
+    const HOME = "https://plus.gplexextended.com/";
+    const get = function(k) {
+        let v = null;
+        try {
+            v = typeof GM_getValue === "function" ? GM_getValue(k, null) : null;
+        } catch (e) {}
+        if (v === null || v === undefined) {
+            try {
+                v = window.localStorage.getItem(k);
+            } catch (e) {}
+        }
+        return v === null || v === undefined ? "" : String(v);
+    };
+    const link = function() {
+        const v = get("UGF_PLUS_LINK").trim();
+        return !v || /^https?:\/\/plus\.google\.com\/?$/i.test(v) ? HOME : v;
+    };
+    const name = function() {
+        return get("UGF_PLUS_NAME").replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, 30) || "Gplex+";
+    };
+    const isGplex = function(l) {
+        return /^https?:\/\/plus\.gplexextended\.com(\/|$)/i.test(l === undefined ? link() : l);
+    };
+    const me = function() {
+        if (!isGplex()) {
+            return null;
+        }
+        try {
+            const v = typeof GM_getValue === "function" ? GM_getValue("UGF_PLUS_ME", "") : "";
+            const m = v ? JSON.parse(String(v)) : null;
+            if (m && typeof m.name === "string" && m.name && /^[a-z0-9_]{3,20}$/.test(String(m.user || ""))) {
+                return m;
+            }
+        } catch (e) {}
+        return null;
+    };
+    const first = function() {
+        const m = me();
+        return m ? (m.name.split(" ")[0] || m.name) : "You";
+    };
+    const profile = function() {
+        const m = me();
+        return m ? "https://plus.gplexextended.com/u/" + m.user : link();
+    };
+    // where its notifications come from: Gplex+, Loogle+ (a link to a loogle host), or nowhere
+    const kind = function() {
+        const l = link();
+        return isGplex(l) ? "gplex" : /^https?:\/\/[^\/]*loogle[^\/]*/i.test(l) ? "loogle" : "";
+    };
+    return { HOME: HOME, link: link, name: name, me: me, first: first, profile: profile, kind: kind, isGplex: isGplex };
+})();
+
+// Gplex reads the settings when it draws a page, so the buttons already drawn (in this tab and
+// in every other one) kept the old ones until a reload. When either setting changes, or who you
+// are on Gplex+, the buttons on the page are pointed at the new link and given the new name:
+// the +You / +Name buttons and "Your profile" lead to your profile (on Gplex+) or the link;
+// everything else (the apps menus' tile, the products page, the notifications box...) to the link.
+(function ugfPlusLive() {
+    "use strict";
+    if (window.top !== window.self || /^plus\.gplexextended\.com$/i.test(window.location.hostname)) {
+        return;
+    }
+    const P = ugfPatchedPlus;
+    const PROFILE = "a.plus, a.plusname, #gp-gbar-plusyou, #ugf-email-button, #ugf-username-button, #ugf-account-profile";
+    const now = function() {
+        return { link: P.link(), profile: P.profile(), name: P.name(), first: P.first() };
+    };
+    let was = now();
+    const words = function(a, from, to) {
+        if (from === to) {
+            return;
+        }
+        const w = document.createTreeWalker(a, NodeFilter.SHOW_TEXT);
+        let t;
+        while ((t = w.nextNode())) {
+            const core = t.nodeValue.trim();
+            if (core === from) {
+                t.nodeValue = t.nodeValue.replace(from, to);
+            } else if (core === from + " notifications") {
+                t.nodeValue = t.nodeValue.replace(from + " notifications", to + " notifications");
+            }
+        }
+    };
+    const swap = function() {
+        const is = now();
+        if (is.link === was.link && is.profile === was.profile && is.name === was.name && is.first === was.first) {
+            return;
+        }
+        document.querySelectorAll("a[href]").forEach(function(a) {
+            const h = a.getAttribute("href");
+            if (h !== was.link && h !== was.profile) {
+                return;
+            }
+            if (a.matches(PROFILE)) {
+                a.setAttribute("href", is.profile);
+                words(a, "+" + was.first, "+" + is.first);
+            } else {
+                a.setAttribute("href", is.link);
+                words(a, was.name, is.name);
+            }
+        });
+        was = is;
+    };
+    // a change saved here or in another tab (any Google site, YouTube or the settings page)
+    let listening = false;
+    try {
+        if (typeof GM_addValueChangeListener === "function") {
+            ["UGF_PLUS_LINK", "UGF_PLUS_NAME", "UGF_PLUS_ME"].forEach(function(k) {
+                GM_addValueChangeListener(k, function() {
+                    setTimeout(swap, 0);
+                });
+            });
+            listening = true;
+        }
+    } catch (e) {}
+    document.addEventListener("visibilitychange", swap);
+    window.addEventListener("focus", swap);
+    if (!listening) {
+        setInterval(function() {
+            if (document.visibilityState === "visible") {
+                swap();
+            }
+        }, 3000);
+    }
+})();
+
 // ---- Gplex notifications (gplex-patched) ------------------------------------------
-// The bell of the 2015-2017 Google bar, with a box of two parts: YouTube (the videos of
-// the channels you subscribe to, from YouTube's own notification menu) and Google+ (from
-// Loogle+, the Google+ revival that Gplex's "Custom link for Google+ buttons" points at).
+// The bell of the 2015-2017 Google bar (and the count square before it, the Material bell
+// after), with a box of two parts: YouTube (the videos of the channels you subscribe to, from
+// YouTube's own notification menu) and Google+: whatever Gplex's "Gplex+ link" setting leads
+// to, Gplex+ (the default) or Loogle+, under the "Gplex+ name".
 (function ugfNotify() {
     "use strict";
     if (window.top !== window.self) {
@@ -100750,6 +100886,19 @@ html[gplex-gmail] body {
         } catch (e) {}
     };
     const LOOGLE_DEFAULT = "http://plus.loogle.mooo.com";
+    // the Gplex+ settings, as the block before this one reads them (Gplex's own helpers are private)
+    const PLUS = typeof ugfPatchedPlus !== "undefined" ? ugfPatchedPlus : {
+        link: function() {
+            return String(gv("UGF_PLUS_LINK", "")).trim() || "https://plus.gplexextended.com/";
+        },
+        name: function() {
+            return String(gv("UGF_PLUS_NAME", "")).trim() || "Gplex+";
+        },
+        kind: function() {
+            const l = String(gv("UGF_PLUS_LINK", ""));
+            return /loogle/i.test(l) ? "loogle" : /^https?:\/\/plus\.google\.com\/?$|^\s*$|plus\.gplexextended\.com/i.test(l) ? "gplex" : "";
+        }
+    };
 
     // ---- on Loogle+ itself: remember who is signed in (the username only), for the box
     if (/(^|\.)loogle\.mooo\.com$/.test(window.location.hostname)) {
@@ -100918,6 +101067,8 @@ html[gplex-gmail] body {
         "#ugf-nb-box .it.read { background: #f4f6f9; box-shadow: none; }",
         "#ugf-nb-box .it:hover { box-shadow: 0 1px 4px rgba(0,0,0,.2); }",
         "#ugf-nb-box .it .av { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; background: #ddd center / cover no-repeat; }",
+        // (a Gplex+ member without a photo: the coloured letter Gplex+ shows)
+        "#ugf-nb-box .it .av.lt { display: flex; align-items: center; justify-content: center; color: #fff; font: 500 18px Roboto, Arial, sans-serif; }",
         "#ugf-nb-box .it .tx { flex: 1 1 auto; min-width: 0; }",
         "#ugf-nb-box .it .who { font-weight: bold; color: #262626; }",
         "#ugf-nb-box .it .msg { color: #404040; line-height: 18px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }",
@@ -100938,6 +101089,7 @@ html[gplex-gmail] body {
         // the foot
         "#ugf-nb-box .ft2 { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; height: 48px; margin: 8px 20px 0; background: #ebebeb; color: #737373; cursor: pointer; text-decoration: none; }",
         "#ugf-nb-box .ft2:hover { background: #f2f2f2; color: #555; }",
+        "#ugf-nb-box .ft2[hidden] { display: none; }",
         // the settings page behind the gear
         "#ugf-nb-box .sbody { padding: 6px 20px 20px; }",
         "#ugf-nb-box .sbody .lead { font-size: 15px; color: #555; margin: 4px 0 18px; }",
@@ -101283,13 +101435,9 @@ html[gplex-gmail] body {
 
     // ---- Google+: Loogle+'s notifications, for the username Gplex saw signed in there ----
     const loogleBase = function() {
-        const saved = String(gv("UGF_LOOGLE_BASE", ""));
-        if (saved) {
-            return saved;
-        }
-        const link = String(gv("UGF_PLUS_LINK", ""));
-        const m = link.match(/^(https?:\/\/[^\/]*loogle[^\/]*)/i);
-        return m ? m[1] : LOOGLE_DEFAULT;
+        // the Loogle+ the Gplex+ link leads to (or the one last signed in to)
+        const m = PLUS.link().match(/^(https?:\/\/[^\/]*loogle[^\/]*)/i);
+        return m ? m[1] : String(gv("UGF_LOOGLE_BASE", "")) || LOOGLE_DEFAULT;
     };
     const loogleUser = function() {
         return String(gv("UGF_LOOGLE_USER", ""));
@@ -101370,6 +101518,99 @@ html[gplex-gmail] body {
         return Number(d.count) || 0;
     };
 
+    // ---- Gplex+: its own pages, read with your Gplex+ sign-in ----------------------------
+    // Gplex+ has no feed of notifications: the count is in the bar of every page of its (a
+    // small one is asked for), and the list is its Notifications page, which marks them all
+    // read when it is opened, as Google+'s panel did. So the list is only asked for when the
+    // box opens, never in the background.
+    const GPX = "https://plus.gplexextended.com";
+    let ttp = null;
+    const parseHtml = function(s) {
+        let h = s;
+        try {
+            if (window.trustedTypes && window.trustedTypes.createPolicy) {
+                ttp = ttp || window.trustedTypes.createPolicy("gplex-nb", { createHTML: function(x) { return x; } });
+                h = ttp.createHTML(s);
+            }
+        } catch (e) {}
+        return new DOMParser().parseFromString(h, "text/html");
+    };
+    const gpxPage = async function(path) {
+        const r = await xhr({ method: "GET", url: GPX + path });
+        trail("Gplex+ " + path + " -> " + r.status + " " + (r.finalUrl || ""));
+        if (/\/signin/.test(r.finalUrl || "")) {
+            throw new Error("signed out");
+        }
+        if (r.status !== 200) {
+            throw new Error("Gplex+ said " + r.status);
+        }
+        const doc = parseHtml(String(r.responseText || ""));
+        if (!doc.body || doc.body.classList.contains("out") || !doc.querySelector("#me")) {
+            throw new Error("signed out");
+        }
+        return doc;
+    };
+    const gpxCount = function(doc) {
+        const b = doc.querySelector("#me a.bell");
+        return b ? parseInt(b.textContent, 10) || 0 : 0;
+    };
+    const gpxUnread = async function() {
+        return gpxCount(await gpxPage("/rules"));
+    };
+    const gpxAbs = function(u) {
+        try {
+            return new URL(u, GPX + "/").href;
+        } catch (e) {
+            return GPX + "/";
+        }
+    };
+    // its pictures are for signed-in members only: they come through the script too
+    const gpxPics = {};
+    const gpxAvatar = function(u) {
+        if (!gpxPics[u]) {
+            gpxPics[u] = xhr({ method: "GET", url: u, responseType: "blob" }).then(function(r) {
+                return r.status === 200 && r.response ? URL.createObjectURL(r.response) : "";
+            }).catch(function() {
+                return "";
+            });
+        }
+        return gpxPics[u];
+    };
+    // the Notifications page: one .person each, the new ones tinted; the photo (or the
+    // coloured letter of a member without one), who, what (a link to the post), when
+    let gpxLast = null;
+    const gpxList = async function() {
+        const doc = await gpxPage("/notifications");
+        gpxLast = [].map.call(doc.querySelectorAll("#main .person"), function(p) {
+            const who = p.querySelector("a.who");
+            const pt = p.querySelector(".pt") || p;
+            let msg = "";
+            let url = "";
+            for (let c = pt.firstChild; c && c.nodeName !== "BR"; c = c.nextSibling) {
+                if (c === who) {
+                    continue;
+                }
+                msg += c.textContent;
+                if (!url && c.nodeName === "A" && c.getAttribute("href")) {
+                    url = c.getAttribute("href");
+                }
+            }
+            const img = p.querySelector(".av img");
+            const letter = p.querySelector(".av span");
+            return {
+                who: who ? who.textContent.trim() : "",
+                msg: msg.replace(/\s+/g, " ").trim(),
+                url: gpxAbs(url || (who && who.getAttribute("href")) || "/notifications"),
+                tm: ((p.querySelector(".muted") || {}).textContent || "").trim(),
+                unread: /background/i.test(p.getAttribute("style") || ""),
+                img: img && img.getAttribute("src") ? gpxAbs(img.getAttribute("src")) : "",
+                letter: letter ? letter.textContent.trim().slice(0, 1) : "",
+                color: letter ? letter.style.backgroundColor : ""
+            };
+        });
+        return gpxLast;
+    };
+
     // ---- the count on the bell ------------------------------------------------------------
     let counts = { yt: 0, gp: 0 };
     const paint = function() {
@@ -101401,11 +101642,13 @@ html[gplex-gmail] body {
             showing("yt") ? ytUnseen().catch(function() {
                 return 0;
             }) : Promise.resolve(0),
-            showing("gp") && loogleUser() ? gpUnread().catch(function() {
+            !showing("gp") ? Promise.resolve(0) : PLUS.kind() === "gplex" ? gpxUnread().catch(function() {
+                return 0;
+            }) : PLUS.kind() === "loogle" && loogleUser() ? gpUnread().catch(function() {
                 return 0;
             }) : Promise.resolve(0)
         ]);
-        if (results[1] && results[1] !== counts.gp) {
+        if (PLUS.kind() === "loogle" && results[1] && results[1] !== counts.gp) {
             gpList().catch(function() {});
         }
         counts = { yt: results[0], gp: results[1] };
@@ -101649,6 +101892,64 @@ html[gplex-gmail] body {
         });
         settle(box, list, "ok");
     };
+    // a Gplex+ notification as a card
+    const gpxCard = function(n, read) {
+        const a = el("a", "it" + (read ? " read" : ""));
+        a.href = n.url;
+        a.target = "_blank";
+        const av = el("span", "av");
+        if (n.img) {
+            gpxAvatar(n.img).then(function(u) {
+                if (u) {
+                    av.style.backgroundImage = "url(\"" + u + "\")";
+                }
+            });
+        } else if (n.letter) {
+            av.classList.add("lt");
+            av.textContent = n.letter;
+            if (n.color) {
+                av.style.backgroundColor = n.color;
+            }
+        }
+        const tx = el("span", "tx");
+        tx.appendChild(el("div", "who", n.who));
+        tx.appendChild(el("div", "msg", n.msg));
+        if (n.tm) {
+            tx.appendChild(el("div", "tm", n.tm));
+        }
+        a.appendChild(av);
+        a.appendChild(tx);
+        return a;
+    };
+    // the new ones on the front; the rest under "Previously read"
+    const fillGplex = async function(list, box) {
+        let items;
+        try {
+            items = await gpxList();
+        } catch (e) {
+            trail("Gplex+ failed: " + e.message);
+            const out = /signed out/.test(e.message);
+            none(list, out ? "Sign in to " + PLUS.name() + " to see its notifications here." : PLUS.name() + "'s notifications couldn't be loaded (" + e.message + ").",
+                out ? "Sign in" : "Open " + PLUS.name(), out ? GPX + "/signin?next=/notifications" : GPX + "/notifications");
+            settle(box, list, "ok");
+            return;
+        }
+        // (opening the page has read them)
+        counts.gp = 0;
+        paint();
+        const fresh = items.filter(function(n) {
+            return n.unread;
+        });
+        if (!fresh.length) {
+            settle(box, list, "empty");
+            return;
+        }
+        list.textContent = "";
+        fresh.forEach(function(n) {
+            list.appendChild(gpxCard(n, false));
+        });
+        settle(box, list, "ok");
+    };
     // the gear's page: "Allow notifications here from:", as the panel had it
     const settingsView = function(box) {
         const v = el("div", "view settings");
@@ -101663,7 +101964,12 @@ html[gplex-gmail] body {
         const body = el("div", "sbody");
         body.appendChild(el("div", "lead", "Allow notifications here from:"));
         let changed = false;
-        [["gp", "Google+", loogleBase() + "/", "UGF_NB_SHOW_GP"], ["yt", "YouTube", YT + "/account_notifications", "UGF_NB_SHOW_YT"]].forEach(function(r) {
+        // (the Google+ part goes by the Gplex+ name, and is there only when the Gplex+ link leads
+        // somewhere with notifications: Gplex+ or Loogle+)
+        const kind = PLUS.kind();
+        const rows = kind ? [["gp", PLUS.name(), kind === "gplex" ? GPX + "/settings" : loogleBase() + "/", "UGF_NB_SHOW_GP"]] : [];
+        rows.push(["yt", "YouTube", YT + "/account_notifications", "UGF_NB_SHOW_YT"]);
+        rows.forEach(function(r) {
             const row = el("div", "srow");
             row.appendChild(logo(r[0]));
             row.appendChild(el("span", "nm", r[1]));
@@ -101684,6 +101990,11 @@ html[gplex-gmail] body {
             row.appendChild(c);
             body.appendChild(row);
         });
+        if (kind !== "loogle") {
+            const me = PLUS.me && PLUS.me();
+            body.appendChild(el("div", "who2", kind === "gplex" ? (me ? PLUS.name() + " notifications for +" + me.name : "Sign in to " + PLUS.name() + " in this browser, and its notifications will show here.") :
+                "Your Gplex+ link (" + PLUS.link() + ") leads somewhere without notifications. Point it at Gplex+ or Loogle+ in the Gplex settings to see them here."));
+        }
         // who you are on Loogle+ (its notifications are asked for by username)
         const f = el("form", "ask");
         const inp = el("input");
@@ -101701,8 +102012,10 @@ html[gplex-gmail] body {
             said.textContent = inp.value.trim() ? "Saved: +" + inp.value.trim().replace(/^\+/, "") : "Cleared";
             changed = true;
         });
-        body.appendChild(f);
-        body.appendChild(said);
+        if (kind === "loogle") {
+            body.appendChild(f);
+            body.appendChild(said);
+        }
         v.appendChild(body);
         back.addEventListener("click", function() {
             if (changed) {
@@ -101739,6 +102052,25 @@ html[gplex-gmail] body {
             main.hidden = false;
         });
         list.appendChild(el("div", "loading", "Loading..."));
+        if (PLUS.kind() === "gplex") {
+            (gpxLast ? Promise.resolve(gpxLast) : gpxList()).then(function(items) {
+                list.textContent = "";
+                const old = items.filter(function(n) {
+                    return !n.unread;
+                });
+                if (!old.length) {
+                    none(list, "Nothing read yet.", "Open " + PLUS.name(), GPX + "/notifications");
+                    return;
+                }
+                old.forEach(function(n) {
+                    list.appendChild(gpxCard(n, true));
+                });
+            }).catch(function(e) {
+                none(list, /signed out/.test(e.message) ? "Sign in to " + PLUS.name() + " to see its notifications here." : PLUS.name() + "'s notifications couldn't be loaded.",
+                    "Open " + PLUS.name(), GPX + "/notifications");
+            });
+            return v;
+        }
         const fill = function(unreadIds) {
             list.textContent = "";
             const items = gpHistory().filter(function(x) {
@@ -101802,7 +102134,9 @@ html[gplex-gmail] body {
         j.appendChild(el("div", "bell"));
         scroll.appendChild(j);
         main.appendChild(scroll);
-        const ft = el("a", "ft2", "Previously read (Google+)");
+        const kind = PLUS.kind();
+        const ft = el("a", "ft2", "Previously read (" + PLUS.name() + ")");
+        ft.hidden = !kind || !showing("gp");
         ft.addEventListener("click", function(e) {
             e.preventDefault();
             main.hidden = true;
@@ -101828,9 +102162,12 @@ html[gplex-gmail] body {
             any = true;
             fillYouTube(section(box, "yt", "YouTube", "See all", YT + "/#notifications"), box);
         }
-        if (showing("gp")) {
+        if (showing("gp") && kind === "gplex") {
             any = true;
-            fillGooglePlus(section(box, "gp", "Google+", loogleUser() ? "Mark all as read" : "", ""), box);
+            fillGplex(section(box, "gp", PLUS.name(), "See all", GPX + "/notifications"), box);
+        } else if (showing("gp") && kind === "loogle") {
+            any = true;
+            fillGooglePlus(section(box, "gp", PLUS.name(), loogleUser() ? "Mark all as read" : "", ""), box);
         }
         if (!any) {
             box.querySelector(".loading").hidden = true;
