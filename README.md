@@ -1,4 +1,4 @@
-# Gplex Extended, with the Google+ link fix and 2014–2016 Docs, Sheets, Slides, Forms and Drive fixes
+# Gplex Extended, with the Google+ link fix, Gmail fixes and themes, and Docs, Sheets, Slides, Forms and Drive fixes
 
 An automatically patched copy of [Gplex Extended](https://github.com/Ziptino9098/Gplex-Fixed) by Ziptino9098 and lightbeam24.
 
@@ -28,7 +28,17 @@ And Google Forms, on the same layouts:
 
 And Google Drive, on the 2016 layouts: the Drive triangle of 2014-2016 back beside "Drive" in the header.
 
-And the notifications bell of the 2015-2017 Google bar, on google.com and Gplex's own pages (the Docs, Sheets, Slides and Forms lists, Drive, Photos, Translate, News and Calendar; the 2015-2017 layouts): the grey circle with its bell, red with the count when there's something new, and the "Google notifications" panel of the time (grey, the gear for its settings, Mr. Jingles when you're all caught up, "Previously read (Google+)" at the foot), with two parts:
+And the toolbars of the other periods' Docs, Sheets and Slides lined up: on the 2011-2013 layouts the icons, words and ▾ sat at the top of their buttons (the font size box low beside them); on 2007-2010 "Normal text" and "Arial" sat above the icons and the dividers 10px above the buttons.
+
+And Gmail (`gmail/`, edits inside Gplex's Gmail):
+- conversations: every message in full (Gmail folds older replies, and a folded one's text isn't in the page, so they came out empty or not at all: they're read from Gmail's print view now), who each was sent to, the senders' photos and yours, "3 of 1,795", Newer and Older, the quoted text's "...", the label's ×, Print all (Gmail's print page) and In new window
+- the conversation's buttons act on it (Archive, Report spam, Delete, Mark as unread, Star), and Move to, Labels and More open menus you can see (Gmail's opened in the page Gplex hides); Labels and More work on the list too
+- Reply and Forward go through Gmail's own reply box, so they reach the right people and stay in the conversation; Save Now really saves a draft
+- the list's sender column as Gmail fills it ("To: Greg" in Sent, "Greg (4)"), the sidebar's real unread counts and your own labels, and the search box keeps what you searched for after opening a result
+- Settings: Maximum page size is a real setting (saved in Gmail's own settings), and themes work: on the 2016 layout "Set Theme" opens the "Pick your theme" window of 2014-2016 (Light, Dark, Soft Gray, High Contrast, the classic photo themes, some changing with the day or hour as they did, and Google's featured photos; Text background Light or Dark, vignette and blur), and on the other layouts from 2009 on the same themes are in Settings > Themes; a themed page keeps its own colours under Gplex's dark mode
+- 2013-2016's "More ▾" at the foot of the sidebar (Chats, opening Google Chat, and the inbox categories), and the bell in Gmail's bar works
+
+And the notifications box on every Google bar from 2011 on (google.com and Gplex's own pages: Gmail, Maps, the Docs, Sheets, Slides and Forms lists, Drive, Photos, Translate, News and Calendar): on 2011-2014 the Google+ count square shows the count, red when there's something new; on 2015-2017 the grey circle with its bell, red with the count; on 2018 on the Material bell, with a red badge. Each opens the "Google notifications" panel of 2015-2016 (grey, the gear for its settings, Mr. Jingles when you're all caught up, "Previously read (Google+)" at the foot), with two parts:
 - YouTube: your notifications (from YouTube's notification inbox, which still has them), newest first, the newest five with "Show all" for the rest
 - Google+: your notifications on Loogle+ (give your Loogle+ username in the box once), dismissed one by one or "Mark all as read"
 
@@ -46,7 +56,7 @@ Open [`main.user.js`](../../raw/main/main.user.js) (the raw file) with Tampermon
 
 ## How it stays up to date
 
-A GitHub Action (`.github/workflows/patch.yml`) runs every 6 hours. When upstream changes, it downloads the new Gplex, applies `gplex-plus-link-patch.py`, gives the build a higher version (`<upstream version>.<build number>`) and publishes it here.
+A GitHub Action (`.github/workflows/patch.yml`) runs every 6 hours. When upstream changes, it downloads the new Gplex (the newer of Gplex's GitHub copy and the download on Gplex's website, which gets releases first), applies `gplex-plus-link-patch.py`, gives the build a higher version (`<upstream version>.<build number>`) and publishes it here.
 
 If an upstream change moves the code the patch edits, the run fails and nothing is published: you keep the last working build, and GitHub emails you about the failed run. You can also run it by hand from the Actions tab ("Run workflow").
 

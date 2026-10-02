@@ -126,9 +126,12 @@
         kick();
     })();
 
-    // the bell's years: the 2015-2017 bar (2013-2014 had the red count box instead)
+    // what each period's bar had: 2011-2014 the Google+ count square (Gplex draws it, with a "0" in it), 2015-2017
+    // the bell in a circle, 2018 on the Material bell; before 2011 the bar had nothing of the kind
     const layout = String(gv("UGF_LAYOUT", "2015"));
-    if (["2015", "2015L", "2016", "2016C", "2016L", "2017"].indexOf(layout) < 0) {
+    const MODE = /^(2015|2016|2017)/.test(layout) ? "circle" : /^(2011|2012|2013|2014)/.test(layout) ? "square" :
+        /^(2018|2019|202)/.test(layout) ? "material" : "";
+    if (!MODE) {
         return;
     }
     const html = document.documentElement;
@@ -149,6 +152,14 @@
         "#ugf-nb-bell.ugf-nb-has .gi { visibility: hidden; }",
         "#ugf-nb-bell.ugf-nb-has:hover .ugf-nb-count, #ugf-nb-bell.ugf-nb-has.open .ugf-nb-count { background: #c23321; }",
         ".kic.bell[data-ugf-nb] { position: relative; cursor: pointer; }",
+        "[data-ugf-nb] { cursor: pointer; }",
+        // 2018 on: Gplex's Material bell kept, its made-up "1" gone, the count as a red badge on its corner
+        "[data-ugf-nb-material] { position: relative; }",
+        "[data-ugf-nb-material] > .n { display: none !important; }",
+        "[data-ugf-nb-material] .ugf-nb-count { left: auto; right: -5px; top: -3px; transform: none; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font-size: 10px; line-height: 16px; }",
+        // 2011-2014: the count square shows the count, and turns red with anything new, as Google+'s did
+        "[data-ugf-nb-square].ugf-nb-has, [data-ugf-nb-square].ugf-nb-has .ugf-plus-button-text { background: #d14836 !important; border-color: #b0281a !important; color: #fff !important; }",
+        "[data-ugf-nb-square].ugf-nb-has span, [data-ugf-nb-square].ugf-nb-has .ugf-plus-button-text span { color: #fff !important; font-weight: bold; }",
         // Gplex's own bells, as the 2016 circle too (their Material bell set aside)
         ".ugf-nb-g { display: inline-flex !important; align-items: center; justify-content: center; }",
         ".ugf-nb-g > :not(.gi):not(.ugf-nb-count) { display: none !important; }",
@@ -640,7 +651,15 @@
     let counts = { yt: 0, gp: 0 };
     const paint = function() {
         const n = counts.yt + counts.gp;
-        document.querySelectorAll("#ugf-nb-bell, .kic.bell[data-ugf-nb]").forEach(function(b) {
+        document.querySelectorAll("#ugf-nb-bell, [data-ugf-nb]").forEach(function(b) {
+            // the 2011-2014 square: its own figure is the count
+            if (b.hasAttribute("data-ugf-nb-square")) {
+                const t = b.querySelector(".ugf-plus-button-text span") || b;
+                t.textContent = n > 99 ? "99+" : String(n);
+                b.classList.toggle("ugf-nb-has", n > 0);
+                b.setAttribute("title", n ? "Notifications (" + n + ")" : "All caught up!");
+                return;
+            }
             let c = b.querySelector(".ugf-nb-count");
             if (!c) {
                 c = el("i", "ugf-nb-count");
@@ -676,7 +695,7 @@
         if (b) {
             b.remove();
         }
-        document.querySelectorAll("#ugf-nb-bell.open, .kic.bell.open").forEach(function(x) {
+        document.querySelectorAll("#ugf-nb-bell.open, [data-ugf-nb].open").forEach(function(x) {
             x.classList.remove("open");
         });
     };
@@ -1097,7 +1116,7 @@
     };
     document.addEventListener("mousedown", function(e) {
         const b = document.getElementById("ugf-nb-box");
-        if (e.isTrusted && b && !b.contains(e.target) && !e.target.closest("#ugf-nb-bell, .kic.bell[data-ugf-nb]")) {
+        if (e.isTrusted && b && !b.contains(e.target) && !e.target.closest("#ugf-nb-bell, [data-ugf-nb]")) {
             close();
         }
     }, true);
@@ -1113,11 +1132,42 @@
     const bellClick = function(e) {
         e.preventDefault();
         e.stopPropagation();
+        // (before the page's own handler, which opened Gplex's empty box on the 2011-2014 square)
+        e.stopImmediatePropagation();
         open(e.currentTarget);
+    };
+    const hook = function(b, kind) {
+        b.setAttribute("data-ugf-nb", "");
+        if (kind) {
+            b.setAttribute("data-ugf-nb-" + kind, "");
+        }
+        b.addEventListener("click", bellClick, true);
     };
     const place = function() {
         let changed = false;
-        document.querySelectorAll(".kic.bell:not([data-ugf-nb]), #ugf-cal-account .ic.bell:not([data-ugf-nb])").forEach(function(b) {
+        if (MODE === "square") {
+            // google.com's square (and Search's), and the one in Gmail's and Maps' bars
+            document.querySelectorAll("#ugf-fake-notifs-button:not([data-ugf-nb]), .nbox:not([data-ugf-nb])").forEach(function(b) {
+                hook(b, "square");
+                changed = true;
+            });
+            if (changed) {
+                paint();
+            }
+            return;
+        }
+        if (MODE === "material") {
+            document.querySelectorAll(".kic.bell:not([data-ugf-nb]), .ic.bell:not([data-ugf-nb]), .ib.bell:not([data-ugf-nb])").forEach(function(b) {
+                hook(b, "material");
+                changed = true;
+            });
+            if (changed) {
+                paint();
+            }
+            return;
+        }
+        // (Gplex's Gmail bar has one too, with a "1" that never changes)
+        document.querySelectorAll(".kic.bell:not([data-ugf-nb]), #ugf-cal-account .ic.bell:not([data-ugf-nb]), #ugf-gmail-account .ic.bell:not([data-ugf-nb])").forEach(function(b) {
             b.setAttribute("data-ugf-nb", "");
             b.classList.add("kic", "bell", "ugf-nb-g");
             b.appendChild(el("span", "gi"));
@@ -1144,9 +1194,10 @@
             changed = true;
         });
         // Gplex's own bar on google.com (Google's is hidden under it): after its app grid
+        // (laid out is not enough: Gplex keeps Gmail's own bar laid out but hidden, under its own)
         const shown = function(n) {
             const r = n && n.getBoundingClientRect();
-            return !!r && r.width > 0 && r.height > 0;
+            return !!r && r.width > 0 && r.height > 0 && getComputedStyle(n).visibility !== "hidden";
         };
         let bell = document.getElementById("ugf-nb-bell");
         const gapps = document.querySelector("#ugf-top-right #ugf-apps");

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Re-apply Akhil's changes to a new Gplex Extended release: the Google+ link fix and
-the Docs 2014 fixes (docs2014/: the editor's layout, menus, Table menu and alignment
+"""Re-apply Akhil's changes to a new Gplex Extended release: the Google+ link fix, the
+Gmail fixes (gmail/edits.py), the Docs 2014 fixes (docs2014/: the editor's layout, menus, Table menu and alignment
 buttons, appended as their own block) and the notifications bell (notify/: YouTube and
 Loogle+ notifications in the 2015-2017 bar, and sharp profile photos).
 
@@ -32,6 +32,9 @@ NOTIFY_MARK = "ugfNotify"
 # what the notifications bell needs: YouTube's and Loogle+'s servers (Gplex itself is not
 # run on Loogle+: its main block would draw the google.com homepage over any other site)
 NOTIFY_HEADERS = [("connect", "www.youtube.com"), ("connect", "plus.loogle.mooo.com")]
+# the Gmail fixes (gmail/edits.py): edits inside Gplex's Gmail code, which has no hooks to append to
+sys.path.insert(0, os.path.join(HERE, "gmail"))
+from edits import EDITS as GMAIL_EDITS  # noqa: E402
 
 
 def docs2014_block():
@@ -139,6 +142,17 @@ def main():
             else:
                 ok = False
                 print(("NOT FOUND " if count == 0 else "AMBIGUOUS ") + name + " (" + str(count) + " matches)")
+    for name, old, new in GMAIL_EDITS:
+        if new in text:
+            print("already   " + name)
+            continue
+        count = text.count(old)
+        if count == 1:
+            text = text.replace(old, new)
+            print("patched   " + name)
+        else:
+            ok = False
+            print(("NOT FOUND " if count == 0 else "AMBIGUOUS ") + name + " (" + str(count) + " matches)")
     if DOCS_MARK in text:
         print("already has the Docs 2014 fixes; not appended again")
     else:

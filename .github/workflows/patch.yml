@@ -10,6 +10,7 @@ on:
       - gplex-plus-link-patch.py
       - docs2014/**
       - notify/**
+      - gmail/**
       - .github/workflows/patch.yml
 
 permissions:
@@ -23,17 +24,30 @@ jobs:
     runs-on: ubuntu-latest
     env:
       UPSTREAM: https://raw.githubusercontent.com/Ziptino9098/Gplex-Fixed/main/main.user.js
+      # Gplex's website gets new releases before GitHub does (7.2.15 was there first)
+      UPSTREAM_SITE: https://gplexextended.com/download/latest.user.js
     steps:
       - uses: actions/checkout@v4
 
       - name: Download the latest Gplex
-        run: curl -fsSL "$UPSTREAM" -o upstream.user.js
+        run: |
+          curl -fsSL "$UPSTREAM" -o upstream.user.js
+          if curl -fsSL "$UPSTREAM_SITE" -o site.user.js && grep -q "==UserScript==" site.user.js; then
+            gh=$(grep -m1 '@version' upstream.user.js | awk '{print $3}' | tr -d '\r')
+            site=$(grep -m1 '@version' site.user.js | awk '{print $3}' | tr -d '\r')
+            newest=$(printf '%s\n%s\n' "$gh" "$site" | sort -V | tail -1)
+            echo "GitHub $gh, website $site"
+            if [ "$newest" = "$site" ] && [ "$site" != "$gh" ]; then
+              mv site.user.js upstream.user.js
+            fi
+          fi
+          rm -f site.user.js
 
-      # Rebuild only when upstream, the patch script, the Docs fixes or the bell changed.
+      # Rebuild only when upstream, the patch script, the Gmail or Docs fixes or the bell changed.
       - name: Check for changes
         id: state
         run: |
-          key=$(cat upstream.user.js gplex-plus-link-patch.py docs2014/* notify/* | sha256sum | cut -d' ' -f1)
+          key=$(cat upstream.user.js gplex-plus-link-patch.py gmail/*.py docs2014/* notify/* | sha256sum | cut -d' ' -f1)
           if [ -f main.user.js ] && [ "$key" = "$(cat .state 2>/dev/null)" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
