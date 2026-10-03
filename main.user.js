@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.15.34
+// @version      7.2.18.37
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -42973,7 +42973,11 @@ function ugfIsErrorPage() {
             S + " .gbar.dark .right .gear { display: inline-flex; align-items: center; border-left: 1px solid #555; height: 22px; } " + S + " .gbar.dark .gear i { display: flex; } " + S + " .gbar.dark .gear svg { fill: #ccc; }",
             S + " .gbar.dark.plus { padding-left: 4px; height: 29px; }",
             S + " .gbar.dark.plus .left a { font-weight: bold; color: #bbb; border-top: 0; line-height: 29px; height: 29px; padding: 0 9px; }",
-            S + " .gbar.dark.plus .left a:hover { background: transparent; color: #fff; } " + S + " .gbar.dark.plus .left a.here { color: #fff; }"
+            S + " .gbar.dark.plus .left a:hover { background: transparent; color: #fff; } " + S + " .gbar.dark.plus .left a.here { color: #fff; }",
+            // (7.2.16) placed and sized as on Search
+            S + " .gbar.dark:not(.plus) { height: 29px; padding-left: 4px; } " + S + " .gbar.dark:not(.plus) .left, " + S + " .gbar.dark:not(.plus) .right { height: 29px; } " +
+            S + " .gbar.dark:not(.plus) .left a { height: 29px; line-height: 27px; border-top-width: 2px; padding: 0 5px; color: #bbb; } " + S + " .gbar.dark:not(.plus) .left a.here { color: #fff; } " +
+            S + " .gbar.dark:not(.plus) .right { padding-right: 4px; } " + S + " .gbar.dark:not(.plus) .right a { padding: 0 5px; line-height: 29px; color: #bbb; } " + S + " .gbar.dark.plus { padding-left: 0; }"
         ];
         if (era === "as07" || era === "as08") {
             css.push(S + " > :not(.gbar) { margin-left: 12px; margin-right: 12px; } " + S + " > .top { margin-top: 8px; }",
@@ -43365,12 +43369,17 @@ function ugfIsErrorPage() {
             if (!head) {
                 return;
             }
-            head.querySelectorAll("link[rel~='icon']:not(.ugf-adv-fav)").forEach(function(l) {
+            const theirs = document.querySelectorAll("link[rel*='icon' i]:not(.ugf-adv-fav), link[rel='apple-touch-icon']:not(.ugf-adv-fav)");
+            theirs.forEach(function(l) {
                 l.remove();
             });
-            if (head.querySelectorAll("link.ugf-adv-fav").length === 2) {
+            const ours = document.querySelectorAll("link.ugf-adv-fav");
+            if (ours.length === 2 && !theirs.length && ours[0].parentElement === head && head.lastElementChild === ours[1]) {
                 return;
             }
+            ours.forEach(function(l) {
+                l.remove();
+            });
             ["16x16", "32x32"].forEach(function(sz) {
                 const l = document.createElement("link");
                 l.className = "ugf-adv-fav";
@@ -43384,7 +43393,19 @@ function ugfIsErrorPage() {
         if (favOnly) {
             const start = function() {
                 setFav();
-                new MutationObserver(setFav).observe(document.head, { childList: true });
+                // (7.2.18) the whole page, not just <head>, and once more when the page has finished loading
+                new MutationObserver(function(muts) {
+                    for (let i = 0; i < muts.length; i++) {
+                        for (let j = 0; j < muts[i].addedNodes.length; j++) {
+                            const n = muts[i].addedNodes[j];
+                            if (n.nodeType === 1 && (n.tagName === "LINK" || n.querySelector && n.querySelector("link")) && !(n.classList && n.classList.contains("ugf-adv-fav"))) {
+                                setFav();
+                                return;
+                            }
+                        }
+                    }
+                }).observe(document.documentElement, { childList: true, subtree: true });
+                window.addEventListener("load", setFav);
             };
             if (document.head) {
                 start();
@@ -43421,7 +43442,19 @@ function ugfIsErrorPage() {
         const go = function() {
             render();
             setFav();
-            new MutationObserver(setFav).observe(document.head, { childList: true });
+            // (7.2.18) the whole page, not just <head>, and once more when the page has finished loading
+            new MutationObserver(function(muts) {
+                for (let i = 0; i < muts.length; i++) {
+                    for (let j = 0; j < muts[i].addedNodes.length; j++) {
+                        const n = muts[i].addedNodes[j];
+                        if (n.nodeType === 1 && (n.tagName === "LINK" || n.querySelector && n.querySelector("link")) && !(n.classList && n.classList.contains("ugf-adv-fav"))) {
+                            setFav();
+                            return;
+                        }
+                    }
+                }
+            }).observe(document.documentElement, { childList: true, subtree: true });
+            window.addEventListener("load", setFav);
         };
         if (document.body) {
             go();
@@ -44038,6 +44071,9 @@ function ugfIsErrorPage() {
         add(G + " .gbar.dark a:hover", "background: #4c4c4c; color: #fff;");
         add(G + " .gbar.dark .plus", "color: #fff;");
         add(G + " .gbar.dark .right a", "color: #ccc;");
+        // (7.2.16) placed and sized as on Search
+        add(G + " .gbar.dark", "height: 29px; padding: 0 4px 0 0; box-sizing: border-box;");
+        add(G + " .gbar.dark a", "padding: 0 9px; color: #bbb;");
         // ---- ma07
         if (era === "ma07") {
             add(R + ", " + R + " body", "background: #fff !important;");
@@ -53712,23 +53748,35 @@ html:not([layout="2012"]):not([layout="2013"]):not([layout="2013L"]):not([layout
 .ugf-image-result-size-second {
   display: block;
 }
+#ugf-image-results {
+  position: relative;
+}
+/* (7.2.16) in the results, under the row of the picture clicked (Google, January 2013) */
 #ugf-image-viewer {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  top: 0;
+  position: absolute;
   left: 0;
-  display: flex;
-  align-items: center;
-  pointer-events: none;
+  right: 0;
+  z-index: 5;
+}
+#ugf-image-viewer:empty {
+  display: none;
 }
 #ugf-image-viewer-inner {
+  position: relative;
   background: #222;
-  height: 500px;
-  width: 100%;
-  max-width: 100%;
+  height: 380px;
   box-sizing: border-box;
-  pointer-events: all;
+  font-family: arial, sans-serif;
+}
+#ugf-image-viewer-notch {
+  position: absolute;
+  top: -9px;
+  width: 0;
+  height: 0;
+  margin-left: -9px;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 9px solid #222;
 }
 #ugf-image-iframe {
   position: fixed;
@@ -53747,81 +53795,130 @@ html:not([layout="2012"]):not([layout="2013"]):not([layout="2013L"]):not([layout
   border: none;
   pointer-events: all !important;
 }
-#ugf-image-viewer-top {
-  height: 30px;
-  position: relative;
-}
 #ugf-image-viewer-close {
   position: absolute;
   right: 14px;
-  top: 6px;
-  color: #fff;
+  top: 14px;
+  width: 22px;
+  height: 22px;
   cursor: pointer;
-  font-size: 17px;
-  line-height: 1;
-  opacity: .7;
+  z-index: 1;
 }
-#ugf-image-viewer-close:hover {
-  opacity: 1;
+#ugf-image-viewer-close::before,
+#ugf-image-viewer-close::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 10px;
+  width: 28px;
+  height: 2px;
+  background: #777;
+  transform: rotate(45deg);
+}
+#ugf-image-viewer-close::after {
+  transform: rotate(-45deg);
+}
+#ugf-image-viewer-close:hover::before,
+#ugf-image-viewer-close:hover::after {
+  background: #ccc;
 }
 #ugf-image-viewer-content {
-  height: 470px;
+  height: 100%;
 }
 #ugf-image-viewer-left {
-  flex: 1;
+  flex: 0 0 52%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  padding: 20px;
+  box-sizing: border-box;
+  border-right: 1px solid #191919;
+}
+#ugf-image-viewer-image,
+#ugf-image-viewer-image a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
 }
 #ugf-image-viewer-image img {
-  max-height: 440px;
+  max-height: 340px;
   max-width: 100%;
+  display: block;
 }
 #ugf-image-viewer-right {
-  width: 320px;
-  flex: 0 0 320px;
-  padding: 18px 20px;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 70px 0 22px;
   box-sizing: border-box;
-  color: #fff;
-  overflow-wrap: break-word;
-  overflow-y: auto;
 }
 #ugf-image-viewer-title {
-  color: #fff;
-  font-size: 16px;
+  color: #ddd;
+  font-size: 20px;
   text-decoration: none;
   display: block;
-  margin-bottom: 10px;
-  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 26px;
 }
 #ugf-image-viewer-title:hover span {
   text-decoration: underline;
 }
-#ugf-image-viewer-domain {
-  color: #9aa0a6;
+#ugf-image-viewer-meta {
   font-size: 13px;
-  margin-bottom: 3px;
+  color: #888;
+  margin: 4px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#ugf-image-viewer-domain {
+  color: #ccc;
+  text-decoration: none;
+}
+#ugf-image-viewer-domain:hover {
+  text-decoration: underline;
 }
 #ugf-image-viewer-size {
-  color: #9aa0a6;
-  font-size: 13px;
-  margin-bottom: 18px;
+  color: #888;
+}
+#ugf-image-viewer-buttons {
+  margin-top: 20px;
 }
 .ugf-image-viewer-btn {
   display: inline-block;
-  background: #4285f4;
-  color: #fff;
-  padding: 8px 15px;
-  border-radius: 0;
+  height: 29px;
+  padding: 0 12px;
+  background: #2e2e2e;
+  border: 1px solid #1c1c1c;
+  border-radius: 2px;
+  color: #999;
+  font: bold 11px/27px arial, sans-serif;
   text-decoration: none;
-  font-size: 13px;
   margin-right: 8px;
+  box-sizing: border-box;
+}
+.ugf-image-viewer-btn:hover {
+  color: #ccc;
+  background: #333;
+  border-color: #111;
 }
 .ugf-image-viewer-btn-2 {
-  background: transparent;
-  border: 1px solid #5f6368;
+}
+#ugf-image-viewer-copy {
+  position: absolute;
+  left: 22px;
+  bottom: 16px;
+  font-size: 11px;
+  color: #666;
 }
 /* --- image viewer per-layout theming --- */
 /* classic era: light panel, plain blue links, square edges */
@@ -53865,19 +53962,6 @@ html:not([layout="2012"]):not([layout="2013"]):not([layout="2013L"]):not([layout
   background: #f5f5f5;
   border: 1px solid #ccc;
   color: #444;
-}
-/* 2012-2013: darker panel, underlined links */
-[layout="2012"] #ugf-image-viewer-title,
-[layout="2013"] #ugf-image-viewer-title,
-[layout="2013L"] #ugf-image-viewer-title {
-  text-decoration: underline;
-  font-size: 15px;
-}
-[layout="2012"] .ugf-image-viewer-btn,
-[layout="2013"] .ugf-image-viewer-btn,
-[layout="2013L"] .ugf-image-viewer-btn {
-  background: #4d90fe;
-  border-radius: 0;
 }
 /* late Material era: light panel, rounded buttons */
 [layout="2017"] #ugf-image-viewer-inner,
@@ -64589,6 +64673,7 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
     function ugfCloseImageViewer() {
         let container = document.querySelector("#ugf-image-viewer");
         if (container) container.innerHTML = ugfTT("");
+        ugfPlaceImageViewer(null);
         window.removeEventListener("keydown", ugfOnImageViewerKeyDown);
         if (ugfActiveImageViewerCard && typeof ugfActiveImageViewerCard.focus === "function") {
             try { ugfActiveImageViewerCard.focus(); } catch (e) {}
@@ -64645,6 +64730,62 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         }
     }
 
+    // (7.2.16) "View original image" until the 2014 viewer shortened it
+    function ugfViewerImageLabel() {
+        return ["2012", "2013", "2013L"].indexOf(String(layout)) > -1 ? "View original image" : "View image";
+    }
+    // (7.2.16) the viewer goes in the results under the clicked picture's row: that row moves its
+    // margin down to make room, and the notch points at the picture
+    function ugfPlaceImageViewer(item) {
+        document.querySelectorAll(".ugf-image-result[ugf-iv-row]").forEach(function(e) {
+            e.removeAttribute("ugf-iv-row");
+            e.style.removeProperty("margin-bottom");
+        });
+        const box = document.querySelector("#ugf-image-viewer");
+        const host = document.querySelector("#ugf-image-results");
+        const inner = box && box.querySelector("#ugf-image-viewer-inner");
+        if (!item || !inner || !host || !item.isConnected) {
+            return;
+        }
+        const h = Math.max(260, Math.min(380, window.innerHeight - 190));
+        inner.style.height = h + "px";
+        const img = inner.querySelector("#ugf-image-viewer-image img");
+        if (img) {
+            img.style.maxHeight = (h - 40) + "px";
+        }
+        const top = item.offsetTop;
+        const row = [].filter.call(item.parentElement.querySelectorAll(".ugf-image-result"), function(e) {
+            return Math.abs(e.offsetTop - top) < 6;
+        });
+        row.forEach(function(e) {
+            e.setAttribute("ugf-iv-row", "");
+            e.style.setProperty("margin-bottom", (h + 30) + "px", "important");
+        });
+        const hr = host.getBoundingClientRect();
+        let bottom = 0;
+        row.forEach(function(e) {
+            bottom = Math.max(bottom, e.getBoundingClientRect().bottom);
+        });
+        box.style.top = Math.round(bottom - hr.top + 15) + "px";
+        const r = item.getBoundingClientRect();
+        const notch = inner.querySelector("#ugf-image-viewer-notch");
+        if (notch) {
+            notch.style.left = Math.round(r.left + r.width / 2 - hr.left) + "px";
+        }
+        // the whole viewer in sight, as Google scrolled it
+        const vr = box.getBoundingClientRect();
+        if (vr.bottom > window.innerHeight || vr.top < 0) {
+            window.scrollBy(0, vr.bottom > window.innerHeight ? Math.min(vr.bottom - window.innerHeight + 10, vr.top - 10) : vr.top - 10);
+        }
+        if (!ugfPlaceImageViewer.resize) {
+            ugfPlaceImageViewer.resize = true;
+            window.addEventListener("resize", function() {
+                if (ugfActiveImageViewerCard) {
+                    ugfPlaceImageViewer(ugfActiveImageViewerCard);
+                }
+            });
+        }
+    }
     function doImageViewer(item) {
         ugfActiveImageViewerCard = item;
         window.removeEventListener("keydown", ugfOnImageViewerKeyDown);
@@ -64683,9 +64824,8 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         let newElem = document.createElement("div");
         newElem.id = "ugf-image-viewer-inner";
         newElem.innerHTML = ugfTT(`
-                                                <div id="ugf-image-viewer-top">
-                                                    <span id="ugf-image-viewer-close" title="Close">&#10005;</span>
-                                                </div>
+                                                <span id="ugf-image-viewer-notch"></span>
+                                                <a id="ugf-image-viewer-close" title="Close"></a>
                                                 <div id="ugf-image-viewer-content" class="flex">
                                                     <div id="ugf-image-viewer-left">
                                                         <div id="ugf-image-viewer-image">
@@ -64693,19 +64833,20 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                                                         </div>
                                                     </div>
                                                     <div id="ugf-image-viewer-right">
-                                                        <a id="ugf-image-viewer-title" href="${link}" target="_blank">
+                                                        <a id="ugf-image-viewer-title" href="${link}" target="_blank" title="${title}">
                                                             <span>${title}</span>
                                                         </a>
-                                                        <div id="ugf-image-viewer-domain">${domain}</div>
-                                                        <div id="ugf-image-viewer-size" title="Size of the preview image. Actual image may be larger.">${w} &#215; ${h}</div>
+                                                        <div id="ugf-image-viewer-meta"><a id="ugf-image-viewer-domain" href="${link}" target="_blank">${domain}</a> - <span id="ugf-image-viewer-size" title="Size of the preview image. Actual image may be larger.">${w} &#215; ${h}</span></div>
                                                         <div id="ugf-image-viewer-buttons">
                                                             <a class="ugf-image-viewer-btn" href="${link}" target="_blank">Visit page</a>
-                                                            <a class="ugf-image-viewer-btn ugf-image-viewer-btn-2" href="${viewImageHref}" target="_blank" referrerpolicy="no-referrer">View image</a>
+                                                            <a class="ugf-image-viewer-btn ugf-image-viewer-btn-2" href="${viewImageHref}" target="_blank" referrerpolicy="no-referrer">${ugfViewerImageLabel()}</a>
                                                         </div>
+                                                        <div id="ugf-image-viewer-copy">Image may be subject to copyright.</div>
                                                     </div>
                                                 </div>
         `);
         container.insertBefore(newElem, container.children[0]);
+        ugfPlaceImageViewer(item);
 
         // Progressive loader for large original image: strictly on-demand upon click
         // Blacklist check applies strictly to the inline preview image (excludes lookaside.*.com, tiktok.com, etc.)
@@ -65728,6 +65869,79 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         if (h.hasAttribute("gplex2009")) { return "gplex2009"; }
         if (h.hasAttribute("gplex2010")) { return "gplex2010"; }
         return null;
+    }
+    // (7.2.17) 2004-2009 results pages: footer centred, the bar's margin, their own logo, the bottom box
+    function ugfEraBottomSearch() {
+        const h = document.querySelector("html");
+        const era = ugfRetroEra();
+        if (["gplex2005", "gplex2006", "gplex2007", "gplex2009"].indexOf(era) < 0 || h.hasAttribute("era-serp-classic")) {
+            return;
+        }
+        const loc = h.getAttribute("location") || "";
+        if (/home$/.test(loc) || loc === "images" || loc === "gplex" || document.querySelector("#ugf-era-bottom")) {
+            return;
+        }
+        const E = ["gplex2005", "gplex2006", "gplex2007", "gplex2009"];
+        const sel = function(s, eras) {
+            return (eras || E).map(function(e) {
+                return "html[" + e + "]:not([location$=\"home\"]):not([location=\"images\"]) " + s;
+            }).join(", ");
+        };
+        if (!document.getElementById("ugf-era-bottom-css")) {
+            const st = document.createElement("style");
+            st.id = "ugf-era-bottom-css";
+            st.textContent = [
+                // the footer as wide as the page (less the scroll bar), so the pager and links centre on it
+                sel("#ugf-footer") + " { width: calc(100vw - 17px) !important; max-width: none !important; }",
+                sel("#ugf-search-results-header") + " { margin-left: 8px !important; }",
+                sel("#ugf-logo-cont", ["gplex2005", "gplex2006", "gplex2007"]) + " { background-image: url(https://www.google.com/images/nav_logo.png) !important; " +
+                    "background-size: auto !important; background-position: 0 -26px !important; background-repeat: no-repeat !important; width: 150px !important; height: 52px !important; }",
+                "#ugf-era-bottom { display: flex; justify-content: center; align-items: center; gap: 4px; margin: 20px 0 8px 0; font: 13px arial, sans-serif; }",
+                "#ugf-era-bottom input { width: 300px; height: 23px; box-sizing: border-box; margin: 0; padding: 2px 4px; font: 13px arial, sans-serif; color: #000; " +
+                    "background: #fff; border: 1px solid #999; border-top-color: #7a7a7a; border-radius: 0; outline: none; }",
+                "#ugf-era-bottom button { all: revert; font: 13px arial, sans-serif; height: 23px; margin: 0; }"
+            ].join("\n");
+            (document.head || h).appendChild(st);
+        }
+        let q = "";
+        try {
+            q = new URLSearchParams(window.location.search).get("q") || "";
+        } catch (e) {}
+        ugf2009WaitFor("#ugf-footer", function(footer) {
+            if (document.querySelector("#ugf-era-bottom")) {
+                return;
+            }
+            const box = document.createElement("div");
+            box.id = "ugf-era-bottom";
+            const input = document.createElement("input");
+            input.type = "text";
+            input.maxLength = 2048;
+            input.title = "Google Search";
+            input.value = q;
+            const go = function() {
+                const v = input.value.trim();
+                if (v) {
+                    window.location = "https://www.google.com/search?q=" + encodeURIComponent(v);
+                }
+            };
+            input.addEventListener("keydown", function(ev) {
+                if (ev.key === "Enter") {
+                    go();
+                }
+            });
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = "Search";
+            btn.addEventListener("click", go);
+            box.appendChild(input);
+            box.appendChild(btn);
+            const pager = footer.querySelector("#gp-pagination");
+            if (pager && pager.parentElement === footer) {
+                footer.insertBefore(box, pager.nextSibling);
+            } else {
+                footer.insertBefore(box, footer.firstChild);
+            }
+        });
     }
     function ugfIsShoppingLink(label) {
         return label === "Shopping" || label === "Froogle" || label === "Product Search";
@@ -86033,6 +86247,10 @@ html[gplex-gmail] body {
             // the +You bar: bold grey links, the current one white, no red mark
             '#' + id + ' .ugf-nt-gbar.dark.plus { padding-left: 4px; height: 29px; }',
             '#' + id + ' .ugf-nt-gbar.dark.plus .left a { font-weight: bold; color: #bbb; border-top: 0; line-height: 29px; height: 29px; padding: 0 9px; }',
+            // (7.2.16) placed and sized as on Search
+            '#' + id + ' .ugf-nt-gbar.dark:not(.plus) { height: 29px; padding-left: 4px; } #' + id + ' .ugf-nt-gbar.dark:not(.plus) .left, #' + id + ' .ugf-nt-gbar.dark:not(.plus) .right { height: 29px; }',
+            '#' + id + ' .ugf-nt-gbar.dark:not(.plus) .left a { height: 29px; line-height: 27px; border-top-width: 2px; padding: 0 5px; color: #bbb; box-sizing: border-box; } #' + id + ' .ugf-nt-gbar.dark:not(.plus) .left a.here { color: #fff; }',
+            '#' + id + ' .ugf-nt-gbar.dark:not(.plus) .right { padding-right: 4px; } #' + id + ' .ugf-nt-gbar.dark:not(.plus) .right a { padding: 0 5px; line-height: 29px; color: #bbb; } #' + id + ' .ugf-nt-gbar.dark.plus { padding-left: 0; }',
             '#' + id + ' .ugf-nt-gbar.dark.plus .left a:hover { background: transparent; color: #fff; } #' + id + ' .ugf-nt-gbar.dark.plus .left a.here { color: #fff; }',
             // +Name, the count, Share and the photo
             '#' + id + ' .kcorner.gplus { gap: 15px; font: 13px arial, sans-serif; }',
@@ -95212,6 +95430,67 @@ html[gplex-gmail] body {
             ? "!6m8!1m7!1s" + at.pano + tail
             : "!6m7!1m6" + tail);
     }
+    // (7.2.16) Google's captures at a place, with their dates (the service Google's own Maps script asks;
+    // no key, no cookies), and the one of the given year or before
+    function ugfMapsPanoOfYear(lat, lng, year, done) {
+        let finished = false;
+        const fin = function(p) {
+            if (!finished) {
+                finished = true;
+                done(p);
+            }
+        };
+        setTimeout(function() {
+            fin(null);
+        }, 4000);
+        try {
+            const body = [["apiv3", null, null, null, "US", null, null, null, null, null, [[0]]], [[null, null, lat, lng], 50],
+                [null, ["en", "US"], null, null, null, null, null, null, [2], null, [[[2, true, 2]]]], [[1, 2, 3, 4, 8, 6]]];
+            fetch("https://maps.googleapis.com/$rpc/google.internal.maps.mapsjs.v1.MapsJsInternalService/SingleImageSearch", {
+                method: "POST", credentials: "omit", headers: { "Content-Type": "application/json+protobuf" }, body: JSON.stringify(body)
+            }).then(function(r) {
+                return r.json();
+            }).then(function(d) {
+                const r = d && d[1];
+                const z = r && r[5] && r[5][0];
+                const list = z && z[3] && z[3][0];
+                if (!r || !r[1] || !list) {
+                    return fin(null);
+                }
+                const at = function(p) {
+                    const c = p && p[2] && p[2][0];
+                    return c ? { lat: c[2], lng: c[3] } : { lat: lat, lng: lng };
+                };
+                const caps = [];
+                const now = r[6] && r[6][7];
+                if (now) {
+                    const w = at(list[0]);
+                    caps.push({ id: r[1][1], y: now[0], m: now[1], lat: w.lat, lng: w.lng });
+                }
+                (z[8] || []).forEach(function(hst) {
+                    const p = list[hst[0]];
+                    if (p && p[0] && p[0][1] && hst[1]) {
+                        const w = at(p);
+                        caps.push({ id: p[0][1], y: hst[1][0], m: hst[1][1], lat: w.lat, lng: w.lng });
+                    }
+                });
+                if (!caps.length) {
+                    return fin(null);
+                }
+                caps.sort(function(a, b) {
+                    return (b.y * 12 + b.m) - (a.y * 12 + a.m);
+                });
+                const pick = caps.filter(function(c) {
+                    return c.y <= year;
+                })[0] || caps[caps.length - 1];
+                fin(pick);
+            }).catch(function() {
+                fin(null);
+            });
+        } catch (e) {
+            fin(null);
+        }
+    }
     function ugfMapsStreetView(shell, era, lat, lng, name, at) {
         const modern = ["m2014", "m2015", "m2019", "m2022"].indexOf(era) > -1;
         const old = shell.querySelector("#ugf-maps-sv");
@@ -95230,7 +95509,29 @@ html[gplex-gmail] body {
         sv.querySelector(".t").textContent = title;
         sv.querySelector(".c").textContent = where;
         const frame = sv.querySelector("iframe");
-        frame.src = ugfMapsStreetEmbedUrl(lat, lng, at);
+        // (7.2.16) the imagery of the layout's year: Google's own captures here, newest first, and the
+        // newest from that year or before (else the oldest there is). An address naming a panorama keeps it.
+        if (at && at.pano) {
+            frame.src = ugfMapsStreetEmbedUrl(lat, lng, at);
+        } else {
+            frame.src = "about:blank";
+            ugfMapsPanoOfYear(lat, lng, parseInt(ugfMapsYear(), 10), function(p) {
+                if (!sv.isConnected) {
+                    return;
+                }
+                const a2 = { heading: at && at.heading, pitch: at && at.pitch, pano: p ? p.id : "" };
+                frame.src = ugfMapsStreetEmbedUrl(p ? p.lat : lat, p ? p.lng : lng, a2);
+                if (p && p.y) {
+                    const d = document.createElement("span");
+                    d.className = "svdate";
+                    d.textContent = "Image date: " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][(p.m || 1) - 1] + " " + p.y;
+                    const holder = sv.querySelector(".svbar, .svcard .txt");
+                    if (holder) {
+                        holder.insertBefore(d, holder.querySelector(".back"));
+                    }
+                }
+            });
+        }
         // take Google's present-day overlays off the viewer once it has drawn them
         const hide = [".gm-iv-address", ".gm-iv-container", ".gm-fullscreen-control", ".gm-iv-profile-link",
             'button[title="Keyboard shortcuts"]', 'button[aria-label="Keyboard shortcuts"]'];
@@ -97160,6 +97461,11 @@ html[gplex-gmail] body {
             '#ugf-maps-gbar.dark.late { padding: 0 4px; height: 29px; } #ugf-maps-gbar.dark.late .left { gap: 0; height: 29px; }',
             '#ugf-maps-gbar.dark.late a { border-top: 0; line-height: 29px; height: 29px; font-weight: bold; color: #bbb !important; padding: 0 9px; }',
             '#ugf-maps-gbar.dark.late a.here, #ugf-maps-gbar.dark.late a:hover { color: #fff !important; } #ugf-maps-gbar.dark.late a.plus { color: #bbb !important; }',
+            // (7.2.16) placed and sized as on Search
+            '#ugf-maps-gbar.dark:not(.late) { height: 29px; padding: 0 4px; } #ugf-maps-gbar.dark:not(.late) .left { gap: 0; height: 29px; }',
+            '#ugf-maps-gbar.dark:not(.late) .left a { height: 29px; line-height: 27px; border-top-width: 2px; padding: 0 5px; color: #bbb !important; }',
+            '#ugf-maps-gbar.dark:not(.late) .left a.here { color: #fff !important; font-weight: bold; } #ugf-maps-gbar.dark:not(.late) .left a:hover { color: #fff !important; background: #4c4c4c; }',
+            '#ugf-maps-gbar.dark:not(.late) .right a { padding: 0 5px; } #ugf-maps-gbar.dark.late { padding-left: 0; }',
             // 2014 and 2015: the bar sits above the full-window map
             '#ugf-maps-gbarwrap { position: fixed; top: 0; left: 0; right: 0; z-index: 2147483001; visibility: visible; text-align: left; }',
             'html[gplex-maps-bar] #ugf-maps { top: 29px; }',
@@ -97195,6 +97501,10 @@ html[gplex-gmail] body {
             '#ugf-maps[era="m2011"] #ugf-maps-form { display: flex; align-items: center; }',
             '#ugf-maps[era="m2011"] #ugf-maps-q { width: 520px; height: 23px; font: 16px arial, sans-serif; padding: 2px 8px; border: 1px solid #d9d9d9; border-top-color: #c0c0c0; border-radius: 1px 0 0 1px; outline: none; }',
             '#ugf-maps[era="m2011"] #ugf-maps-q:focus { border-color: #4d90fe; }',
+            // (7.2.16) white, not Google's see-through box
+            '#ugf-maps-q { background: #fff !important; color: #222 !important; box-shadow: none !important; }',
+            '#ugf-maps[era="m2011"] #ugf-maps-q { box-shadow: inset 0 1px 2px rgba(0,0,0,.1) !important; }',
+            '#ugf-maps[era="m2011"] #ugf-maps-q:hover { border-color: #b9b9b9; border-top-color: #a0a0a0; }',
             '#ugf-maps-form button.blue { width: 72px; height: 29px; border: 1px solid #3079ed; background: linear-gradient(#4d90fe, #4787ed); border-radius: 0 2px 2px 0; cursor: pointer; padding: 0; box-sizing: border-box; }',
             '#ugf-maps-form button.blue i, #ugf-maps-form button.go14 i { display: block; width: 24px; height: 24px; margin: 0 auto; background: ' + u("qsb") + ' -48px 0; transform: scale(.75); }',
             '#ugf-maps[era="m2007"] #ugf-maps-panel, #ugf-maps[era="m2010"] #ugf-maps-panel, #ugf-maps[era="m2011"] #ugf-maps-panel { width: 326px; flex: 0 0 326px; overflow-y: auto; border-right: 1px solid #c9d7f1; padding: 8px 10px; box-sizing: border-box !important; }',
@@ -97305,6 +97615,7 @@ html[gplex-gmail] body {
             '#ugf-maps-pegfly { position: fixed; z-index: 2147483647; pointer-events: none; width: 26px; height: 36px; }',
             '#ugf-maps-sv { position: absolute; inset: 0; z-index: 40; background: #000; display: flex; flex-direction: column; }',
             '#ugf-maps-sv .pano { flex: 1; width: 100%; border: 0; display: block; min-height: 0; }',
+            '#ugf-maps-sv .svdate { color: #666; font-size: 12px; margin-left: 12px; } #ugf-maps-sv .svcard .svdate { display: block; margin: 2px 0 0; }',
             // classic Maps: a plain strip over the panorama saying where you stand
             '#ugf-maps-sv .svbar { display: flex; align-items: center; gap: 10px; padding: 4px 8px; background: #fff; border-bottom: 1px solid #979797; font: 13px arial, sans-serif; color: #000; }',
             '#ugf-maps-sv .svbar .c { color: #676767; font-size: 11px; }',
@@ -99394,6 +99705,7 @@ html[gplex-gmail] body {
     ugfVerticalHome();
     ugfEraPageLimit();
     ugfClassicSerp();
+    ugfEraBottomSearch();
     ugfLensTheme();
     ugfSbiCamera();
     ugfI18nStart();
