@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.15.33
+// @version      7.2.15.34
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -101134,6 +101134,16 @@ var ugfPatchedPlus = (function() {
         ".ugf-nb-g:hover .gi, .ugf-nb-g.open .gi { opacity: .85; }",
         ".ugf-nb-g.ugf-nb-has .gi { visibility: hidden; }",
         "#ugf-docs-home .gtop .corner .ugf-nb-g { width: 40px; height: 40px; margin: 0 6px 0 2px; cursor: pointer; }",
+        // Gmail's 2016 bar: between the grid and the photo, in a slot the grid's size
+        "#ugf-gmail-account .ugf-nb-g { position: relative; width: 34px; height: 34px; flex: 0 0 34px; cursor: pointer; }",
+        // (on a dark theme photo the bar's icons are white: the circle too, the bell dark in it)
+        "html[ugf-gmail-text='light'] #ugf-gmail-account .ugf-nb-g .gi { filter: invert(1); opacity: .88; }",
+        "html[ugf-gmail-text='light'] #ugf-gmail-account .ugf-nb-g:hover .gi, html[ugf-gmail-text='light'] #ugf-gmail-account .ugf-nb-g.open .gi { opacity: 1; }",
+        // (Google's pages use short class names of their own, Gmail's .hd, .msg, .sh, .hl and .av
+        // among them, and their rules would reach into the box: in it everything starts from the
+        // browser's defaults, and only the rules below apply. Not the icons' SVG, whose shapes
+        // are given as attributes.)
+        "#ugf-nb-box, #ugf-nb-box *:not(svg, svg *) { all: revert; }",
         // the box: Google's notifications panel of 2015-2016, from the screenshots of the time
         // (google.com, June 2015; the panel as it stood before the redesign of February 2017):
         // flat #e5e5e5, "Google notifications" over a gear, Mr. Jingles when all caught up,
@@ -102419,6 +102429,21 @@ var ugfPatchedPlus = (function() {
             b.classList.add("kic", "bell", "ugf-nb-g");
             b.appendChild(el("span", "gi"));
             b.addEventListener("click", bellClick);
+            changed = true;
+        });
+        // Gplex's 2016 Gmail bar: the grid and the photo only (the 2015 one has a bell of its
+        // own, above); the bell goes between them
+        document.querySelectorAll("#ugf-gmail-account > #ugf-gmail-apps").forEach(function(apps) {
+            if (apps.parentNode.querySelector(".bell, [data-ugf-nb]")) {
+                return;
+            }
+            const b = el("span", "ic bell ugf-nb-g");
+            b.setAttribute("data-ugf-nb", "");
+            b.setAttribute("role", "button");
+            b.setAttribute("aria-label", "Notifications");
+            b.appendChild(el("span", "gi"));
+            b.addEventListener("click", bellClick);
+            apps.parentNode.insertBefore(b, apps.nextSibling);
             changed = true;
         });
         // the Docs, Sheets, Slides and Forms lists: Gplex's 2016 corner has the grid and the photo
