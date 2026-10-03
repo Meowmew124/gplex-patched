@@ -1659,4 +1659,20 @@ EDITS = [
                 }
             }
             // (gplex-patched) a text box is darkened with the page, never kept as it is: kept, its'''),
+    ("dark mode: text boxes drawn in the page's light colours, then darkened",
+     '''        "html[ugf-dark] ::selection{background:#3a6ad9;color:#fff}";''',
+     '''        "html[ugf-dark] ::selection{background:#3a6ad9;color:#fff}" +
+        // (gplex-patched) the page is drawn light and then darkened, so the browser must draw its
+        // text boxes light too: a browser with a dark look of its own (Nocturne, or a dark system
+        // theme) writes their typing in white, which the darkening turned black
+        "html[ugf-dark]{color-scheme:light!important}" +
+        "html[ugf-dark] [ugf-dark-ink]{color:#000!important;-webkit-text-fill-color:#000!important}";'''),
+    ("dark mode: light typing in a text box made black before the darkening",
+     '''                const keptBox = el.closest("[ugf-dark-keep]");''',
+     '''                // (gplex-patched) typing the browser writes light (its own dark look, where the
+                // page's light colours above aren't understood): black, so the darkening turns it light
+                if (lum(getComputedStyle(el).color)[0] > 0.6) {
+                    el.setAttribute("ugf-dark-ink", "");
+                }
+                const keptBox = el.closest("[ugf-dark-keep]");'''),
 ]
