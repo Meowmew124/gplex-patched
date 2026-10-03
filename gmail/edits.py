@@ -1636,4 +1636,9 @@ EDITS = [
     ("Gmail: fixes' styles",
      '''        styles.textContent = ugfGmailCss();''',
      '''        styles.textContent = ugfGmailCss() + "\\n" + ugfGmailFixCss() + "\\n" + ugfGmailThemeCss();'''),
+    ("dark mode: search box text stays readable",
+     '''            if (tag === "VIDEO" || tag === "CANVAS" || tag === "SCRIPT" || tag === "STYLE" || tag === "svg") {''',
+     '''            // (gplex-patched) a text box is darkened with the page, never kept as it is: kept, its
+            // typing stayed black on the darkened box behind it
+            if (tag === "VIDEO" || tag === "CANVAS" || tag === "SCRIPT" || tag === "STYLE" || tag === "svg" || tag === "INPUT" || tag === "TEXTAREA") {'''),
 ]
