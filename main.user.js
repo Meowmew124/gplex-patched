@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.21.41
+// @version      7.2.21.42
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -1041,6 +1041,15 @@ function ugfDarkLabel() {
                     el.setAttribute("ugf-dark-logo", "");
                 }
                 continue;
+            }
+            // (gplex-patched) and a frame already kept before the text box was put in it is let go
+            // (Firefox looks at the search box's frame before Gplex puts the field in it)
+            if ((tag === "INPUT" && /^(text|search|email|url|tel|password)?$/i.test(el.getAttribute("type") || "")) || tag === "TEXTAREA") {
+                const keptBox = el.closest("[ugf-dark-keep]");
+                if (keptBox) {
+                    keptBox.removeAttribute("ugf-dark-keep");
+                    keptBox.removeAttribute("ugf-dark-logo");
+                }
             }
             // (gplex-patched) a text box is darkened with the page, never kept as it is: kept, its
             // typing stayed black on the darkened box behind it
