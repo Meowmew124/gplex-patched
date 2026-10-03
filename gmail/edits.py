@@ -1641,4 +1641,10 @@ EDITS = [
      '''            // (gplex-patched) a text box is darkened with the page, never kept as it is: kept, its
             // typing stayed black on the darkened box behind it
             if (tag === "VIDEO" || tag === "CANVAS" || tag === "SCRIPT" || tag === "STYLE" || tag === "svg" || tag === "INPUT" || tag === "TEXTAREA") {'''),
+    ("dark mode: a box with a text field in it is darkened too",
+     '''            const pic = /url\\(/.test(cs.backgroundImage) && w >= 80 && h >= 28;''',
+     '''            // (gplex-patched) nor a box with a text field in it (the search box's frame): kept, the
+            // typing in it stayed black over the darkened page showing through the frame
+            const pic = /url\\(/.test(cs.backgroundImage) && w >= 80 && h >= 28 &&
+                !el.querySelector("input:not([type]), input[type=text], input[type=search], textarea, [contenteditable=true]");'''),
 ]
