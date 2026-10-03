@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.21.39
+// @version      7.2.21.40
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -102887,6 +102887,10 @@ var ugfPatchedPlus = (function() {
         const n = document.createElement(tag);
         if (cls) {
             n.className = cls;
+            // photos, thumbnails and the YouTube / Google+ marks keep their colours in Gplex's dark mode
+            if (/^(av|th|lg)(\s|$)/.test(cls)) {
+                n.setAttribute("ugf-dark-keep", "");
+            }
         }
         if (text !== undefined) {
             n.textContent = text;
