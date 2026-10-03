@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.21.42
+// @version      7.2.21.43
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -911,7 +911,12 @@ function ugfDarkLabel() {
         "html[ugf-dark] img[ugf-dark-logo]{filter:url(#ugf-dark-unwhite) invert(1) hue-rotate(180deg)!important}" +
         "html[ugf-dark] [ugf-dark-keep] img[ugf-dark-logo]{filter:url(#ugf-dark-unwhite)!important}" +
         "html[ugf-dark] [ugf-dark-keep][ugf-dark-logo]{filter:url(#ugf-dark-unwhite) invert(1) hue-rotate(180deg)!important}" +
-        "html[ugf-dark] ::selection{background:#3a6ad9;color:#fff}";
+        "html[ugf-dark] ::selection{background:#3a6ad9;color:#fff}" +
+        // (gplex-patched) the page is drawn light and then darkened, so the browser must draw its
+        // text boxes light too: a browser with a dark look of its own (Nocturne, or a dark system
+        // theme) writes their typing in white, which the darkening turned black
+        "html[ugf-dark]{color-scheme:light!important}" +
+        "html[ugf-dark] [ugf-dark-ink]{color:#000!important;-webkit-text-fill-color:#000!important}";
     // the old logos sit on white: that white is made see-through (lighter shading partly), so the logo sits on
     // the dark page in its own colours instead of in a white box
     const addUnwhite = function() {
@@ -1045,6 +1050,11 @@ function ugfDarkLabel() {
             // (gplex-patched) and a frame already kept before the text box was put in it is let go
             // (Firefox looks at the search box's frame before Gplex puts the field in it)
             if ((tag === "INPUT" && /^(text|search|email|url|tel|password)?$/i.test(el.getAttribute("type") || "")) || tag === "TEXTAREA") {
+                // (gplex-patched) typing the browser writes light (its own dark look, where the
+                // page's light colours above aren't understood): black, so the darkening turns it light
+                if (lum(getComputedStyle(el).color)[0] > 0.6) {
+                    el.setAttribute("ugf-dark-ink", "");
+                }
                 const keptBox = el.closest("[ugf-dark-keep]");
                 if (keptBox) {
                     keptBox.removeAttribute("ugf-dark-keep");
