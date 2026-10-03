@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.21.40
+// @version      7.2.21.41
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -1053,7 +1053,10 @@ function ugfDarkLabel() {
                 continue;
             }
             const bg = lum(cs.backgroundColor);
-            const pic = /url\(/.test(cs.backgroundImage) && w >= 80 && h >= 28;
+            // (gplex-patched) nor a box with a text field in it (the search box's frame): kept, the
+            // typing in it stayed black over the darkened page showing through the frame
+            const pic = /url\(/.test(cs.backgroundImage) && w >= 80 && h >= 28 &&
+                !el.querySelector("input:not([type]), input[type=text], input[type=search], textarea, [contenteditable=true]");
             const dark = bg[1] > 0.5 && bg[0] < 0.2 && w * h >= 600;
             if ((pic || dark) && !(el.parentElement && el.parentElement.closest("[ugf-dark-keep]"))) {
                 el.setAttribute("ugf-dark-keep", "");
