@@ -1647,4 +1647,16 @@ EDITS = [
             // typing in it stayed black over the darkened page showing through the frame
             const pic = /url\\(/.test(cs.backgroundImage) && w >= 80 && h >= 28 &&
                 !el.querySelector("input:not([type]), input[type=text], input[type=search], textarea, [contenteditable=true]");'''),
+    ("dark mode: a text field darkens a frame kept before it was put in",
+     '''            // (gplex-patched) a text box is darkened with the page, never kept as it is: kept, its''',
+     '''            // (gplex-patched) and a frame already kept before the text box was put in it is let go
+            // (Firefox looks at the search box's frame before Gplex puts the field in it)
+            if ((tag === "INPUT" && /^(text|search|email|url|tel|password)?$/i.test(el.getAttribute("type") || "")) || tag === "TEXTAREA") {
+                const keptBox = el.closest("[ugf-dark-keep]");
+                if (keptBox) {
+                    keptBox.removeAttribute("ugf-dark-keep");
+                    keptBox.removeAttribute("ugf-dark-logo");
+                }
+            }
+            // (gplex-patched) a text box is darkened with the page, never kept as it is: kept, its'''),
 ]
