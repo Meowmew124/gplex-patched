@@ -285,6 +285,10 @@
         const n = document.createElement(tag);
         if (cls) {
             n.className = cls;
+            // photos, thumbnails and the YouTube / Google+ marks keep their colours in Gplex's dark mode
+            if (/^(av|th|lg)(\s|$)/.test(cls)) {
+                n.setAttribute("ugf-dark-keep", "");
+            }
         }
         if (text !== undefined) {
             n.textContent = text;
