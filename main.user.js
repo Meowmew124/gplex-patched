@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      7.2.21.44
+// @version      7.2.23.46
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos and Google Keep, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -822,7 +822,7 @@ function ugfPlusSave(k, v) {
 function ugfPlusLink() {
     const v = ugfPlusGet("UGF_PLUS_LINK").trim();
     // empty, or the old default (Google's address, which only says Google+ has been discontinued)
-    if (!v || /^https?:\/\/plus\.google\.com\/?$/i.test(v)) {
+    if (!v || /^https?:\/\/(plus|myaccount|aboutme)\.google\.com(\/.*)?$/i.test(v)) {
         return UGF_PLUS_HOME;
     }
     return v;
@@ -1156,7 +1156,7 @@ function ugfStarTube(ugfMode) {
     }
     function ugfStPlusLink() {
         var v = ugfStPlus("UGF_PLUS_LINK").trim();
-        return ugfStPlusEsc(!v || /^https?:\/\/plus\.google\.com\/?$/i.test(v) ? "https://plus.gplexextended.com/" : v);
+        return ugfStPlusEsc(!v || /^https?:\/\/(plus|myaccount|aboutme)\.google\.com(\/.*)?$/i.test(v) ? "https://plus.gplexextended.com/" : v);
     }
     function ugfStPlusName() {
         var v = ugfStPlus("UGF_PLUS_NAME").replace(/[\u0000-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, 30);
@@ -1295,7 +1295,7 @@ $("#st-reset-ok").addEventListener("click", function(){
 	ugfStDel(theSets);
 	window.location.reload();
 });
-window.addEventListener("keydown", function(){
+window.addEventListener("keydown", function(event){
 	let resultCount = 0;
 	let key = event.key;
 	if(key == "Escape"){
@@ -22509,7 +22509,7 @@ filter: invert(1);
             i.classList.add("active");
         });
 	});
-	$("#astro-searchbar input").addEventListener("keydown", function(){
+	$("#astro-searchbar input").addEventListener("keydown", function(event){
 		let resultCount = 0;
 		let key = event.key;
 		let thisE = this;
@@ -60005,7 +60005,7 @@ html[shopping-results] #ugf-center {
             }
         }
     }
-    const ugfBasicHtml = /[?&]gbv=1\b/.test(url);
+    let ugfBasicHtml = /[?&]gbv=1\b/.test(url);
     if (ugfBasicHtml) {
         document.querySelector("html").setAttribute("basic-html", "");
     }
@@ -62543,6 +62543,14 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
             let basicTries = 0;
             let doInterval = setInterval(function() {
                 asArray = document.querySelectorAll("#rso span > a");
+                // (7.2.22) Google's lightweight page without gbv=1 in the address (what Firefox for Android is sent):
+                // no #rso, each result in a box marked "xpd"
+                if (!ugfBasicHtml && asArray.length < 10 && location !== "images" && location !== "shopping" && location !== "news" &&
+                        document.readyState !== "loading" && !document.querySelector("#rso") &&
+                        document.querySelector("div.xpd a[href*='/url?']")) {
+                    ugfBasicHtml = true;
+                    document.querySelector("html").setAttribute("basic-html", "");
+                }
                 if (location == "news" && document.querySelector("html").hasAttribute("news-results")) {
                     if (ugfFindNewsCards(document).length >= 8) {
                         parseHTMLNeo(location);
@@ -64485,7 +64493,7 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                         document.querySelector("html").removeAttribute("gmailon-dd-open");
                     });
                 });
-                document.querySelector("#ugf-option-plus-link input").addEventListener("keydown", function() {
+                document.querySelector("#ugf-option-plus-link input").addEventListener("keydown", function(event) {
                     let key = event.key;
                     if (key == "Enter") {
                         var value = document.querySelector("#ugf-option-plus-link input").value;
