@@ -58,7 +58,7 @@ Open [`main.user.js`](../../raw/main/main.user.js) (the raw file) with Tampermon
 
 ## How it stays up to date
 
-A GitHub Action (`.github/workflows/patch.yml`) runs every 6 hours. When upstream changes, it downloads the new Gplex (the newer of Gplex's GitHub copy and the download on Gplex's website, which gets releases first), applies `gplex-plus-link-patch.py`, gives the build a higher version (`<upstream version>.<build number>`) and publishes it here.
+A GitHub Action (`.github/workflows/patch.yml`) runs every 2 hours. When upstream changes, it downloads the new Gplex (the newer of Gplex's GitHub copy and the download on Gplex's website, which gets releases first), applies `gplex-plus-link-patch.py`, gives the build a higher version (`<upstream version>.<build number>`) and publishes it here.
 
 If an upstream change moves the code the patch edits, the run fails and nothing is published: you keep the last working build, and GitHub emails you about the failed run. You can also run it by hand from the Actions tab ("Run workflow").
 
