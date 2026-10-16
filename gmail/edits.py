@@ -171,7 +171,7 @@ HELPERS = r'''    // (gplex-patched) what Gmail's own sidebar says is unread in 
         return { id: ugfGmailShared("UGF_GMAIL_THEME") || "light", text: ugfGmailShared("UGF_GMAIL_THEME_TEXT") === "dark" ? "dark" : "light",
             vig: n("UGF_GMAIL_THEME_VIG"), blur: n("UGF_GMAIL_THEME_BLUR") };
     }
-    function ugfGmailTheme() {
+    function ugfGmailPatchTheme() {
         const id = ugfGmailThemeState().id;
         return ugfGmailThemes().filter(function(t) {
             return t.id === id;
@@ -1215,16 +1215,28 @@ EDITS = [
      """        ugfGmailFoldNav(shell, chrome);
         shell.querySelectorAll("#ugf-gmail-nav a[data-n]").forEach(function(a) {"""),
     ("Gmail: themes that work",
-     """            const themes = era === "g2018"
-                ? ["Default", "Dark", "Soft Grey", "High Contrast", "Terminal", "Mountains", "Beach", "Tree"]
-                : ["Classic", "Shiny", "Soft Grey", "High Contrast", "Ninja", "Tree", "Beach", "Planets"];
-            let h = '<div class="ugf-gmail-themes">';
-            themes.forEach(function(t, i) {
-                h += '<span class="theme' + (i === 0 ? " on" : "") + '"><i></i>' + esc(t) + "</span>";
-            });""",
-     """            // (gplex-patched) themes that work: on the 2016 layout "Set Theme" opens Gmail's window of the time; on
-            // the others the themes are here to pick from
+     r'''            // the 2013 look takes one: the colour themes Google offered then, or a picture of your own
+            const live = ugfGmailChrome(era) === "m2013";
             const cur = ugfGmailTheme();
+            const themes = live ? [["", "Light"], ["dark", "Dark"], ["soft-grey", "Soft Grey"], ["high-contrast", "High Contrast"], ["photo", "My photo"]]
+                : (era === "g2018" ? ["Default", "Dark", "Soft Grey", "High Contrast", "Terminal", "Mountains", "Beach", "Tree"]
+                    : ["Classic", "Shiny", "Soft Grey", "High Contrast", "Ninja", "Tree", "Beach", "Planets"]).map(function(t, i) {
+                        return [i ? "-" : "", t];
+                    });
+            let h = '<div class="ugf-gmail-themes">';
+            themes.forEach(function(t) {
+                const on = t[0] === "photo" ? /^https?:/.test(cur) : t[0] === cur;
+                h += '<span class="theme' + (on ? " on" : "") + '"' + (live ? ' data-theme="' + t[0] + '"' : "") + "><i></i>" + esc(t[1]) + "</span>";
+            });
+            h += "</div>";
+            if (live) {
+                h += '<span class="note">Your own picture: <input type="text" id="ugf-gmail-theme-url" size="40" placeholder="Paste the address of a picture" value="' +
+                    esc(/^https?:/.test(cur) ? cur : "") + '"> <button id="ugf-gmail-theme-set">Set</button></span>';
+            }
+            return [["Choose a theme", h]];''',
+     r'''            // (gplex-patched) themes that work: on the 2016 layout "Set Theme" opens Gmail's window of the time; on
+            // the others the themes are here to pick from
+            const cur = ugfGmailPatchTheme();
             if (ugfGmailThemesHere() && era === "g2013") {
                 return [["Themes", '<button id="ugf-gmail-settheme">Set Theme</button>' +
                     '<span class="note">' + esc(cur.plain || cur.name ? "Now: " + (cur.name || "") : "Now: a featured photo") + "</span>"]];
@@ -1236,14 +1248,7 @@ EDITS = [
                     "<i>" + (img ? '<img loading="lazy" alt="" src="' + esc(img) + '">' : "") + "</i>" + esc(t.name || "") + "</a>";
             });
             ht += "</div>";
-            return [["Choose a theme", ht]];
-            const themes = era === "g2018"
-                ? ["Default", "Dark", "Soft Grey", "High Contrast", "Terminal", "Mountains", "Beach", "Tree"]
-                : ["Classic", "Shiny", "Soft Grey", "High Contrast", "Ninja", "Tree", "Beach", "Planets"];
-            let h = '<div class="ugf-gmail-themes">';
-            themes.forEach(function(t, i) {
-                h += '<span class="theme' + (i === 0 ? " on" : "") + '"><i></i>' + esc(t) + "</span>";
-            });"""),
+            return [["Choose a theme", ht]];'''),
     ("Gmail: picking a theme",
      """        main.querySelectorAll('input[name="ugfcats"]').forEach(function(r) {""",
      """        // (gplex-patched) a theme from the grid takes at once
@@ -1675,4 +1680,28 @@ EDITS = [
                     el.setAttribute("ugf-dark-ink", "");
                 }
                 const keptBox = el.closest("[ugf-dark-keep]");'''),
+    ("Gmail: Gplex's own theme picking steps aside",
+     r'''        const setTheme = function(t) {
+            ugfGmailSetPref("UGF_GMAIL_THEME", t);
+            ugfGmailRender();
+        };
+        main.querySelectorAll(".ugf-gmail-themes .theme[data-theme]").forEach(function(t) {
+            t.addEventListener("click", function() {
+                const url = main.querySelector("#ugf-gmail-theme-url");
+                setTheme(t.getAttribute("data-theme") === "photo" ? String(url && url.value || "").trim() : t.getAttribute("data-theme"));
+            });
+        });
+        const setUrl = main.querySelector("#ugf-gmail-theme-set");
+        if (setUrl) {
+            setUrl.addEventListener("click", function() {
+                setTheme(String(main.querySelector("#ugf-gmail-theme-url").value || "").trim());
+            });
+        }
+''',
+     r'''        // (gplex-patched) Gplex's own theme picking (8.x) is the patch's now, above
+'''),
+    ("Gmail: Gplex's own theme drawing steps aside",
+     r'''        const theme = chrome === "m2013" ? ugfGmailTheme() : "";''',
+     r'''        // (gplex-patched) the patch's themes are put on by ugfGmailApplyTheme (Gplex 8.x's own would draw over them)
+        const theme = "";'''),
 ]
