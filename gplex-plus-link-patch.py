@@ -30,7 +30,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS_MARK = "ugfDocs2014Fixes"
 NOTIFY_MARK = "ugfNotify"
 PLUS_MARK = "ugfPlusLive"
-AIO_MARK = "ugfAioFit"
+# the search page add-ons (search/): marker, file, what it is
+SEARCH_ADDONS = [
+    ("ugfAioFit", "aio-fit.js", "AI Overview fits Gplex's card (expanded overview, its pictures)"),
+    ("ugfTabs2016", "tabs2016.js", "2014-2016 search tabs chosen per search, the rest under More"),
+]
 # what the Gplex+ buttons need to hear a setting saved in another tab
 PLUS_HEADERS = [("grant", "GM_addValueChangeListener")]
 # what the notifications bell needs: YouTube's, Gplex+'s and Loogle+'s servers (Gplex itself is not
@@ -170,11 +174,12 @@ def main():
         for key, value in PLUS_HEADERS:
             text = add_header(text, key, value)
         print("appended  live Gplex+ buttons (link and name follow the settings at once, in every tab)")
-    if AIO_MARK in text:
-        print("already has the AI Overview fit; not appended again")
-    else:
-        text = text.rstrip("\n") + "\n\n" + open(os.path.join(HERE, "search", "aio-fit.js")).read().replace("\r\n", "\n").rstrip("\n") + "\n"
-        print("appended  AI Overview fits Gplex's card (expanded overview, its pictures)")
+    for mark, name, what in SEARCH_ADDONS:
+        if mark in text:
+            print("already has " + what + "; not appended again")
+        else:
+            text = text.rstrip("\n") + "\n\n" + open(os.path.join(HERE, "search", name)).read().replace("\r\n", "\n").rstrip("\n") + "\n"
+            print("appended  " + what)
     if NOTIFY_MARK in text:
         print("already has the notifications bell; not appended again")
     else:
