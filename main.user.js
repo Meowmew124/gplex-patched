@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.17.96
+// @version      8.17.97
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -110780,6 +110780,14 @@ var ugfPatchedPlus = (function() {
                 }
             }
         });
+        // (Shopping is on nearly every search now; in 2016 it took a place in the row only for
+        // shopping searches. Unless Google puts it in its first two, it goes to the back, as in
+        // the captures: "donald trump" had Books in the row and Maps, Shopping under More.)
+        const shop = seen.indexOf("shopping");
+        if (shop > 1) {
+            seen.splice(shop, 1);
+            seen.push("shopping");
+        }
         const key = "ugf-tabs2016:" + query();
         let o = seen;
         try {
@@ -110891,8 +110899,10 @@ var ugfPatchedPlus = (function() {
         });
     };
     const CSS = [
-        // "Search tools" right after More, spaced like the tabs, as in 2016
-        'html[layout="2014"]:not([gplex2013n]) #ugf-tools-tab, html[layout="2015"] #ugf-tools-tab, html[layout="2016"] #ugf-tools-tab { margin-left: 8px !important; }'
+        // "Search tools" right after More, and More's arrow, measured on the June 2016 captures:
+        // the arrow 4px after the word, 8 by 5px; "Search tools" 70px from the start of "More"
+        'html[layout="2014"]:not([gplex2013n]) #ugf-tools-tab, html[layout="2015"] #ugf-tools-tab, html[layout="2016"] #ugf-tools-tab { margin-left: 4px !important; }',
+        'html[layout="2014"]:not([gplex2013n]) .ugf-k-caret, html[layout="2015"] .ugf-k-caret, html[layout="2016"] .ugf-k-caret { margin-left: 4px !important; border-top-width: 5px !important; }'
     ].join("\n");
     let queued = false;
     const kick = function() {
