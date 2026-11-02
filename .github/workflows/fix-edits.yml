@@ -1,0 +1,149 @@
+name: Claude fixes left-out edits
+
+# Started by the patch workflow when a build leaves fixes out (or by hand from the Actions tab with
+# that run's id). Claude re-targets the edits in gmail/edits.py against the Gplex that build saw;
+# the fix is merged by itself only if tools/check_fix.py passes it (every feature applies, the
+# syntax check passes, nothing risky or new added), otherwise it waits on a branch for a person.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Id of the patch run whose Gplex left fixes out"
+        required: true
+      dry_run:
+        description: "Never merge; leave the fix on a branch"
+        type: boolean
+        default: false
+
+concurrency:
+  group: fix-edits
+
+jobs:
+  # Claude works here, with a read-only token: it can't push or publish anything itself
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      todo: ${{ steps.left.outputs.todo }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The Gplex that build saw, and what it left out
+        id: left
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do gh run download "${{ inputs.run_id }}" -n upstream -D .upstream && break; sleep 15; done; test -f .upstream/upstream.user.js
+          python3 gplex-plus-link-patch.py .upstream/upstream.user.js --out /tmp/before.js --report /tmp/skipped.txt > /tmp/before.log
+          cat /tmp/skipped.txt
+          if [ -s /tmp/skipped.txt ]; then echo "todo=true" >> "$GITHUB_OUTPUT"; else echo "Nothing is left out any more."; fi
+
+      - name: Claude re-targets the edits
+        if: steps.left.outputs.todo == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::The CLAUDE_CODE_OAUTH_TOKEN secret isn't set (claude setup-token, then add it under Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          npm install -g @anthropic-ai/claude-code >/dev/null
+          prompt="$(cat .github/fix-edits-prompt.md)
+          Left out in this build:
+          $(cat /tmp/skipped.txt)"
+          claude -p "$prompt" --model opus --max-turns 80 \
+            --allowedTools "Read,Edit,Write,Grep,Glob,Bash(python3 gplex-plus-link-patch.py:*),Bash(node --check:*)" \
+            | tee claude.log
+
+      - name: Hand the fix on
+        if: steps.left.outputs.todo == 'true'
+        run: |
+          mkdir -p handoff
+          cp gmail/edits.py handoff/
+          cp .fix-summary.md handoff/ 2>/dev/null || echo "Claude wrote no summary." > handoff/.fix-summary.md
+          cp claude.log handoff/ 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: steps.left.outputs.todo == 'true'
+        with:
+          name: fix
+          path: handoff/
+          include-hidden-files: true
+          retention-days: 14
+
+  # checks the fix, then merges it and starts a build, or leaves it on a branch with the reasons
+  merge:
+    needs: fix
+    if: needs.fix.outputs.todo == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: fix
+          path: handoff
+
+      - name: Check, then merge or leave for a person
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do gh run download "${{ inputs.run_id }}" -n upstream -D .upstream && break; sleep 15; done; test -f .upstream/upstream.user.js
+          up=$(grep -m1 '@version' .upstream/upstream.user.js | awk '{print $3}' | tr -d '\r')
+          cp gmail/edits.py /tmp/edits-before.py
+          cp handoff/edits.py gmail/edits.py
+          if git diff --quiet -- gmail/edits.py; then
+            echo "::error::Claude changed nothing"
+            exit 1
+          fi
+          set +e
+          python3 tools/check_fix.py /tmp/edits-before.py gmail/edits.py .upstream/upstream.user.js > /tmp/check.txt
+          code=$?
+          set -e
+          cat /tmp/check.txt
+          # (and never against a Gplex older than the published build)
+          pub=$(grep -m1 '@version' main.user.js | awk '{print $3}' | tr -d '\r' | sed 's/\.[0-9]*$//')
+          if [ "$(printf '%s\n%s\n' "$pub" "$up" | sort -V | tail -1)" != "$up" ]; then
+            echo "Gplex $up is older than the published $pub: not merging." >> /tmp/check.txt
+            code=4
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          branch="claude/fix-edits-${{ github.run_number }}"
+          git checkout -b "$branch"
+          git add gmail/edits.py
+          git commit -q -m "Claude: edits re-targeted for Gplex $up" -m "$(cat handoff/.fix-summary.md)" -m "$(cat /tmp/check.txt)"
+          issue=$(gh issue list --state open --search 'in:title "Some fixes are left out"' --json number -q '.[0].number')
+
+          if [ "$code" = "0" ] && [ "${{ inputs.dry_run }}" != "true" ]; then
+            git fetch -q origin main
+            git rebase -q origin/main
+            git push -q origin "HEAD:main"
+            gh workflow run patch.yml
+            msg="Claude re-targeted the edits for Gplex $up. The checks passed, so it was merged ($(git rev-parse --short HEAD)) and a new build is running.
+
+          $(cat handoff/.fix-summary.md)"
+          else
+            git push -q origin "$branch"
+            msg="Claude re-targeted the edits for Gplex $up, but the fix wasn't merged by itself:
+
+          $(cat /tmp/check.txt)
+
+          It's on branch \`$branch\`: https://github.com/${{ github.repository }}/compare/main...$branch (open a pull request from there to merge it).
+
+          $(cat handoff/.fix-summary.md)"
+          fi
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "$msg"
+          else
+            gh issue create --title "Some fixes are left out of the current build" --body "$msg"
+          fi

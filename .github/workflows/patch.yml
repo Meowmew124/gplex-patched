@@ -18,6 +18,7 @@ on:
 permissions:
   contents: write
   issues: write
+  actions: write
 
 concurrency:
   group: patch
@@ -120,6 +121,8 @@ jobs:
             else
               gh issue create --title "$title" --body "$body"
             fi
+            # and Claude gets to work on them (fix-edits.yml merges its fix only if the checks pass)
+            gh workflow run fix-edits.yml -f run_id="${{ github.run_id }}"
           elif [ -n "$open" ]; then
             gh issue close "$open" --comment "Build $(grep -m1 '@version' main.user.js | awk '{print $3}') has every fix again."
           fi
