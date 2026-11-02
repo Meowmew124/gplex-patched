@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: patch
@@ -45,6 +46,15 @@ jobs:
           fi
           rm -f site.user.js
 
+      # (a copy of the Gplex this run built from, kept a week: for fixing an edit when Gplex's
+      # website can't be reached from elsewhere)
+      - name: Keep the downloaded Gplex
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream
+          path: upstream.user.js
+          retention-days: 7
+
       # Rebuild only when upstream, the patch script, the Gmail or Docs fixes or the bell changed.
       - name: Check for changes
         id: state
@@ -63,6 +73,7 @@ jobs:
           python3 gplex-plus-link-patch.py upstream.user.js --out main.user.js --strict
           --update-url "https://raw.githubusercontent.com/${{ github.repository }}/main/main.user.js"
           --version-suffix "${{ github.run_number }}"
+          --report skipped.txt
 
       - name: Syntax check
         if: steps.state.outputs.changed == 'true'
@@ -74,5 +85,32 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git add main.user.js .state
-          git commit -m "Patch Gplex $(grep -m1 '@version' main.user.js | awk '{print $3}')"
+          msg="Patch Gplex $(grep -m1 '@version' main.user.js | awk '{print $3}')"
+          if [ -s skipped.txt ]; then
+            msg="$msg (left out: $(sed 's/ - .*//' skipped.txt | paste -sd ';' - | sed 's/;/; /g'))"
+          fi
+          git commit -m "$msg"
           git push
+
+      # Features Gplex's new code left out of the build: an open issue says which (GitHub emails
+      # about it), and is closed once a build has them all again.
+      - name: Report features left out
+        if: steps.state.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Some fixes are left out of the current build"
+          open=$(gh issue list --state open --search "in:title \"$title\"" --json number -q '.[0].number')
+          if [ -s skipped.txt ]; then
+            body=$(printf 'Gplex %s changed the code under these fixes, so this build (%s) went out without them:\n\n%s\n\nEverything else is in it. Fix the edits in gmail/edits.py and push.' \
+              "$(grep -m1 '@version' upstream.user.js | awk '{print $3}' | tr -d '\r')" \
+              "$(grep -m1 '@version' main.user.js | awk '{print $3}')" \
+              "$(sed 's/^/- /' skipped.txt)")
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "$body"
+            else
+              gh issue create --title "$title" --body "$body"
+            fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Build $(grep -m1 '@version' main.user.js | awk '{print $3}') has every fix again."
+          fi

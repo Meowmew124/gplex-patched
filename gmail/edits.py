@@ -1705,3 +1705,68 @@ EDITS = [
      r'''        // (gplex-patched) the patch's themes are put on by ugfGmailApplyTheme (Gplex 8.x's own would draw over them)
         const theme = "";'''),
 ]
+
+
+# Which edits stand or fall together. When Gplex changes the code under one edit of a feature, the
+# whole feature is left out of that build (none of its edits applied, so nothing is half done) and
+# the rest is built as usual; the build says which features it left out. An edit not named here is
+# a feature of its own. A feature needs the ones in REQUIRES: without "Gmail: helpers" (the
+# functions every Gmail edit calls) no Gmail edit is applied.
+FEATURES = [
+    ("Gmail helpers", ["Gmail: helpers"]),
+    ("Gmail sidebar and list", [
+        "Gmail: the person's own labels from Gmail's sidebar",
+        "Gmail: the sidebar's real unread counts",
+        "Gmail: More in the sidebar",
+        "Gmail: list sender column as Gmail fills it (To: in Sent, reply counts)",
+    ]),
+    ("Gmail page size setting", [
+        "Gmail: Maximum page size is a real setting",
+        "Gmail: Save Changes saves the page size",
+    ]),
+    ("Gmail themes", [
+        "Gmail: the theme in use",
+        "Gmail: themes that work",
+        "Gmail: picking a theme",
+        "Gmail: Gplex's own theme picking steps aside",
+        "Gmail: Gplex's own theme drawing steps aside",
+    ]),
+    ("Gmail conversation view", [
+        "Gmail: remember the list a conversation is opened from",
+        "Gmail: only a conversation's id opens a conversation",
+        "Gmail: print view id from the open conversation",
+        "Gmail: whole conversation from the print view",
+        "Gmail: the print page's subject line, not its title",
+        "Gmail: sender photos and folded messages",
+        "Gmail: conversation counter from the list",
+        "Gmail: sender photos in the conversation",
+        "Gmail: trimmed quotes and the label's x",
+        "Gmail: Newer and Older from the list",
+    ]),
+    ("Gmail toolbar and menus", [
+        "Gmail: conversation toolbar actions",
+        "Gmail: Labels and More menus on the list",
+        "Gmail: Apply after picking labels",
+        "Gmail: label menu items are checkboxes",
+    ]),
+    ("Gmail reply, forward and drafts", [
+        "Gmail: your photo beside the reply box",
+        "Gmail: Reply and Forward through Gmail's own",
+        "Gmail: compose title for replies",
+        "Gmail: reply's To and Subject are Gmail's",
+        "Gmail: no fake Save on replies",
+        "Gmail: replies sent through Gmail's reply box",
+        "Gmail: Save draft saves",
+        "Gmail: draft mode for the compose driver",
+        "Gmail: a draft is the compose window closed unsent",
+    ]),
+    ("Dark mode text boxes", [
+        "dark mode: search box text stays readable",
+        "dark mode: a box with a text field in it is darkened too",
+        "dark mode: a text field darkens a frame kept before it was put in",
+        "dark mode: text boxes drawn in the page's light colours, then darkened",
+        "dark mode: light typing in a text box made black before the darkening",
+    ]),
+]
+REQUIRES = {name: ["Gmail helpers"] for name, _ in FEATURES if name.startswith("Gmail") and name != "Gmail helpers"}
+REQUIRES["Gmail: fixes' styles"] = ["Gmail helpers"]

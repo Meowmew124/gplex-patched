@@ -42,7 +42,7 @@ PLUS_HEADERS = [("grant", "GM_addValueChangeListener")]
 NOTIFY_HEADERS = [("connect", "www.youtube.com"), ("connect", "plus.loogle.mooo.com"), ("connect", "plus.gplexextended.com")]
 # the Gmail fixes (gmail/edits.py): edits inside Gplex's Gmail code, which has no hooks to append to
 sys.path.insert(0, os.path.join(HERE, "gmail"))
-from edits import EDITS as GMAIL_EDITS  # noqa: E402
+from edits import EDITS as GMAIL_EDITS, FEATURES as GMAIL_FEATURES, REQUIRES as GMAIL_REQUIRES  # noqa: E402
 
 
 def docs2014_block():
@@ -110,6 +110,75 @@ EDITS = [
 ]
 
 
+def find_once(text, old):
+    """Where OLD is in TEXT, once: exactly, or failing that with any run of spaces, tabs or line
+    breaks standing for any other (Gplex re-indented or re-wrapped the code). Returns (start, end,
+    how) or (None, count, how)."""
+    count = text.count(old)
+    if count == 1:
+        start = text.index(old)
+        return start, start + len(old), "exact"
+    if count > 1:
+        return None, count, "ambiguous"
+    words = [w for w in re.split(r"\s+", old.strip()) if w]
+    if not words:
+        return None, 0, "not found"
+    found = list(re.finditer(r"\s+".join(re.escape(w) for w in words), text))
+    if len(found) == 1:
+        return found[0].start(), found[0].end(), "loose"
+    return None, len(found), "not found" if not found else "ambiguous"
+
+
+def apply_features(text, edits, features, requires):
+    """Apply EDITS grouped as FEATURES (name, [edit names]); an edit in no feature is a feature of
+    its own. A feature is applied whole or not at all, and not without the features it REQUIRES
+    (every "Gmail: ..." edit needs "Gmail helpers"). Returns the text and the features left out,
+    with why."""
+    by_name = {e[0]: e for e in edits}
+    groups = [(f, [by_name[n] for n in names if n in by_name]) for f, names in features]
+    grouped = set(n for _, names in features for n in names)
+    groups += [(e[0], [e]) for e in edits if e[0] not in grouped]
+    done = set()
+    skipped = []
+    for feature, group in groups:
+        needs = list(requires.get(feature, []))
+        if feature.startswith("Gmail") and feature != "Gmail helpers" and "Gmail helpers" not in needs:
+            needs.append("Gmail helpers")
+        missing = [n for n in needs if n not in done]
+        if missing:
+            skipped.append((feature, "needs " + ", ".join(missing)))
+            print("SKIPPED   " + feature + " (needs " + ", ".join(missing) + ")")
+            continue
+        trial = text
+        why = None
+        notes = []
+        for name, old, new in group:
+            if new in trial:
+                notes.append("already   " + name)
+                continue
+            start, end, how = find_once(trial, old)
+            if start is None:
+                why = name + ": " + how + (" (" + str(end) + " matches)" if how == "ambiguous" else "")
+                break
+            if how == "loose":
+                # (the new code is indented the way it was written; the match may not be)
+                repl = new.lstrip() if old[:1].isspace() else new
+                notes.append("patched   " + name + " (matched ignoring spacing)")
+            else:
+                repl = new
+                notes.append("patched   " + name)
+            trial = trial[:start] + repl + trial[end:]
+        if why:
+            skipped.append((feature, why))
+            print("SKIPPED   " + feature + " - " + why)
+            continue
+        text = trial
+        done.add(feature)
+        for n in notes:
+            print(n)
+    return text, skipped
+
+
 def add_header(text, key, value):
     """Add a // @key value line to the userscript header unless it is already there."""
     if re.search(r"^// @" + key + r"[ \t]+" + re.escape(value) + r"[ \t]*$", text, re.M):
@@ -130,7 +199,8 @@ def main():
     parser = argparse.ArgumentParser(description="Re-apply the Google+ link fix to Gplex Extended.")
     parser.add_argument("file")
     parser.add_argument("--out", help="write here instead of patching FILE in place")
-    parser.add_argument("--strict", action="store_true", help="fail, writing nothing, if any edit can't be applied")
+    parser.add_argument("--strict", action="store_true", help="fail, writing nothing, if an old-style Google+ link edit can't be applied")
+    parser.add_argument("--report", help="write the features left out of this build here (one per line; empty if none)")
     parser.add_argument("--update-url", help="point @updateURL/@downloadURL here")
     parser.add_argument("--version-suffix", help='append ".N" to @version')
     args = parser.parse_args()
@@ -150,17 +220,9 @@ def main():
             else:
                 ok = False
                 print(("NOT FOUND " if count == 0 else "AMBIGUOUS ") + name + " (" + str(count) + " matches)")
-    for name, old, new in GMAIL_EDITS:
-        if new in text:
-            print("already   " + name)
-            continue
-        count = text.count(old)
-        if count == 1:
-            text = text.replace(old, new)
-            print("patched   " + name)
-        else:
-            ok = False
-            print(("NOT FOUND " if count == 0 else "AMBIGUOUS ") + name + " (" + str(count) + " matches)")
+    # the Gmail and dark-mode edits, feature by feature: a feature whose code Gplex has changed is
+    # left out whole (and the features that need it), the rest is built
+    text, skipped = apply_features(text, GMAIL_EDITS, GMAIL_FEATURES, GMAIL_REQUIRES)
     if DOCS_MARK in text:
         print("already has the Docs 2014 fixes; not appended again")
     else:
@@ -206,6 +268,12 @@ def main():
     if not args.out:
         shutil.copyfile(args.file, args.file + ".orig")
     open(out, "w", newline="").write(text.replace("\n", "\r\n") if crlf else text)
+    if args.report:
+        with open(args.report, "w") as f:
+            for feature, why in skipped:
+                f.write(feature + " - " + why + "\n")
+    if skipped:
+        print("LEFT OUT of this build (Gplex changed the code they fix): " + "; ".join(f for f, _ in skipped))
     print("wrote " + out + ("" if ok else "  (INCOMPLETE: fix the edits above by hand)"))
 
 
