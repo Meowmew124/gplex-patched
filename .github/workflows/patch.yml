@@ -26,7 +26,8 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     env:
-      UPSTREAM: https://raw.githubusercontent.com/Ziptino9098/Gplex-Fixed/main/main.user.js
+      # (main.user.js there stopped at 7.2.21; Gplex went on under this name)
+      UPSTREAM: https://raw.githubusercontent.com/Ziptino9098/Gplex-Fixed/main/Gplex_-_Old_Google_Frontend.user.js
       # Gplex's website gets new releases before GitHub does (7.2.15 was there first)
       UPSTREAM_SITE: https://gplexextended.com/download/latest.user.js
     steps:
@@ -59,6 +60,14 @@ jobs:
       - name: Check for changes
         id: state
         run: |
+          # never an older Gplex than the one published (the website down, GitHub's copy behind)
+          pub=$(grep -m1 '@version' main.user.js 2>/dev/null | awk '{print $3}' | tr -d '\r' | sed 's/\.[0-9]*$//')
+          up=$(grep -m1 '@version' upstream.user.js | awk '{print $3}' | tr -d '\r')
+          if [ -n "$pub" ] && [ "$(printf '%s\n%s\n' "$pub" "$up" | sort -V | tail -1)" != "$up" ]; then
+            echo "Gplex $up is older than the published $pub (Gplex's website unreachable?): keeping the current build"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           key=$(cat upstream.user.js gplex-plus-link-patch.py gmail/*.py docs2014/* notify/* plus/* search/* | sha256sum | cut -d' ' -f1)
           if [ -f main.user.js ] && [ "$key" = "$(cat .state 2>/dev/null)" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
