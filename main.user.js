@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.28.115
+// @version      8.31.167
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -76324,7 +76324,16 @@ html[layout="2014"] #ugf-gmail-account .plusname {
 
 /* ---------- the holding screen ---------- */
 html[gplex-gmail-loading] body > *:not(#ugf-gmail-loading):not(#ugf-gmail):not(#ugf-gmail-styles):not(script):not(style) {
-  display: none !important;
+  /* (8.31) out of sight under the holding screen, not display: none: Gmail goes on laying out and filling in
+     the conversation underneath (it holds back what has no size), and Gplex can tell what is on its screen */
+  visibility: hidden !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
 }
 html[gplex-gmail-loading],
 html[gplex-gmail-loading] body {
@@ -77951,24 +77960,39 @@ html[gplex-gmail] body {
         }
         return /^[A-Za-z0-9_-]{10,}$/.test(t) ? t : "";
     }
+    // (8.31) Gmail's own row for a conversation clicked, for one its address does not open
+    function ugfGmailClickRow(item) {
+        const liveRow = ugfGmailLiveRow(item);
+        return !!liveRow && ugfGmailRealClick(liveRow.querySelector(".bog span") || liveRow.querySelector(".bog") ||
+            liveRow.querySelector(".xT") || liveRow);
+    }
     function ugfGmailOpenRow(item) {
         // (6.5.5) remembered, so a conversation that doesn't open that way can be clicked open instead
         ugfGmailOpenRow.last = { item: item, at: Date.now(), clicked: false };
-        // (gplex-patched) and the list it was opened from, for Newer and Older and "3 of 1,795"
-        if (!ugfGmailThreadOpen()) {
-            const c = ugfGmailCount();
-            ugfGmailOpenRow.list = {
-                hash: ugfGmailListOf(window.location.hash),
-                items: ugfGmailRows().map(function(r) {
-                    return { tid: r.tid, rowId: r.rowId, subject: r.subject, row: r.row };
-                }),
-                from: c ? parseInt(String(c.from).replace(/[^\d]/g, ""), 10) || 1 : 1,
-                total: c ? c.total : ""
-            };
-        }
         // the reliable route is Gmail's own URL for the conversation
         if (item.tid) {
-            window.location.hash = ugfGmailListOf(window.location.hash) + "/" + item.tid;
+            const to = ugfGmailListOf(window.location.hash) + "/" + item.tid;
+            console.log("[Gplex] Gmail: opening " + to);
+            window.location.hash = to;
+            // (8.30) and the print view asked for at once: it answers in about half a second
+            try {
+                ugfGmailPrintFetch(item.tid, true);
+            } catch (e) {
+                console.log("[Gplex] Gmail: the print view could not be asked for: " + (e && e.message));
+            }
+            // (8.31) Gmail sometimes puts the address straight back to the list instead of opening the
+            // conversation, which left the click doing nothing; then its own row is clicked
+            const mine = ugfGmailOpenRow.last;
+            setTimeout(function() {
+                if (ugfGmailOpenRow.last !== mine || mine.clicked || ugfGmailThreadOpen() ||
+                        ugfGmailOpenRow.userAt > mine.at + 200) {
+                    return;   // (or the owner went elsewhere themselves)
+                }
+                mine.clicked = true;
+                console.log("[Gplex] Gmail: the address went back to " + (window.location.hash || "#inbox") +
+                    " instead of opening the conversation; clicking its row in Gmail's list");
+                ugfGmailClickRow(item);
+            }, 1500);
             return true;
         }
         const row = ugfGmailLiveRow(item);
@@ -78571,12 +78595,7 @@ html[gplex-gmail] body {
         if (/^#(search|category|advanced-search)\/[^/]+$/.test(h)) {
             return false;
         }
-        // (gplex-patched) a conversation's id is long (FMfcgz..., or 16 hex): #settings/general or #inbox/themes
-        // is not one, and waiting for it left an empty page
-        if (/^#settings\//.test(h)) {
-            return false;
-        }
-        return /#[^/]+\/(?:[^/]+\/)?[A-Za-z0-9_-]{16,}$/.test(h) || /#[^/]+\/[A-Za-z0-9_-]{16,}(?:\/|$)/.test(h);
+        return /#[^/]+\/[^/]+/.test(h);
     }
     function ugfGmailState() {
         if (!ugfGmailState.s) {
@@ -79010,17 +79029,6 @@ html[gplex-gmail] body {
         if (/^[0-9a-f]{12,20}$/.test(last)) {
             return last;
         }
-        // (gplex-patched) Gmail's addresses carry its new kind of id (#inbox/FMfcgz...), which the print
-        // view doesn't take; the conversation Gmail has open gives its old one on its subject line
-        const heads = [].filter.call(document.querySelectorAll("h2[data-legacy-thread-id]"), function(h) {
-            return !ugfGmailOurs(h) && /^[0-9a-f]{12,20}$/.test(h.getAttribute("data-legacy-thread-id") || "");
-        });
-        const head = heads.filter(function(h) {
-            return h.getClientRects().length;
-        })[0] || (heads.length === 1 ? heads[0] : null);
-        if (head) {
-            return head.getAttribute("data-legacy-thread-id");
-        }
         const o = ugfGmailOpenRow.last;
         return o && o.item && /^[0-9a-f]{12,20}$/.test(o.item.tid || "") ? o.item.tid : "";
     }
@@ -79043,9 +79051,11 @@ html[gplex-gmail] body {
         });
         return found;
     }
-    function ugfGmailPrintFetch(tid) {
+    // (8.30) `again`: a conversation opened a second time is read afresh, since it may have grown
+    function ugfGmailPrintFetch(tid, again) {
         ugfGmailPrintFetch.cache = ugfGmailPrintFetch.cache || {};
-        if (!tid || ugfGmailPrintFetch.cache[tid]) {
+        const had = ugfGmailPrintFetch.cache[tid];
+        if (!tid || (had && (had.loading || !again))) {
             return;
         }
         ugfGmailPrintFetch.cache[tid] = { loading: true, msgs: [] };
@@ -79058,9 +79068,7 @@ html[gplex-gmail] body {
             const out = { loading: false, msgs: [], subject: "", chips: [], counter: "", danger: "" };
             try {
                 const doc = new DOMParser().parseFromString(ugfTT(xhr.responseText), "text/html");
-                // (gplex-patched) its own subject line first: the <title> comes first in the page, and says the
-                // account's name before the subject
-                const subj = doc.querySelector(".maincontent font[size='+1'] b") || doc.querySelector("font[size='+1'] b, .maincontent font b, h2, title");
+                const subj = doc.querySelector("font[size='+1'] b, .maincontent font b, h2, title");
                 out.subject = subj ? (subj.textContent || "").trim().replace(/^Gmail - /, "") : "";
                 doc.querySelectorAll("table.message").forEach(function(t) {
                     const rows = t.rows || [];
@@ -79107,84 +79115,34 @@ html[gplex-gmail] body {
     }
     function ugfGmailThread() {
         const t = ugfGmailThreadLive();
-        // (gplex-patched) Gmail folds a conversation's older messages, and a folded message's text is not
-        // in the page at all (only its sender and a line of it): those came out with an empty body,
-        // "to me", and the ones Gmail gathers under "n older messages" not at all. Gmail's print view
-        // has every message in full, so the conversation is read from there too and filled in from it.
-        const tid = ugfGmailPrintTid();
-        const cache = ugfGmailPrintFetch.cache || {};
-        if (tid && t.msgs.length) {
-            const had = cache[tid];
-            // (a reply has come in since it was read)
-            if (had && !had.loading && had.msgs && had.msgs.length && had.msgs.length < t.msgs.length) {
-                delete cache[tid];
-            }
-            ugfGmailPrintFetch(tid);
-        }
-        const got = tid && ugfGmailPrintFetch.cache ? ugfGmailPrintFetch.cache[tid] : null;
-        if (!t.msgs.length) {
+        if (!t.msgs.length && ugfGmailPrintFetch.cache) {
+            const got = ugfGmailPrintFetch.cache[ugfGmailPrintTid()];
             if (got && got.msgs && got.msgs.length) {
-                return { subject: got.subject || t.subject, msgs: got.msgs, chips: t.chips, counter: t.counter, danger: t.danger };
+                return { subject: got.subject || t.subject, msgs: got.msgs, chips: t.chips, counter: t.counter, danger: t.danger, from: "print" };
             }
-            return t;
         }
-        const norm = function(s) {
-            return String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+        t.from = "page";
+        return t;
+    }
+    // (8.29) What the page holds of the conversation, for the console when one is slow to come up
+    function ugfGmailThreadState() {
+        const count = function(sel) {
+            let all = 0, shown = 0;
+            document.querySelectorAll(sel).forEach(function(el) {
+                if (el.closest("#ugf-gmail")) {
+                    return;
+                }
+                all++;
+                if (el.getClientRects().length) {
+                    shown++;
+                }
+            });
+            return all + " (" + shown + " on screen)";
         };
-        // (the print page's subject can come with the account's name before it: "School Mail - AP Bio")
-        const gs = norm(got && got.subject);
-        const ts = norm(t.subject);
-        // (all of it open in the page already: nothing to fill in)
-        if (got && got.msgs && got.msgs.length === t.msgs.length && !t.msgs.some(function(m) {
-            return !m.html;
-        })) {
-            return t;
-        }
-        if (!got || got.loading || !got.msgs || got.msgs.length < t.msgs.length ||
-                (gs && ts && gs !== ts && gs.slice(-ts.length - 3) !== " - " + ts)) {
-            return t;
-        }
-        // Gmail's own copy where it has the message open (its quoted part folds and unfolds there), the
-        // print view's for the rest, and Gmail's photos for all
-        const live = {};
-        const photos = {};
-        t.msgs.forEach(function(m) {
-            const k = ugfGmailMsgKey(m);
-            if (k) {
-                live[k] = m;
-            }
-            if (m.photo && m.email) {
-                photos[m.email.toLowerCase()] = m.photo;
-            }
-        });
-        document.querySelectorAll("img.ajn[jid][src]").forEach(function(i) {
-            const k = (i.getAttribute("jid") || "").toLowerCase();
-            if (k && !photos[k] && !ugfGmailOurs(i)) {
-                photos[k] = i.getAttribute("src");
-            }
-        });
-        const msgs = got.msgs.map(function(p) {
-            let l = live[ugfGmailMsgKey(p)];
-            if (!l) {
-                // (the print view can round the minute the other way)
-                const pt = ugfGmailMsgTime(p);
-                l = t.msgs.filter(function(m) {
-                    return pt && m.email && p.email && m.email.toLowerCase() === p.email.toLowerCase() &&
-                        Math.abs(ugfGmailMsgTime(m) - pt) <= 120000;
-                })[0];
-            }
-            return {
-                from: (l && l.from) || p.from,
-                email: p.email || (l && l.email) || "",
-                to: l && l.toKnown ? l.to : ugfGmailShortTo(p.to),
-                toFull: String(p.to || "").indexOf("@") > -1 ? p.to : "",
-                date: (l && l.date) || p.date,
-                dateFull: p.date,
-                html: l && l.html ? l.html : p.html,
-                photo: (l && l.photo) || photos[String(p.email || "").toLowerCase()] || ""
-            };
-        });
-        return { subject: t.subject || got.subject, msgs: msgs, chips: t.chips, counter: t.counter, danger: t.danger };
+        const subject = document.querySelector("h2.hP, h2[data-thread-perm-id], .ha h2");
+        return "address " + (window.location.hash || "") + "; div.adn " + count("div.adn") + ", div.gs " + count("div.gs") +
+            ", message ids " + count("[data-message-id], [data-legacy-message-id]") + ", senders .gD " + count(".gD") +
+            ", bodies .a3s " + count(".a3s") + "; subject " + (subject ? JSON.stringify((subject.textContent || "").trim().slice(0, 60)) : "none");
     }
     function ugfGmailThreadLive() {
         const subject = document.querySelector("h2.hP, h2[data-thread-perm-id], .ha h2, [data-legacy-thread-id] h2");
@@ -79201,6 +79159,19 @@ html[gplex-gmail] body {
                 return o !== m && o.contains(m);
             });
         });
+        // (8.31) a conversation opened earlier and parked in the page is not the one in the address
+        const own = String(window.location.hash || "").split("/").pop();
+        if (/^[0-9a-f]{12,20}$/.test(own)) {
+            const kept = scope.filter(function(m) {
+                const box = m.closest("[data-legacy-thread-id]");
+                return !box || box.getAttribute("data-legacy-thread-id") === own;
+            });
+            if (kept.length !== scope.length && ugfGmailThreadLive.skipped !== own) {
+                ugfGmailThreadLive.skipped = own;
+                console.log("[Gplex] Gmail: " + (scope.length - kept.length) + " message(s) of another conversation parked on Gmail's page, skipped");
+            }
+            scope = kept;
+        }
         const live = scope.filter(function(m) {
             return m.getClientRects().length;
         });
@@ -79224,25 +79195,12 @@ html[gplex-gmail] body {
             if (!body && !sender) {
                 return;
             }
-            // (gplex-patched) a folded message (.kv) has no body in the page, only a line of it; and the
-            // sender's photo, as Gmail shows it beside the message
-            const folded = !!m.closest(".kv");
-            const mail = sender ? (sender.getAttribute("email") || "") : "";
-            const holder2 = m.closest(".adn, .kv, .h7") || m;
-            let pic = holder2.querySelector("img.ajn[src]");
-            if (!pic && mail) {
-                pic = [].filter.call(document.querySelectorAll("img.ajn[jid][src]"), function(i) {
-                    return (i.getAttribute("jid") || "").toLowerCase() === mail.toLowerCase();
-                })[0] || null;
-            }
             msgs.push({
                 from: sender ? (sender.getAttribute("name") || sender.textContent || "").trim() : "",
-                email: mail,
+                email: sender ? (sender.getAttribute("email") || "") : "",
                 to: to ? (to.textContent || "").trim() : ugfT("to me"),
-                toKnown: !!to,
                 date: when ? (when.getAttribute("title") || when.textContent || "").trim() : "",
-                html: body && !folded ? body.innerHTML : "",
-                photo: pic ? pic.getAttribute("src") : ""
+                html: body ? body.innerHTML : ""
             });
         });
         // the label chips Gmail puts beside the subject, and its "n of m" counter
@@ -79334,8 +79292,7 @@ html[gplex-gmail] body {
                 '<button class="icon" data-act="labels" title="Labels">' + ugfGmailIcon("labels") + "</button>" +
                 '<button class="icon" data-act="more" title="More">' + ugfGmailIcon("more") + "</button>";
         }
-        // (gplex-patched) Gmail's own counter is the list's ("1-50 of 2,002"): where this conversation sits in it
-        const counter = ugfGmailThreadCounter();
+        const counter = t.counter || "1 of " + Math.max(1, ugfGmailRows().length);
         const nav = classic
             ? '<div id="ugf-gmail-thread-nav"><a href="#" data-nav="prev">&laquo; Newer</a> ' + esc(counter) +
               ' <a href="#" data-nav="next">Older &raquo;</a></div>'
@@ -79363,8 +79320,7 @@ html[gplex-gmail] body {
         t.msgs.forEach(function(m) {
             const initial = (m.from || m.email || "?").trim().charAt(0) || "?";
             html += '<div class="ugf-gmail-msg"><div class="ugf-gmail-msg-head">' +
-                (m.photo ? '<span class="ugf-gmail-avatar has-photo"><img src="' + esc(m.photo) + '" alt=""></span>'
-                    : '<span class="ugf-gmail-avatar">' + esc(initial) + "</span>") +
+                '<span class="ugf-gmail-avatar">' + esc(initial) + "</span>" +
                 '<span class="ugf-gmail-msg-who"><span class="ugf-gmail-msg-from">' + esc(m.from || m.email) + "</span>" +
                 (m.email ? ' <span class="ugf-gmail-msg-addr">&lt;' + esc(m.email) + "&gt;</span>" : "") +
                 '<span class="ugf-gmail-msg-to">' + esc(m.to || ugfT("to me")) + " &#9662;</span></span>" +
@@ -79396,87 +79352,6 @@ html[gplex-gmail] body {
         html += "</div>";
         const main = shell.querySelector("#ugf-gmail-main");
         main.innerHTML = trusted_policy.createHTML(html);
-        // (gplex-patched) Gmail's "..." for the trimmed (quoted) part of a message
-        main.querySelectorAll(".ugf-gmail-msg-body .ajR").forEach(function(dots) {
-            dots.addEventListener("click", function(ev) {
-                ev.preventDefault();
-                const body = dots.closest(".ugf-gmail-msg-body");
-                if (body) {
-                    body.classList.toggle("ugf-trim-open");
-                }
-            });
-        });
-        // (gplex-patched) the ▾ beside "to me": the message's details, as Gmail showed them under it
-        main.querySelectorAll(".ugf-gmail-msg").forEach(function(row, i) {
-            const who = row.querySelector(".ugf-gmail-msg-to");
-            const m = t.msgs[i];
-            if (!who || !m) {
-                return;
-            }
-            who.addEventListener("click", function(ev) {
-                ev.preventDefault();
-                ev.stopPropagation();
-                const had = row.querySelector(".ugf-gmail-details");
-                main.querySelectorAll(".ugf-gmail-details").forEach(function(d) {
-                    d.remove();
-                });
-                if (had) {
-                    return;
-                }
-                const line = function(k, v) {
-                    return v ? '<tr><td class="k">' + esc(k) + ":</td><td>" + v + "</td></tr>" : "";
-                };
-                const box = document.createElement("div");
-                box.className = "ugf-gmail-details";
-                box.innerHTML = trusted_policy.createHTML("<table>" +
-                    line("from", "<b>" + esc(m.from || m.email) + "</b>" + (m.email && m.from ? " &lt;" + esc(m.email) + "&gt;" : "")) +
-                    line("to", esc(String(m.toFull || m.to || "").replace(/^to\s+/i, "").replace(/\s*\b(Cc|Bcc):\s*/gi, ", "))) +
-                    line("date", esc(m.dateFull || m.date)) +
-                    line("subject", esc(t.subject || "")) + "</table>");
-                const head = row.querySelector(".ugf-gmail-msg-head") || row;
-                head.parentNode.insertBefore(box, head.nextSibling);
-                const r = who.getBoundingClientRect();
-                const rr = row.getBoundingClientRect();
-                box.style.left = Math.max(0, Math.round(r.left - rr.left)) + "px";
-                const away = function(e2) {
-                    if (!box.contains(e2.target) && !who.contains(e2.target)) {
-                        box.remove();
-                        document.removeEventListener("mousedown", away);
-                    }
-                };
-                setTimeout(function() {
-                    document.addEventListener("mousedown", away);
-                }, 0);
-            });
-        });
-        // (gplex-patched) the x on the label beside the subject: Gmail's own "Remove label"
-        const chipX = main.querySelector("#ugf-gmail-subject .labelchip .x");
-        if (chipX) {
-            chipX.addEventListener("click", function(ev) {
-                ev.preventDefault();
-                ev.stopPropagation();
-                const all = [].filter.call(document.querySelectorAll('[aria-label^="Remove label"], .hO'), function(x) {
-                    return !ugfGmailOurs(x) && ugfGmailShown(x);
-                });
-                const rm = all.filter(function(x) {
-                    return (x.getAttribute("aria-label") || "").indexOf(" " + label + " ") > -1;
-                })[0] || all[0];
-                if (!rm) {
-                    return;
-                }
-                const disarmX = ugfGmailArm();
-                ugfGmailRealClick(rm);
-                setTimeout(disarmX, 400);
-                const listHash0 = ugfGmailListHash();
-                setTimeout(function() {
-                    // (the mailbox's own label taken off: the conversation has left it)
-                    if (ugfGmailThreadOpen() && ugfGmailThreadLabel() === label && window.location.hash !== listHash0) {
-                        window.location.hash = listHash0;
-                    }
-                    ugfGmailRender();
-                }, 800);
-            });
-        }
         // history.back() went nowhere when the conversation was opened straight from
         // a link, and elsewhere when Gmail had put its own steps in the history. The
         // mailbox is in the address itself: #trash/<id> -> #trash.
@@ -79519,14 +79394,10 @@ html[gplex-gmail] body {
         main.querySelectorAll("[data-nav]").forEach(function(b) {
             b.addEventListener("click", function(ev) {
                 ev.preventDefault();
-                // (gplex-patched) Gmail greys out its own Newer and Older for a conversation opened from its
-                // address (as Gplex opens them): the next one is taken from the list it was opened from
-                const step = b.getAttribute("data-nav") === "prev" ? -1 : 1;
-                const pos = ugfGmailThreadPos();
-                const next = pos ? pos.list[pos.i + step] : null;
-                if (next) {
-                    ugfGmailOpenRow(next);
-                } else {
+                // (8.31) the row clicked no longer says which conversation this is
+                ugfGmailOpenRow.last = null;
+                const which = b.getAttribute("data-nav") === "prev" ? "Newer" : "Older";
+                if (!ugfGmailClickReal(ugfGmailLabelSel([which]))) {
                     goBack();
                 }
                 setTimeout(ugfGmailRender, 900);
@@ -80723,37 +80594,48 @@ html[gplex-gmail] body {
         // (6.5.5) On a slow computer or an old browser Gmail can take a good while to open a message: wait
         // up to 30 seconds behind the loading screen (not Gmail's own page), and if Gmail hasn't opened
         // it from the address after 6 seconds, click the conversation in Gmail's list as well.
-        if (threadView && !ugfGmailThread().msgs.length) {
+        // (8.29, 8.30) Gmail's print view of the conversation is asked for the moment one is opened - it answers in
+        // about half a second - and whichever of it and Gmail's page comes first is what shows. (8.29 asked for it
+        // after 2 seconds and 6.5.5 after 8, which is what made the messages Gmail is slow with - short plain-text
+        // ones mostly - take ten seconds to open.) After 3 seconds the row is clicked in Gmail's own list as well,
+        // for a conversation neither has. The console says what the page held, and where the messages came from.
+        const thread = threadView ? ugfGmailThread() : null;
+        if (threadView && !thread.msgs.length) {
             const now = Date.now();
-            if (!ugfGmailRender.waitSince) {
-                ugfGmailRender.waitSince = now;
-            }
-            ugfGmailLoadingStart();
             const last = ugfGmailOpenRow.last;
-            if (last && !last.clicked && now - last.at > 6000) {
-                last.clicked = true;
-                const liveRow = ugfGmailLiveRow(last.item);
-                if (liveRow) {
-                    ugfGmailRealClick(liveRow.querySelector(".bog span") || liveRow.querySelector(".bog") ||
-                        liveRow.querySelector(".xT") || liveRow);
-                }
+            if (!ugfGmailRender.waitSince) {
+                // counted from the click on the row when this is the conversation it opened
+                ugfGmailRender.waitSince = last && now - last.at < 2000 ? last.at : now;
+                ugfGmailRender.waitTold = false;
+                // (for a conversation opened from its address, with no row clicked)
+                ugfGmailPrintFetch(ugfGmailPrintTid(), true);
             }
-            // still nothing after 8 seconds: read it from Gmail's print view instead
-            if (now - ugfGmailRender.waitSince > 8000) {
-                ugfGmailPrintFetch(ugfGmailPrintTid());
+            const waited = now - ugfGmailRender.waitSince;
+            ugfGmailLoadingStart();
+            if (last && !last.clicked && waited > 3000) {
+                last.clicked = true;
+                ugfGmailClickRow(last.item);
+            }
+            if (waited > 3000 && !ugfGmailRender.waitTold) {
+                ugfGmailRender.waitTold = true;
+                console.log("[Gplex] Gmail: the conversation is not on Gmail's page after 3 seconds: " + ugfGmailThreadState());
             }
             if (!ugfGmailRender.waitIv) {
                 ugfGmailRender.waitIv = setInterval(function() {
                     ugfGmailRender();
                 }, 1000);
             }
-            if (now - ugfGmailRender.waitSince > 30000) {
+            if (waited > 30000) {
                 clearInterval(ugfGmailRender.waitIv);
                 ugfGmailRender.waitIv = null;
                 ugfGmailRender.waitSince = 0;
                 ugfGmailHide();
             }
             return false;
+        }
+        if (ugfGmailRender.waitSince && thread) {
+            console.log("[Gplex] Gmail: conversation read from " + (thread.from === "print" ? "the print view" : "Gmail's page") +
+                " after " + ((Date.now() - ugfGmailRender.waitSince) / 1000).toFixed(1) + " s");
         }
         ugfGmailRender.waitSince = 0;
         if (ugfGmailRender.waitIv) {
@@ -81681,6 +81563,12 @@ html[gplex-gmail] body {
         ugfGmailSetFavicon();
         ugfGmailLoadingStart();
         ugfGmailI18nStart();
+        // (8.31) when the owner last clicked in the skin: a conversation they left by a click is not reopened
+        document.addEventListener("click", function(ev) {
+            if (ev.target && ev.target.closest && ev.target.closest("#ugf-gmail")) {
+                ugfGmailOpenRow.userAt = Date.now();
+            }
+        }, true);
         // if the skin never comes up, give the real Gmail back rather than
         // leaving the user on a spinner
         setTimeout(function() {
