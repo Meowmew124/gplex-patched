@@ -1704,8 +1704,52 @@ EDITS = [
      r'''        const theme = chrome === "m2013" ? ugfGmailTheme() : "";''',
      r'''        // (gplex-patched) the patch's themes are put on by ugfGmailApplyTheme (Gplex 8.x's own would draw over them)
         const theme = "";'''),
+    ("Image preview: fit the picture",
+     """    function ugfPlaceImageViewer(item) {""",
+     """    // (gplex-patched) the picture at its own size, as far as the panel allows, from the first moment:
+    // Google's small thumbnail is stretched to that size until the full picture has loaded (and stays
+    // so if it can't load); a small picture is never made bigger than it really is
+    function ugfFitImageViewerImg(img, panelH) {
+        const left = document.querySelector("#ugf-image-viewer-left");
+        let fw = parseInt(img.getAttribute("ugf-full-w"), 10) || 0;
+        let fh = parseInt(img.getAttribute("ugf-full-h"), 10) || 0;
+        if (img.naturalWidth > fw || !fh) {
+            fw = img.naturalWidth;
+            fh = img.naturalHeight;
+        }
+        if (!left || !fw || !fh) {
+            return;
+        }
+        const k = Math.min(1, (left.clientWidth - 40) / fw, (panelH - 40) / fh);
+        img.style.width = Math.round(fw * k) + "px";
+        img.style.height = Math.round(fh * k) + "px";
+        img.style.maxWidth = "none";
+        img.style.maxHeight = "none";
+    }
+    function ugfPlaceImageViewer(item) {"""),
+    ("Image preview: taller panel",
+     """        const h = Math.max(260, Math.min(380, window.innerHeight - 190));""",
+     """        // (gplex-patched) the panel as tall as Google's was, window allowing (from 2013, when it came)
+        const h = Math.max(260, Math.min(/^20(1[3-9]|2)/.test(document.documentElement.getAttribute("layout") || "") ? 580 : 380, window.innerHeight - 190));"""),
+    ("Image preview: size the picture with the panel",
+     """            img.style.maxHeight = (h - 40) + "px";""",
+     """            img.style.maxHeight = (h - 40) + "px";
+            ugfFitImageViewerImg(img, h);"""),
+    ("Image preview: the picture's real size",
+     """        container.insertBefore(newElem, container.children[0]);
+        ugfPlaceImageViewer(item);""",
+     """        container.insertBefore(newElem, container.children[0]);
+        // (gplex-patched) its real size, for the fit, and fitted again when each version of it loads
+        const ivImg = newElem.querySelector("#ugf-image-viewer-image img");
+        if (ivImg) {
+            ivImg.setAttribute("ugf-full-w", origW || w);
+            ivImg.setAttribute("ugf-full-h", origH || h);
+            ivImg.addEventListener("load", function() {
+                ugfFitImageViewerImg(ivImg, parseInt(newElem.style.height, 10) || 380);
+            });
+        }
+        ugfPlaceImageViewer(item);"""),
 ]
-
 
 # Which edits stand or fall together. When Gplex changes the code under one edit of a feature, the
 # whole feature is left out of that build (none of its edits applied, so nothing is half done) and
@@ -1759,6 +1803,12 @@ FEATURES = [
         "Gmail: Save draft saves",
         "Gmail: draft mode for the compose driver",
         "Gmail: a draft is the compose window closed unsent",
+    ]),
+    ("Image preview size", [
+        "Image preview: fit the picture",
+        "Image preview: taller panel",
+        "Image preview: size the picture with the panel",
+        "Image preview: the picture's real size",
     ]),
     ("Dark mode text boxes", [
         "dark mode: search box text stays readable",
