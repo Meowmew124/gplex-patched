@@ -1790,7 +1790,7 @@ EDITS = [
                 e.preventDefault();
                 doImageViewer(newElem);
             });
-            // (gplex-patched) the real picture in place of the thumbnail (search/imagesfull.js)
+            // (gplex-patched) its real picture fetched ahead, for the panel (search/imagesfull.js)
             if (typeof ugfImagesFull !== "undefined") {
                 ugfImagesFull.tile(newElem, ugfIsExcludedOriginalImageHost, ugfGetOriginalImage);
             }"""),
