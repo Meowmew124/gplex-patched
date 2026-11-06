@@ -1720,17 +1720,24 @@ EDITS = [
         if (!left || !fw || !fh) {
             return;
         }
-        const k = Math.min(1, (left.clientWidth - 40) / fw, (panelH - 40) / fh);
+        const cs = getComputedStyle(left);
+        const k = Math.min(1, (left.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / fw, (panelH - 40) / fh);
         img.style.width = Math.round(fw * k) + "px";
         img.style.height = Math.round(fh * k) + "px";
         img.style.maxWidth = "none";
         img.style.maxHeight = "none";
     }
-    function ugfPlaceImageViewer(item) {"""),
+    function ugfPlaceImageViewer(item) {
+        // (gplex-patched) 2014-2016: the panel as measured on recordings of it (search/images2016.js)
+        if (typeof ugfPanel2016 !== "undefined" && ugfPanel2016.on()) {
+            ugfPanel2016.place(item, ugfFitImageViewerImg, ugfPlaceImageViewer);
+            return;
+        }"""),
     ("Image preview: taller panel",
      """        const h = Math.max(260, Math.min(380, window.innerHeight - 190));""",
-     """        // (gplex-patched) the panel as tall as Google's was, window allowing (from 2013, when it came)
-        const h = Math.max(260, Math.min(/^20(1[3-9]|2)/.test(document.documentElement.getAttribute("layout") || "") ? 580 : 380, window.innerHeight - 190));"""),
+     """        // (gplex-patched) the panel as tall as Google's was, window allowing: 483 in January 2013, then 46% of its width
+        const ugfIvLayout = document.documentElement.getAttribute("layout") || "";
+        const h = Math.max(260, Math.min(ugfIvLayout === "2013" ? 483 : /^20(1[3-9]|2)/.test(ugfIvLayout) ? Math.round(host.clientWidth * 0.461) : 380, window.innerHeight - 190));"""),
     ("Image preview: size the picture with the panel",
      """            img.style.maxHeight = (h - 40) + "px";""",
      """            img.style.maxHeight = (h - 40) + "px";
@@ -1749,6 +1756,29 @@ EDITS = [
             });
         }
         ugfPlaceImageViewer(item);"""),
+    ("Image preview: clicking the open picture closes it, and the 2016 panel's extras",
+     """    function doImageViewer(item) {""",
+     """    function doImageViewer(item) {
+        const ugfP16 = typeof ugfPanel2016 !== "undefined" && ugfPanel2016.on();
+        if (ugfP16 && item === ugfActiveImageViewerCard && !ugfPanel2016.isClosing() && document.querySelector("#ugf-image-viewer-inner")) {
+            ugfCloseImageViewer();
+            return;
+        }
+        ugfDoImageViewerGplex(item);
+        if (ugfP16) {
+            ugfPanel2016.dress(item);
+        }
+    }
+    function ugfDoImageViewerGplex(item) {"""),
+    ("Image preview: the 2016 panel closes as it opened",
+     """    function ugfCloseImageViewer() {""",
+     """    function ugfCloseImageViewer() {
+        if (typeof ugfPanel2016 !== "undefined" && ugfPanel2016.on() && ugfPanel2016.close(ugfCloseImageViewerNow)) {
+            return;
+        }
+        ugfCloseImageViewerNow();
+    }
+    function ugfCloseImageViewerNow() {"""),
 ]
 
 # Which edits stand or fall together. When Gplex changes the code under one edit of a feature, the
@@ -1809,6 +1839,8 @@ FEATURES = [
         "Image preview: taller panel",
         "Image preview: size the picture with the panel",
         "Image preview: the picture's real size",
+        "Image preview: clicking the open picture closes it, and the 2016 panel's extras",
+        "Image preview: the 2016 panel closes as it opened",
     ]),
     ("Dark mode text boxes", [
         "dark mode: search box text stays readable",
