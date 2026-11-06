@@ -1779,6 +1779,27 @@ EDITS = [
         ugfCloseImageViewerNow();
     }
     function ugfCloseImageViewerNow() {"""),
+    ("Images at full resolution: each picture goes to the loader",
+     """            container.insertBefore(newElem, container.children[SRA.itemNo]);
+            newElem.addEventListener("click", function(e) {
+                e.preventDefault();
+                doImageViewer(newElem);
+            });""",
+     """            container.insertBefore(newElem, container.children[SRA.itemNo]);
+            newElem.addEventListener("click", function(e) {
+                e.preventDefault();
+                doImageViewer(newElem);
+            });
+            // (gplex-patched) the real picture in place of the thumbnail (search/imagesfull.js)
+            if (typeof ugfImagesFull !== "undefined") {
+                ugfImagesFull.tile(newElem, ugfIsExcludedOriginalImageHost, ugfGetOriginalImage);
+            }"""),
+    ("Images at full resolution: the panel gives the real size from the start",
+     """<span id="ugf-image-viewer-size" title="Size of the preview image. Actual image may be larger.">${w} &#215; ${h}</span>""",
+     """<span id="ugf-image-viewer-size"${origW && origH ? "" : ' title="Size of the preview image. Actual image may be larger."'}>${ugfEsc(origW || w)} &#215; ${ugfEsc(origH || h)}</span>"""),
+    ("Images at full resolution: the panel opens with the full picture",
+     """<a href="${link}" target="_blank"><img src="${src}" referrerpolicy="no-referrer"></img></a>""",
+     """<a href="${link}" target="_blank"><img src="${typeof ugfImagesFull !== "undefined" && ugfImagesFull.ready(bigSrc) ? ugfEsc(bigSrc) : src}" decoding="sync" referrerpolicy="no-referrer"></img></a>"""),
 ]
 
 # Which edits stand or fall together. When Gplex changes the code under one edit of a feature, the
@@ -1841,6 +1862,11 @@ FEATURES = [
         "Image preview: the picture's real size",
         "Image preview: clicking the open picture closes it, and the 2016 panel's extras",
         "Image preview: the 2016 panel closes as it opened",
+    ]),
+    ("Images at full resolution", [
+        "Images at full resolution: each picture goes to the loader",
+        "Images at full resolution: the panel gives the real size from the start",
+        "Images at full resolution: the panel opens with the full picture",
     ]),
     ("Dark mode text boxes", [
         "dark mode: search box text stays readable",

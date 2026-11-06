@@ -35,6 +35,7 @@ SEARCH_ADDONS = [
     ("ugfAioFit", "aio-fit.js", "AI Overview fits Gplex's card (expanded overview, its pictures)"),
     ("ugfTabs2016", "tabs2016.js", "2014-2016 search tabs chosen per search, the rest under More"),
     ("var ugfPanel2016 =", "images2016.js", "2014-2016 Google Images preview panel, as measured on recordings of it"),
+    ("var ugfImagesFull =", "imagesfull.js", "Google Images: the real pictures in place of the thumbnails"),
 ]
 # what the Gplex+ buttons need to hear a setting saved in another tab
 PLUS_HEADERS = [("grant", "GM_addValueChangeListener")]
