@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.37.182
+// @version      8.37.183
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -73275,7 +73275,7 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                 e.preventDefault();
                 doImageViewer(newElem);
             });
-            // (gplex-patched) the real picture in place of the thumbnail (search/imagesfull.js)
+            // (gplex-patched) its real picture fetched ahead, for the panel (search/imagesfull.js)
             if (typeof ugfImagesFull !== "undefined") {
                 ugfImagesFull.tile(newElem, ugfIsExcludedOriginalImageHost, ugfGetOriginalImage);
             }
@@ -113173,23 +113173,20 @@ var ugfPanel2016 = (function() {
     };
 })();
 
-// ---- Google Images: the real pictures, not the thumbnails (gplex-patched) --------------------
-// Google's page only carries small thumbnails (about 225 across), soft on a sharp screen, and a size
-// label that isn't the picture's real one. Here every picture on or near the screen is fetched from
-// its own site in the background and put in place of its thumbnail when it has arrived, at exactly
-// the thumbnail's place and size, so nothing on the page moves. The preview panel then opens with the
-// full picture straight away (Gplex's own code falls back to the thumbnail until a slower one comes).
-//
-// A picture is left as its thumbnail when it can't be used: the sites Gplex already won't embed,
-// animated GIFs (they'd all start moving in the grid), one that fails to load, and one that turns out
-// to be something else, such as a site's "no hotlinking" graphic (smaller than the thumbnail, or not
-// the shape Google says the picture is).
+// ---- Google Images: the preview panel opens sharp (gplex-patched) ----------------------------
+// Google's page only carries small thumbnails (about 225 across), so the panel used to start with one
+// stretched until the real picture had come from its own site, and its size label wasn't the picture's
+// real one. Here every picture on or near the screen is fetched ahead in the background and held, so
+// the panel has the real picture the moment it opens. The grid itself keeps Google's thumbnails: the
+// originals are only ever shown in the panel. (One clicked before it has arrived starts as the
+// thumbnail, by Gplex's own code, until it comes. So do the sites Gplex won't embed.)
 var ugfImagesFull = (function() {
     "use strict";
     const SLOTS = 6; // at a time; hovering over a picture starts it anyway
     const NEAR = "800px 0px"; // how far off the screen a picture is fetched ahead of being seen
-    const GIVE_UP_MS = 15000; // a slow site stops holding up the others (its picture still goes in if it comes)
-    const ready = new Set(); // the originals that have arrived and are good
+    const GIVE_UP_MS = 15000; // a slow site stops holding up the others (its picture is still kept if it comes)
+    const KEEP = 60; // pictures held in memory, the newest; hovering over an older one fetches it again
+    const kept = new Map();
     const state = new WeakMap();
     let queue = [];
     let busy = 0;
@@ -113213,49 +113210,11 @@ var ugfImagesFull = (function() {
             }
         });
     };
-    const genuine = function(el, im) {
-        const thumb = el.querySelector("img");
-        const w = num(el, "img-orig-w");
-        const h = num(el, "img-orig-h");
-        if (thumb && im.naturalWidth < thumb.naturalWidth) {
-            return false;
+    // decoded ahead, for the picture the pointer is on: the panel then draws it without a pause
+    const decode = function(im) {
+        if (im.decode) {
+            im.decode().catch(function() {});
         }
-        return !w || !h || Math.abs(im.naturalWidth / im.naturalHeight - w / h) < 0.15;
-    };
-    const swap = function(el, big, anyway) {
-        const img = el.querySelector("img");
-        if (!img || img.getAttribute("src") === big) {
-            return;
-        }
-        const broken = img.complete && img.naturalWidth === 0;
-        // (a thumbnail Google hasn't filled in yet: its place isn't known until it has)
-        if (!broken && !anyway && (!img.complete || img.naturalWidth < 2)) {
-            img.addEventListener("load", function() {
-                swap(el, big);
-            }, { once: true });
-            setTimeout(function() {
-                swap(el, big, true);
-            }, 3000);
-            return;
-        }
-        // same place, same size (one whose thumbnail never came takes its natural place)
-        if (img.naturalWidth >= 2) {
-            const cs = getComputedStyle(img);
-            if (!parseFloat(cs.width) || !parseFloat(cs.height)) {
-                return;
-            }
-            img.style.width = cs.width;
-            img.style.height = cs.height;
-            img.style.objectFit = "cover";
-            // the thumbnail stays behind it for the moment the big one takes to draw
-            img.style.background = 'url("' + (img.currentSrc || img.src).replace(/"/g, "%22") + '") 0 0 / 100% 100% no-repeat';
-            setTimeout(function() {
-                img.style.removeProperty("background");
-            }, 800);
-        }
-        img.referrerPolicy = "no-referrer";
-        img.decoding = "async";
-        img.src = big;
     };
     const load = function(el) {
         if (state.get(el) !== "waiting") {
@@ -113282,16 +113241,20 @@ var ugfImagesFull = (function() {
         const slow = setTimeout(release, GIVE_UP_MS);
         im.onload = function() {
             clearTimeout(slow);
-            if (genuine(el, im)) {
-                ready.add(big);
-                swap(el, big);
+            kept.delete(big);
+            kept.set(big, im);
+            while (kept.size > KEEP) {
+                kept.delete(kept.keys().next().value);
+            }
+            if (el.matches(":hover")) {
+                decode(im);
             }
             state.set(el, "done");
             release();
         };
         im.onerror = function() {
             clearTimeout(slow);
-            state.set(el, "done");
+            state.set(el, "failed");
             release();
         };
         im.referrerPolicy = "no-referrer";
@@ -113335,12 +113298,20 @@ var ugfImagesFull = (function() {
         }
         label(el);
         const big = el.getAttribute("img-big-src") || "";
-        if (!/^https?:/.test(big) || /\.gif(\?|$)/i.test(big) || (excluded && excluded(big))) {
+        if (!/^https?:/.test(big) || (excluded && excluded(big))) {
             return;
         }
         state.set(el, "waiting");
         watch().observe(el);
         el.addEventListener("pointerenter", function() {
+            const im = kept.get(big);
+            if (im) {
+                decode(im);
+                return;
+            }
+            if (state.get(el) === "done") {
+                state.set(el, "waiting");
+            }
             load(el);
         }, { passive: true });
     };
@@ -113348,7 +113319,7 @@ var ugfImagesFull = (function() {
         tile: tile,
         want: load,
         ready: function(url) {
-            return !!url && ready.has(url);
+            return !!url && kept.has(url);
         }
     };
 })();
