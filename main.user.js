@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.37.175
+// @version      8.37.178
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -72357,6 +72357,26 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
     }
     // (7.2.16) the viewer goes in the results under the clicked picture's row: that row moves its
     // margin down to make room, and the notch points at the picture
+    // (gplex-patched) the picture at its own size, as far as the panel allows, from the first moment:
+    // Google's small thumbnail is stretched to that size until the full picture has loaded (and stays
+    // so if it can't load); a small picture is never made bigger than it really is
+    function ugfFitImageViewerImg(img, panelH) {
+        const left = document.querySelector("#ugf-image-viewer-left");
+        let fw = parseInt(img.getAttribute("ugf-full-w"), 10) || 0;
+        let fh = parseInt(img.getAttribute("ugf-full-h"), 10) || 0;
+        if (img.naturalWidth > fw || !fh) {
+            fw = img.naturalWidth;
+            fh = img.naturalHeight;
+        }
+        if (!left || !fw || !fh) {
+            return;
+        }
+        const k = Math.min(1, (left.clientWidth - 40) / fw, (panelH - 40) / fh);
+        img.style.width = Math.round(fw * k) + "px";
+        img.style.height = Math.round(fh * k) + "px";
+        img.style.maxWidth = "none";
+        img.style.maxHeight = "none";
+    }
     function ugfPlaceImageViewer(item) {
         document.querySelectorAll(".ugf-image-result[ugf-iv-row]").forEach(function(e) {
             e.removeAttribute("ugf-iv-row");
@@ -72368,11 +72388,13 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         if (!item || !inner || !host || !item.isConnected) {
             return;
         }
-        const h = Math.max(260, Math.min(380, window.innerHeight - 190));
+        // (gplex-patched) the panel as tall as Google's was, window allowing (from 2013, when it came)
+        const h = Math.max(260, Math.min(/^20(1[3-9]|2)/.test(document.documentElement.getAttribute("layout") || "") ? 580 : 380, window.innerHeight - 190));
         inner.style.height = h + "px";
         const img = inner.querySelector("#ugf-image-viewer-image img");
         if (img) {
             img.style.maxHeight = (h - 40) + "px";
+            ugfFitImageViewerImg(img, h);
         }
         const top = item.offsetTop;
         const row = [].filter.call(item.parentElement.querySelectorAll(".ugf-image-result"), function(e) {
@@ -72470,6 +72492,15 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                                                 </div>
         `);
         container.insertBefore(newElem, container.children[0]);
+        // (gplex-patched) its real size, for the fit, and fitted again when each version of it loads
+        const ivImg = newElem.querySelector("#ugf-image-viewer-image img");
+        if (ivImg) {
+            ivImg.setAttribute("ugf-full-w", origW || w);
+            ivImg.setAttribute("ugf-full-h", origH || h);
+            ivImg.addEventListener("load", function() {
+                ugfFitImageViewerImg(ivImg, parseInt(newElem.style.height, 10) || 380);
+            });
+        }
         ugfPlaceImageViewer(item);
 
         // Progressive loader for large original image: strictly on-demand upon click
