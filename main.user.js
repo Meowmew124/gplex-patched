@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.37.179
+// @version      8.37.181
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -112983,6 +112983,8 @@ var ugfPanel2016 = (function() {
         inner.style.height = s.h + "px";
         inner.style.setProperty("--ugf-p16-right", s.right + "px");
         inner.style.removeProperty("clip-path");
+        box.style.left = -host.getBoundingClientRect().left + "px";
+        box.style.width = s.w + "px";
         const img = inner.querySelector("#ugf-image-viewer-image img");
         if (img) {
             img.style.maxHeight = "none";
@@ -113010,8 +113012,6 @@ var ugfPanel2016 = (function() {
             bottom = Math.max(bottom, e.getBoundingClientRect().bottom);
         });
         const top = Math.round(bottom - hr.top + 18);
-        box.style.left = -hr.left + "px";
-        box.style.width = s.w + "px";
         box.style.top = top + "px";
         const r = target.getBoundingClientRect();
         const notch = inner.querySelector("#ugf-image-viewer-notch");
