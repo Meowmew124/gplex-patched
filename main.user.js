@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.40.204
+// @version      8.42.205
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -41967,9 +41967,10 @@ const UGF_GPX = {"logo12": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHcAAA
 // (8.37) The Firefox add-on carries these files in its package and asks the site for none of them: see ugfWsFetch.
 // (8.38) The same for other sites' pages, each period's own era here: Google's Chrome download page and its thank-you page (k2008
 // to k2019, ugfChromePage) and Gmail's about page (m2013 to m2022, ugfGmailAbout), their pictures as captured.
+// (8.41) And Google Voice signed out, where voice.google.com sends it (v2009 to v2019, ugfVoiceAbout).
 const UGF_WS_DATA = "3";
 const UGF_WS_URL = "https://plus.gplexextended.com/static/ws-" + UGF_WS_DATA + "-";
-const UGF_WS_PAGES = {"a2007": {"home": "610ad615f3cee28a13cf8380cba217ecd0ee017613299ce18a30a4b524244d28", "business-small-business": "4b14dd271eceea06488c3e4345420fe25297ec056c548aedd91896bffb87fe82", "enterprise": "6c6ad017b0be218859d5a057a2c375efccac4646467881f8ccaaa8dd45a73487", "pricing": "7fb1fa98ea598788b92f5dd17564d14e871a71a315cdfaa2d6f597f8c2f9226b", "common": "9d819464f251846b81812b7506cdd4c34cb5456972e101b9c3e91fc90110fc6c"}, "a2009": {"home": "15a888aaa8ea9d803803aec0ca5b67c0744d71d7c796d78af78b8e0e431b4a8e", "customers": "e3e69d0235ee6963744148c36de1e45f634b1712dc0a886ba415a514bc4e2638", "products-docs": "feb4aece436115a92f072380e721bc1602471d9a97d36f337469ad5c21463195", "products-gmail": "db615f71962f7a95eb4698d264b539f70367c52d3fbc2de36e5db040cac7d535", "resources": "facdf75cddbce46b8974d3589bd5d1197d96e0baf0f0d233a091f66263cba5c8", "pricing": "a59ccc279ca0a760a2f6d52777ef0976aa6a0230a4147307f45eb66db6eca2e5", "common": "ff577dcdd7c63ed9f29909062ec5a226dabf368b6bd8542cba8f3325e892384d"}, "a2010": {"home": "ea5349f521396da84cb063e527837ff5d1da19a8a6c280507956fa9f8fdb7356", "business": "f46091cddaa706374e5f4663c7c80935247231cdc7be979ffbab559426cefcf9", "customers": "68c654733a2c1e4ad2081332be69f305e6bfe727879bb60af7697fd3e09deb68", "features": "6ccaaabe2addd046af72ad1e566085658bcdf1701d6c256a73f06e624d356a81", "products-calendar": "32891f3b65bdba5a822108198cca36c9c77feaecd37aae0b58f4a25efb5ee723", "products-docs": "dd134d0f2098f36cf2b61ef36cb01e1e9cd3b9cf9821d9985dc9e41c870f5e7a", "products-gmail": "f5f0430a35584c69b73a8956731e29cf899f3ddb4f5263f9e03b7998cb192f67", "products-sites": "de25bb8f1810f0063f57e7cf0a9c45c6fe98bdfbcca0fabe0e61f191b2df4f66", "resources": "a919fd9f081ce61931d1a1b7f15e72ca9b86c6b3a20b7601b8e8e4b27f16b668", "security": "25b03b24660a7e28329ea8d714165bd42a0f88c61cbc3783063472983f885ca4", "pricing": "6ccaaabe2addd046af72ad1e566085658bcdf1701d6c256a73f06e624d356a81", "common": "a6ef8a674cc57adc353bc526b1f4f5e404ded86416a114ef285cd55ff16c5fdf"}, "b2012": {"home": "840b84ea06037eb4cc3aab7d8efb86265e4b1961ea9e5e7f85225404502ccccd", "business": "7db95a90171d08f3ef4286f2626c59bc01846aeea0e8110da8c595e418b31928", "customers": "ecad9d4f3b6ead986f69cac6aab53ef6e812c6466525f6701db3e99842e175ef", "features": "e903112c3d4fe849d1ccfb7b12cbf0393230ded50f52f17c7c97c2a57c48bdec", "resources": "4b232e721b33d9163a365f616df438ee9b51dfc405488c68c2b2c74b07ffc626", "pricing": "c2e8948e7a733af9e4ad6813530466562112faae79194c8dc682e9c97a8fbc36", "common": "7a356ef01e84a1c02bb988f2111bee8591d10d11bc11548a8a04c405599fb531"}, "g2017": {"home": "7599afd2b5a65c30f877b14a0242993740547bbbef6e517a4047febcb83d6729", "customers": "ab0b52901d8fbf6085b6b26fd18d109ab5cb7150c8ebdf77b9047676a9596ea1", "faq": "ee594ccaf65948d313fe70e0f51660c8f868a6990c4334a9a3ac00ef1f30c2bf", "features": "bef86a47604a4941344a602d5cec43a045d950e724ad48101d11899bbbdbb5bb", "products-admin": "644a0cf3d3e81ee6977e0366dd32a63dddfbf893263231f3c107393e87252f93", "products-calendar": "56a3f31ebf7b64c4f3ccb281eb8972c10c92f70542ef29c2dcdc21c24e0f9f6b", "products-docs": "dbc348b421f63cf66c4631de6b01e5e15346e4d9b924339b02974952a595d01f", "products-drive": "cc94242ced7417e6f775a525fe9975a540ba2560ca24054e8f323002d2202858", "products-forms": "0d7d16fe04c8e603fd9fcdbbbc0a76cf6465f9dde8a8f444375907f9b2e07f1a", "products-gmail": "994782a6bd162c5cc8711d11332d47fe206c17ab2a3bfc0bfcc3b5c483441acc", "products-meet": "c2131937e38a06350254812c3aa90c7f3d2c080b80f02729ab67b99af87bf20d", "products-sheets": "b31c54c4a11eae4825ccefef4b62f33300ec4f8db8f278ccdbc822e623de40d7", "products-sites": "b4fa83d1e4310d53c921789a4c14c4826be663bd3d8204be532231d8964aefad", "products-slides": "a09bfab86c73995bfd7c4dad653913b5f5285969c9368e2ef6c4d2288bbb5779", "products-vault": "3bece55ffd4be53cbb61b8f0e732c89421800ad10b7e22fb3cf83f4a240459a1", "security": "cc6c386f0f2dbcddb319d6f3a5b47d436c0fdae7dc8afbbfc6b3b15c7b946600", "pricing": "69431e9e0ed9893a8caadbb971d1a637c5b37515886a445746398ae50727bad3", "common": "bf4eca14dcbc0e1aeed6a4c962dd28e28d6003ca1fd793697d34f88f1686128c"}, "k2008": {"home": "7cf91de2452ce833b5f3c556ea21dda7c1227f0e6ee19ddaf1f35b3b44308eb1", "thankyou": "19cd981e02377a8fbf4dd2132de6e7a5a279a5f596b5c68f8262bd1b5f8f064a", "common": "d3b4b1107b432537d5d0af6e3a0be0bb0e95dcc95b2847ca1868d50ec2bfcffa"}, "k2009": {"home": "9d88d7423e67d2353176714db2626038b3a6acc21bd513949d004940eeb97c5a", "thankyou": "85e22d5a396185198dd2104b16cbe7f34e7136108053772adb39ac686a353b7e", "common": "672af432ac13d4a8b458b7254bdbaeaf0654135ff8a5aac02903fa2a8b54ff48"}, "k2009l": {"home": "237350c4f7cfc04a9f1ef0777440554010241127732afbb736d128716a4c90e6", "thankyou": "b7ce0702586564871225915577b2632492d2267fa539652b9815849e956f1520", "common": "f5f79461148474bec60b010fb8e83f6edca08ad908034a7e59cbba660dadd8b0"}, "k2010": {"home": "355775ef45ae94bbd18c280b439803ce3814c537f43a86ac392c89838bbd63de", "thankyou": "df1bfc3d4822f7c78e497108495925b7d5e5def679a6840a4f76c5c683b0d2ae", "common": "9d841ecc9e4cc06343db1e0cc67737ef6ab3cb23da9a9498861dcfec3b532878"}, "k2011": {"home": "d8fc1ac6db636327ab51f2ac7a2ffd40215888fbda498b3dac9657e74aee71c4", "thankyou": "061c7f9c34917d3f80df9bce3a636014eee0f7670ea17108320c80430b8adc0e", "common": "a2dba6f3431d2332ce2a0ba228373394a9d2dd1fe32fa3983a94d641401be23b"}, "k2012": {"home": "84cbe3fe5b2489fbdb260d382610f8e91deec96b28a484794310602a4f452ccf", "thankyou": "8d54eb4960af81a355886697c2d44d31428d3ce19275330dcece7f08a45ee921", "common": "a5c60be09e1ef9a58d453e117197f026946a332f347903ba559a858fd4c7ecce"}, "k2013": {"home": "44827505ae5d9aa75832876b765af13fb331b9eccb79cd2b443cb6e830d552c9", "thankyou": "daeac100f7ba7ea6a3d3156790945a61a4ca8b96d96e9cbdec8a057e07231716", "common": "e901eb2096cea628b528a27af348bf162b64dde96499feb88f80b1371e86f631"}, "k2014": {"home": "1b67388b5e914ac7b2069068d0fca315c7f66dc1f613a6080cc431cfa3a5b27a", "thankyou": "d3275655f977a26ec7ee4735e12ad0af5b821616b98f98aa6543dcdca9621fab", "common": "c7dad89f0639c54e145209aab0a7b0f8af9aa4a72fa07eb08040ba07c92a4513"}, "k2015": {"home": "321576230a1ae679959c714000612c944c89804008e03c3ca24af4d57f07a995", "thankyou": "bd983e7822689a62c5563fbae0bca684f706163089cfa035979262ed7a110a0e", "common": "48448d4c6523daa9bc234f6d50ac7eeafc28d0e4ed5570ee7d9869b8a55c8123"}, "k2016": {"home": "3fe3846116f99f834f6864c198823e0ed4e626ab684aca6ded9a7f1fbcdf5929", "thankyou": "0f6b87fcd7cb01e428d0b50869297f0693067f5b9fa726428dd673bd7f6a217a", "common": "e82100f1e9d5f0e1bf101311966482b65ee964faf9b973bb337e16cdcdafeefe"}, "k2018": {"home": "0177a742331c0ff3777c515bc176b75f74eb2b44528a3d4a61a3bfb5cbf71889", "thankyou": "d0b670f9d0765c0eb2f36e9628d586dd619a181cf5229e748ddf56504975e6aa", "common": "8fb0001422c7118cac0708abab12ab386508ff086f4cacd20f6b830dbb75a1ef"}, "k2019": {"home": "61dd63ede827ad20375570be3cf81a00b5b9f6dcb3bd45cd9fe1b00c1c857133", "thankyou": "254d22b84cda61d0247eaec2844249a09af499a686c86d7cc253257ddadc57b8", "common": "5be96cd762be5187fa71d2561242a095716e4cc5cf262d9f27eb2c6cd323d9e8"}, "m2013": {"home": "0c541b3dec7f410dee0f86f064430f04950851e7d57a7a202ab1dfbbfd5c2d89", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2015": {"home": "58a637b9ee8e5041986f9bae85c1f712c2942bcbef4f57baf5bfce6c2f342f4d", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2016": {"home": "b077262991b42e6d4af5c0c7332362b01279bddaf5739f7e8744bcfce9a96015", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2019": {"home": "08ae8437a310432be27c11c71b4b426abac3a9afcbbc25fcc479d973684ff5e5", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2022": {"home": "e9ea806b0d10e4206cc7b10700b5437591492868d3a18f8e67fb2477b4209587", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "w2015": {"home": "7486c1760fb5b8f6da200363ce0c369dba9526e902acb0e38a418e84dfc5d304", "customers": "ced5cb74112cea4286af9ff01530d31b14c0f7f5852b257380968da772d64b2e", "features": "7e6b57242228e8a65e96e9b7cfc9bc00949a5913a1b1953eb5db4908c5f28879", "products-admin": "f0a6ee4482fcb88d766babb39bdba156eef514b590acf02046951adb52885d83", "products-calendar": "113ac470d6425ce972304e4baeae6a6a569d07dce59fd0bbe9670525215e9f0c", "products-docs": "2eb4c9795de71e0f99b26916042a0e3d79cf76313b16cb386064059e5ab14852", "products-drive": "151a9aa8e6f270da8747c36e0fbf02d9c3478fc4a4d8ccd1dfd3b9558831d143", "products-forms": "d6b61bf32cbbe79b34cf927dd5e8c8de9d522a1aa96bf2a5bdb85f4934296002", "products-gmail": "d4497bab4095e9763f5aa07803c5bd46a095a34798141be1a903bce997d6c359", "products-meet": "b1ccf06684dfb3de9fc71db8aacd275a14cb88913bb1f3e00ba8b7f3c25d2251", "products-sheets": "7009d709193e25db2e7eec8472d93e84830e703b4ee6a8464bf9a702d3eca933", "products-sites": "8952bf14c59e49221605d0d47f5dfa8cfe711da79644ec7a2eb0c85eb001bc00", "products-slides": "b417c184463d47ea0ed009b919f73a2be8eeb4bcc8d1113f3b2ea9b558e9749f", "products-vault": "1168bb24d85288db6f585532f03f4c269e344dd1a9d6129b8756a3e877084960", "security": "ace5508f4c4d352b4a274d1e1aa01bfcaa3af9fd1e442ad17f1ae43c5800d712", "pricing": "b8b1b0aabce88c47423f92732f7432ee2bbe3b787f568ce9603f87a79e1536e3", "common": "f5e7dcd4ad9e6b72ace7ddf5bf8e65b3bd7e1658198a078ff7d775bd9debe181"}, "w2016": {"home": "0ff0a5c6d1aa3e90f192d887d7fd9b325df0cf55132cc9b75bfacd7adc587cf7", "customers": "d43a7d94c591646d29f16c27f4ee39d5bbc62d83f7276ff21c0a97681ba2b588", "faq": "719ae9b611271c1376071e4a27fc0c863d01743912c52f90fe68eca4c6bd010c", "features": "1ec7cb71aa4b56180dbb903e79481766eb6004788e388533f8835f64b95e6e47", "products-admin": "4993229e8694249b47ecffe92302c1d4af7f274d1a1f54a2db455f37839905b6", "products-calendar": "9079b78d076ef38a2a813e28cb268caee2f3f041a989725fe6544da71c46576c", "products-docs": "35999740cdaa347f2df91a7174805703d07de86021400b52b21fcb3f66390fa3", "products-drive": "9d1a4cb824a4b6340173d9bdb1def46755dc2c27bfa8406651d6b9dd59aca403", "products-forms": "dfe4adc78bae168d23d263b11e00d865704baa9a5de0813e8236a90ed076eeb1", "products-gmail": "e2655d9011549255696ac87eab51a635de88ec5bae047ee6bbee4188fbd9ea76", "products-meet": "46ad75bbad17297dfa619a9263e7ce2fb595845effb54b61123cf768900e2d91", "products-sheets": "33eb7353a92f52048e3c52f9eae01b54a668118a7ddba35d4a5c1445845a0324", "products-sites": "20d795f5d6cf1c34cbe7b41ae87aa07b37ee97e49bb0d5a73c60f4d173fbed12", "products-slides": "ac5b29ea579e9edf70d66e0b9aeb69ab0e7b3ec8f63be6a5de7ae59e7f6a4a24", "products-vault": "3a13c18720c03eca006c40723800ba23ee9d7cbbf44ec01424363676d35f2387", "pricing": "5f0e1a75af36f9a19412418ec8bb3c10e44674b5c1514a9ed8a658439b6a39c8", "common": "3870891edb986158315be1951c74fca65a84bb00963332e761f17857967c448a"}, "ws2021": {"home": "8ed679c0da57c91360f53fb21fca37f032b8648199378c5df9cc1411599250ba", "customers": "36db1843b7b36228a10c57863d098d401b3c3c176656fa5cf1df4d17a89ffdc5", "faq": "3a1e504dc733eec3c3083ec08374469d97b0c2add72e3a7114127a592c8a5e5e", "features": "6883b856a57501cd619c968a9e75ebd6e15fbd1b365517f35fde4b05b906924e", "products-admin": "7c7cc9499d4c35d5bfe3a209bdcff35e6910514f8be892d879d591491bc07cf7", "products-calendar": "7b84a4b521f81aae181ebb080d13ab13898887c10f3916f8b8784c43f20e4ecf", "products-chat": "242c1189d09d7673a8669238248b48970fa0945b612700137360a650bb0231d3", "products-docs": "a6043d99cb325eec8c213a7c38cec28062212bc97257420ceafaa5e91933bc64", "products-drive": "1c1c62f6836864c23f8ddde305ad77b8299799f389a7e7e91f293e535bc48d1e", "products-forms": "a09c28c73b4173cc06eef1fc85a3523d4338bcdb6b7e0d0f2861ef53b2257f3a", "products-gmail": "b4fdbe8f9c7501eb96480e1f420ab0fda353c0295677e1f5fb36a2472f97412f", "products-keep": "088d17ff7a30d80839e9372be1973cb3559fb28d9549ada7e0e19e213c9a0972", "products-meet": "33407d9c4144e76b014e54a460a3747804aac0d2866a4e1cb809fee48db2c218", "products-sheets": "73bf608d2f5840f57c5978706398c564ef13487b32d6f9fecefcd200ba0787f8", "products-sites": "d88a6945ff1e2b04fb23edad519cc1018a971eeb7d9d01f5e9e68f2e1edf517f", "products-slides": "7ab2b0f88e5768bf39ca7ef45e869998d9ffce76071df5cc5a1e0fc6d08b1daa", "products-vault": "e2b9f7f526395f5fddd534d9f08fe60898abd1c6c1c54ecf99a9371209292ced", "security": "2483a5f245eb73e4d3d6dc14a9988466ff4a44447cfd2c6830bd49cb9a760949", "pricing": "cb4ad956610ae8e61bbd85333c4df65d0f00d49c39b8706955f26f2b46f90c2c", "common": "369924a32ec75abdeb5aef9882daa13f835ea4a2182dbf52a298d521ef6cbb4e"}};
+const UGF_WS_PAGES = {"a2007": {"home": "610ad615f3cee28a13cf8380cba217ecd0ee017613299ce18a30a4b524244d28", "business-small-business": "4b14dd271eceea06488c3e4345420fe25297ec056c548aedd91896bffb87fe82", "enterprise": "6c6ad017b0be218859d5a057a2c375efccac4646467881f8ccaaa8dd45a73487", "pricing": "7fb1fa98ea598788b92f5dd17564d14e871a71a315cdfaa2d6f597f8c2f9226b", "common": "9d819464f251846b81812b7506cdd4c34cb5456972e101b9c3e91fc90110fc6c"}, "a2009": {"home": "15a888aaa8ea9d803803aec0ca5b67c0744d71d7c796d78af78b8e0e431b4a8e", "customers": "e3e69d0235ee6963744148c36de1e45f634b1712dc0a886ba415a514bc4e2638", "products-docs": "feb4aece436115a92f072380e721bc1602471d9a97d36f337469ad5c21463195", "products-gmail": "db615f71962f7a95eb4698d264b539f70367c52d3fbc2de36e5db040cac7d535", "resources": "facdf75cddbce46b8974d3589bd5d1197d96e0baf0f0d233a091f66263cba5c8", "pricing": "a59ccc279ca0a760a2f6d52777ef0976aa6a0230a4147307f45eb66db6eca2e5", "common": "ff577dcdd7c63ed9f29909062ec5a226dabf368b6bd8542cba8f3325e892384d"}, "a2010": {"home": "ea5349f521396da84cb063e527837ff5d1da19a8a6c280507956fa9f8fdb7356", "business": "f46091cddaa706374e5f4663c7c80935247231cdc7be979ffbab559426cefcf9", "customers": "68c654733a2c1e4ad2081332be69f305e6bfe727879bb60af7697fd3e09deb68", "features": "6ccaaabe2addd046af72ad1e566085658bcdf1701d6c256a73f06e624d356a81", "products-calendar": "32891f3b65bdba5a822108198cca36c9c77feaecd37aae0b58f4a25efb5ee723", "products-docs": "dd134d0f2098f36cf2b61ef36cb01e1e9cd3b9cf9821d9985dc9e41c870f5e7a", "products-gmail": "f5f0430a35584c69b73a8956731e29cf899f3ddb4f5263f9e03b7998cb192f67", "products-sites": "de25bb8f1810f0063f57e7cf0a9c45c6fe98bdfbcca0fabe0e61f191b2df4f66", "resources": "a919fd9f081ce61931d1a1b7f15e72ca9b86c6b3a20b7601b8e8e4b27f16b668", "security": "25b03b24660a7e28329ea8d714165bd42a0f88c61cbc3783063472983f885ca4", "pricing": "6ccaaabe2addd046af72ad1e566085658bcdf1701d6c256a73f06e624d356a81", "common": "a6ef8a674cc57adc353bc526b1f4f5e404ded86416a114ef285cd55ff16c5fdf"}, "b2012": {"home": "840b84ea06037eb4cc3aab7d8efb86265e4b1961ea9e5e7f85225404502ccccd", "business": "7db95a90171d08f3ef4286f2626c59bc01846aeea0e8110da8c595e418b31928", "customers": "ecad9d4f3b6ead986f69cac6aab53ef6e812c6466525f6701db3e99842e175ef", "features": "e903112c3d4fe849d1ccfb7b12cbf0393230ded50f52f17c7c97c2a57c48bdec", "resources": "4b232e721b33d9163a365f616df438ee9b51dfc405488c68c2b2c74b07ffc626", "pricing": "c2e8948e7a733af9e4ad6813530466562112faae79194c8dc682e9c97a8fbc36", "common": "7a356ef01e84a1c02bb988f2111bee8591d10d11bc11548a8a04c405599fb531"}, "g2017": {"home": "7599afd2b5a65c30f877b14a0242993740547bbbef6e517a4047febcb83d6729", "customers": "ab0b52901d8fbf6085b6b26fd18d109ab5cb7150c8ebdf77b9047676a9596ea1", "faq": "ee594ccaf65948d313fe70e0f51660c8f868a6990c4334a9a3ac00ef1f30c2bf", "features": "bef86a47604a4941344a602d5cec43a045d950e724ad48101d11899bbbdbb5bb", "products-admin": "644a0cf3d3e81ee6977e0366dd32a63dddfbf893263231f3c107393e87252f93", "products-calendar": "56a3f31ebf7b64c4f3ccb281eb8972c10c92f70542ef29c2dcdc21c24e0f9f6b", "products-docs": "dbc348b421f63cf66c4631de6b01e5e15346e4d9b924339b02974952a595d01f", "products-drive": "cc94242ced7417e6f775a525fe9975a540ba2560ca24054e8f323002d2202858", "products-forms": "0d7d16fe04c8e603fd9fcdbbbc0a76cf6465f9dde8a8f444375907f9b2e07f1a", "products-gmail": "994782a6bd162c5cc8711d11332d47fe206c17ab2a3bfc0bfcc3b5c483441acc", "products-meet": "c2131937e38a06350254812c3aa90c7f3d2c080b80f02729ab67b99af87bf20d", "products-sheets": "b31c54c4a11eae4825ccefef4b62f33300ec4f8db8f278ccdbc822e623de40d7", "products-sites": "b4fa83d1e4310d53c921789a4c14c4826be663bd3d8204be532231d8964aefad", "products-slides": "a09bfab86c73995bfd7c4dad653913b5f5285969c9368e2ef6c4d2288bbb5779", "products-vault": "3bece55ffd4be53cbb61b8f0e732c89421800ad10b7e22fb3cf83f4a240459a1", "security": "cc6c386f0f2dbcddb319d6f3a5b47d436c0fdae7dc8afbbfc6b3b15c7b946600", "pricing": "69431e9e0ed9893a8caadbb971d1a637c5b37515886a445746398ae50727bad3", "common": "bf4eca14dcbc0e1aeed6a4c962dd28e28d6003ca1fd793697d34f88f1686128c"}, "k2008": {"home": "7cf91de2452ce833b5f3c556ea21dda7c1227f0e6ee19ddaf1f35b3b44308eb1", "thankyou": "19cd981e02377a8fbf4dd2132de6e7a5a279a5f596b5c68f8262bd1b5f8f064a", "common": "d3b4b1107b432537d5d0af6e3a0be0bb0e95dcc95b2847ca1868d50ec2bfcffa"}, "k2009": {"home": "9d88d7423e67d2353176714db2626038b3a6acc21bd513949d004940eeb97c5a", "thankyou": "85e22d5a396185198dd2104b16cbe7f34e7136108053772adb39ac686a353b7e", "common": "672af432ac13d4a8b458b7254bdbaeaf0654135ff8a5aac02903fa2a8b54ff48"}, "k2009l": {"home": "237350c4f7cfc04a9f1ef0777440554010241127732afbb736d128716a4c90e6", "thankyou": "b7ce0702586564871225915577b2632492d2267fa539652b9815849e956f1520", "common": "f5f79461148474bec60b010fb8e83f6edca08ad908034a7e59cbba660dadd8b0"}, "k2010": {"home": "355775ef45ae94bbd18c280b439803ce3814c537f43a86ac392c89838bbd63de", "thankyou": "df1bfc3d4822f7c78e497108495925b7d5e5def679a6840a4f76c5c683b0d2ae", "common": "9d841ecc9e4cc06343db1e0cc67737ef6ab3cb23da9a9498861dcfec3b532878"}, "k2011": {"home": "d8fc1ac6db636327ab51f2ac7a2ffd40215888fbda498b3dac9657e74aee71c4", "thankyou": "061c7f9c34917d3f80df9bce3a636014eee0f7670ea17108320c80430b8adc0e", "common": "a2dba6f3431d2332ce2a0ba228373394a9d2dd1fe32fa3983a94d641401be23b"}, "k2012": {"home": "84cbe3fe5b2489fbdb260d382610f8e91deec96b28a484794310602a4f452ccf", "thankyou": "8d54eb4960af81a355886697c2d44d31428d3ce19275330dcece7f08a45ee921", "common": "a5c60be09e1ef9a58d453e117197f026946a332f347903ba559a858fd4c7ecce"}, "k2013": {"home": "44827505ae5d9aa75832876b765af13fb331b9eccb79cd2b443cb6e830d552c9", "thankyou": "daeac100f7ba7ea6a3d3156790945a61a4ca8b96d96e9cbdec8a057e07231716", "common": "e901eb2096cea628b528a27af348bf162b64dde96499feb88f80b1371e86f631"}, "k2014": {"home": "1b67388b5e914ac7b2069068d0fca315c7f66dc1f613a6080cc431cfa3a5b27a", "thankyou": "d3275655f977a26ec7ee4735e12ad0af5b821616b98f98aa6543dcdca9621fab", "common": "c7dad89f0639c54e145209aab0a7b0f8af9aa4a72fa07eb08040ba07c92a4513"}, "k2015": {"home": "321576230a1ae679959c714000612c944c89804008e03c3ca24af4d57f07a995", "thankyou": "bd983e7822689a62c5563fbae0bca684f706163089cfa035979262ed7a110a0e", "common": "48448d4c6523daa9bc234f6d50ac7eeafc28d0e4ed5570ee7d9869b8a55c8123"}, "k2016": {"home": "3fe3846116f99f834f6864c198823e0ed4e626ab684aca6ded9a7f1fbcdf5929", "thankyou": "0f6b87fcd7cb01e428d0b50869297f0693067f5b9fa726428dd673bd7f6a217a", "common": "e82100f1e9d5f0e1bf101311966482b65ee964faf9b973bb337e16cdcdafeefe"}, "k2018": {"home": "0177a742331c0ff3777c515bc176b75f74eb2b44528a3d4a61a3bfb5cbf71889", "thankyou": "d0b670f9d0765c0eb2f36e9628d586dd619a181cf5229e748ddf56504975e6aa", "common": "8fb0001422c7118cac0708abab12ab386508ff086f4cacd20f6b830dbb75a1ef"}, "k2019": {"home": "61dd63ede827ad20375570be3cf81a00b5b9f6dcb3bd45cd9fe1b00c1c857133", "thankyou": "254d22b84cda61d0247eaec2844249a09af499a686c86d7cc253257ddadc57b8", "common": "5be96cd762be5187fa71d2561242a095716e4cc5cf262d9f27eb2c6cd323d9e8"}, "m2013": {"home": "0c541b3dec7f410dee0f86f064430f04950851e7d57a7a202ab1dfbbfd5c2d89", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2015": {"home": "58a637b9ee8e5041986f9bae85c1f712c2942bcbef4f57baf5bfce6c2f342f4d", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2016": {"home": "b077262991b42e6d4af5c0c7332362b01279bddaf5739f7e8744bcfce9a96015", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2019": {"home": "08ae8437a310432be27c11c71b4b426abac3a9afcbbc25fcc479d973684ff5e5", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2022": {"home": "e9ea806b0d10e4206cc7b10700b5437591492868d3a18f8e67fb2477b4209587", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "w2015": {"home": "7486c1760fb5b8f6da200363ce0c369dba9526e902acb0e38a418e84dfc5d304", "customers": "ced5cb74112cea4286af9ff01530d31b14c0f7f5852b257380968da772d64b2e", "features": "7e6b57242228e8a65e96e9b7cfc9bc00949a5913a1b1953eb5db4908c5f28879", "products-admin": "f0a6ee4482fcb88d766babb39bdba156eef514b590acf02046951adb52885d83", "products-calendar": "113ac470d6425ce972304e4baeae6a6a569d07dce59fd0bbe9670525215e9f0c", "products-docs": "2eb4c9795de71e0f99b26916042a0e3d79cf76313b16cb386064059e5ab14852", "products-drive": "151a9aa8e6f270da8747c36e0fbf02d9c3478fc4a4d8ccd1dfd3b9558831d143", "products-forms": "d6b61bf32cbbe79b34cf927dd5e8c8de9d522a1aa96bf2a5bdb85f4934296002", "products-gmail": "d4497bab4095e9763f5aa07803c5bd46a095a34798141be1a903bce997d6c359", "products-meet": "b1ccf06684dfb3de9fc71db8aacd275a14cb88913bb1f3e00ba8b7f3c25d2251", "products-sheets": "7009d709193e25db2e7eec8472d93e84830e703b4ee6a8464bf9a702d3eca933", "products-sites": "8952bf14c59e49221605d0d47f5dfa8cfe711da79644ec7a2eb0c85eb001bc00", "products-slides": "b417c184463d47ea0ed009b919f73a2be8eeb4bcc8d1113f3b2ea9b558e9749f", "products-vault": "1168bb24d85288db6f585532f03f4c269e344dd1a9d6129b8756a3e877084960", "security": "ace5508f4c4d352b4a274d1e1aa01bfcaa3af9fd1e442ad17f1ae43c5800d712", "pricing": "b8b1b0aabce88c47423f92732f7432ee2bbe3b787f568ce9603f87a79e1536e3", "common": "f5e7dcd4ad9e6b72ace7ddf5bf8e65b3bd7e1658198a078ff7d775bd9debe181"}, "w2016": {"home": "0ff0a5c6d1aa3e90f192d887d7fd9b325df0cf55132cc9b75bfacd7adc587cf7", "customers": "d43a7d94c591646d29f16c27f4ee39d5bbc62d83f7276ff21c0a97681ba2b588", "faq": "719ae9b611271c1376071e4a27fc0c863d01743912c52f90fe68eca4c6bd010c", "features": "1ec7cb71aa4b56180dbb903e79481766eb6004788e388533f8835f64b95e6e47", "products-admin": "4993229e8694249b47ecffe92302c1d4af7f274d1a1f54a2db455f37839905b6", "products-calendar": "9079b78d076ef38a2a813e28cb268caee2f3f041a989725fe6544da71c46576c", "products-docs": "35999740cdaa347f2df91a7174805703d07de86021400b52b21fcb3f66390fa3", "products-drive": "9d1a4cb824a4b6340173d9bdb1def46755dc2c27bfa8406651d6b9dd59aca403", "products-forms": "dfe4adc78bae168d23d263b11e00d865704baa9a5de0813e8236a90ed076eeb1", "products-gmail": "e2655d9011549255696ac87eab51a635de88ec5bae047ee6bbee4188fbd9ea76", "products-meet": "46ad75bbad17297dfa619a9263e7ce2fb595845effb54b61123cf768900e2d91", "products-sheets": "33eb7353a92f52048e3c52f9eae01b54a668118a7ddba35d4a5c1445845a0324", "products-sites": "20d795f5d6cf1c34cbe7b41ae87aa07b37ee97e49bb0d5a73c60f4d173fbed12", "products-slides": "ac5b29ea579e9edf70d66e0b9aeb69ab0e7b3ec8f63be6a5de7ae59e7f6a4a24", "products-vault": "3a13c18720c03eca006c40723800ba23ee9d7cbbf44ec01424363676d35f2387", "pricing": "5f0e1a75af36f9a19412418ec8bb3c10e44674b5c1514a9ed8a658439b6a39c8", "common": "3870891edb986158315be1951c74fca65a84bb00963332e761f17857967c448a"}, "ws2021": {"home": "8ed679c0da57c91360f53fb21fca37f032b8648199378c5df9cc1411599250ba", "customers": "36db1843b7b36228a10c57863d098d401b3c3c176656fa5cf1df4d17a89ffdc5", "faq": "3a1e504dc733eec3c3083ec08374469d97b0c2add72e3a7114127a592c8a5e5e", "features": "6883b856a57501cd619c968a9e75ebd6e15fbd1b365517f35fde4b05b906924e", "products-admin": "7c7cc9499d4c35d5bfe3a209bdcff35e6910514f8be892d879d591491bc07cf7", "products-calendar": "7b84a4b521f81aae181ebb080d13ab13898887c10f3916f8b8784c43f20e4ecf", "products-chat": "242c1189d09d7673a8669238248b48970fa0945b612700137360a650bb0231d3", "products-docs": "a6043d99cb325eec8c213a7c38cec28062212bc97257420ceafaa5e91933bc64", "products-drive": "1c1c62f6836864c23f8ddde305ad77b8299799f389a7e7e91f293e535bc48d1e", "products-forms": "a09c28c73b4173cc06eef1fc85a3523d4338bcdb6b7e0d0f2861ef53b2257f3a", "products-gmail": "b4fdbe8f9c7501eb96480e1f420ab0fda353c0295677e1f5fb36a2472f97412f", "products-keep": "088d17ff7a30d80839e9372be1973cb3559fb28d9549ada7e0e19e213c9a0972", "products-meet": "33407d9c4144e76b014e54a460a3747804aac0d2866a4e1cb809fee48db2c218", "products-sheets": "73bf608d2f5840f57c5978706398c564ef13487b32d6f9fecefcd200ba0787f8", "products-sites": "d88a6945ff1e2b04fb23edad519cc1018a971eeb7d9d01f5e9e68f2e1edf517f", "products-slides": "7ab2b0f88e5768bf39ca7ef45e869998d9ffce76071df5cc5a1e0fc6d08b1daa", "products-vault": "e2b9f7f526395f5fddd534d9f08fe60898abd1c6c1c54ecf99a9371209292ced", "security": "2483a5f245eb73e4d3d6dc14a9988466ff4a44447cfd2c6830bd49cb9a760949", "pricing": "cb4ad956610ae8e61bbd85333c4df65d0f00d49c39b8706955f26f2b46f90c2c", "common": "369924a32ec75abdeb5aef9882daa13f835ea4a2182dbf52a298d521ef6cbb4e"}, "v2009": {"home": "854049bca89953badb13529c79180c59fcf2990906f394726061eaa0b55b33a6", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2009l": {"home": "de50a58f88431b3fa351582b78e0a88234c6c118ead2d831c4d5cd9c187d7356", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2010": {"home": "c14f0a42ebef3c46fa6a1d02b99c0f5ec8d02a0e3915f81c735a442065845adb", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2012": {"home": "a81140a4b988ecbb9623ed53dad2393a18508afde5669e382281be1cf99892d5", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2014": {"home": "82007d74eecff1aa9b7bed79de6259d48c00f51615ded6bc5702f00ddd4c306c", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2015": {"home": "6965ab0a914a6d77e72221d79df9a2228f269288a941c0e30c89d41fbfe15656", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2017": {"home": "1db64af904031d138df5c250cd245c53dacf1a19539c27802167af7c51778eb7", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2019": {"home": "3e1b8996007eafc7b4fe3dbdcd677759b30434bb1a8952deb6969bc76936a099", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}};
 // A stored page's text: the browser's copy, or from the site the first time (then kept), or null if neither can be had. Only
 // the file whose SHA-256 is sum counts: a damaged or changed one is never shown, and a damaged copy is replaced.
 function ugfWsFetch(url, sum, done, answered) {
@@ -49335,6 +49336,148 @@ function ugfWsControls(body) {
         ev.preventDefault();
     }, true);
 }
+// ---- Gplex Google Voice page (signed out) ----
+// (8.41) voice.google.com sends a browser that is not signed in to workspace.google.com/products/voice/, today's business page, so every
+// layout showed today's page. In its place Google's own signed-out Voice page of the period, stored (ugfStoredSite), from the Wayback
+// Machine: Voice's sign-in page with its features, which google.com/voice showed, of June 2009 (layouts up to 2009: Voice began on 11
+// March 2009, after GrandCentral, so the layouts before it have its first page), of March 2010 (Late 2009-Early 2010), of November 2010
+// (2010-Early 2011) and accounts.google.com's of June 2012 (Late 2011 to 2013); from late 2013 that was the plain "One account. All of
+// Google." box, so the Features page with its videos, of February 2014 (Late 2013 to 2015) and January 2016 with Google's new logo (Late
+// 2015 to Late 2016); voice.google.com/about of August 2017 (2017-2018) and June 2020 (2019-Early 2022). 2022 keeps today's. Sign in is
+// today's sign-in to Voice, and the old sign-in box's fields have no names: nothing typed in them leaves the page. ?gplex=false shows
+// today's page (the pages' "For work"). The switch is "Gplex for the Workspace sites", as for the Voice app.
+function ugfVoiceEra(L) {
+    // (Late 2013 to Late 2014 are kept as 2014 with a flag, Early and Late 2016 as 2016 with one)
+    return ({ "2009": "v2009", "2009L": "v2009l", "2010": "v2010", "2010N": "v2010", "2011": "v2012", "2012": "v2012", "2013": "v2012",
+        "2013L": "v2012", "2014": "v2014", "2015": "v2014", "2015L": "v2014", "2015N": "v2015", "2016": "v2015", "2016C": "v2015", "2016L": "v2015",
+        "2018": "v2017", "2018M": "v2017", "2019": "v2019" })[L] || (/^(retro|1|200[0-8])/.test(L) ? "v2009" : null);
+}
+function ugfVoiceAbout() {
+    if (/[?&]gplex=false\b/.test(window.location.search || "")) {
+        return false;
+    }
+    const L = ugfSharedLayout(ugfWsValue);
+    const era = ugfVoiceEra(L);
+    try {
+        console.log("[Gplex] Voice (signed out): layout " + L + ", " + (era ? "Google's page of the period, " + era : "today's page"));
+    } catch (e) {}
+    if (!era) {
+        return false;
+    }
+    const SIGNIN = "https://accounts.google.com/ServiceLogin?service=grandcentral&continue=https%3A%2F%2Fvoice.google.com%2F";
+    const each = function(list, fn) {
+        Array.prototype.forEach.call(list, fn);
+    };
+    return ugfStoredSite(era, "home", { mark: "gplex-voice-about", icon: function(P, fill) {
+        // the June 2012 page also serves Late 2012-2013, after the blue icon of August 2012
+        const icon = era === "v2012" && /^2013/.test(L) ? "2012" : P.icon;
+        return UGF_PRODUCTS._icons[icon] || fill(icon);
+    }, ready: function(body) {
+        // the old sign-in box: Sign in (and Enter) goes to today's sign-in to Voice, and what was typed stays here and is cleared
+        each(body.querySelectorAll("form"), function(form) {
+            form.addEventListener("submit", function(ev) {
+                ev.preventDefault();
+                each(form.querySelectorAll("input[type=password], input[type=text], input[type=email]"), function(i) {
+                    i.value = "";
+                });
+                window.location.href = SIGNIN;
+            }, true);
+        });
+        // the Features page's list: each feature shows its video's picture, which leads to the video (the page played it in a box)
+        const tabs = body.querySelectorAll(".gweb-tabset-nav li");
+        const show = function(id) {
+            const pane = id && body.querySelector(".gweb-tabset-content[id='" + id.replace(/[^\w-]/g, "") + "']");
+            if (!pane) {
+                return false;
+            }
+            each(body.querySelectorAll(".gweb-tabset-content"), function(c) {
+                c.classList.toggle("gweb-tabset-content-active", c === pane);
+            });
+            each(tabs, function(li) {
+                const a = li.querySelector("a[href^='#']");
+                li.classList.toggle("gweb-tabset-nav-active", !!a && a.getAttribute("href") === "#" + pane.id);
+            });
+            return true;
+        };
+        each(tabs, function(li) {
+            const a = li.querySelector("a[href^='#']");
+            if (a) {
+                a.addEventListener("click", function(ev) {
+                    ev.preventDefault();
+                    show(a.getAttribute("href").slice(1));
+                });
+            }
+        });
+        if (tabs.length) {
+            show((window.location.hash || "").slice(1));
+        }
+        // 2017 and 2020: GET GOOGLE VOICE opens its three choices (Android, iPhone, the web), each going to its place; a phone goes
+        // straight to its own store from the bottom one; the header's button shows once the page's own has gone past the top
+        body.addEventListener("click", function(ev) {
+            const btn = ev.target && ev.target.closest ? ev.target.closest("button") : null;
+            if (!btn || !body.contains(btn)) {
+                return;
+            }
+            const parent = btn.parentNode;
+            const pc = parent && parent.classList ? parent.classList : { contains: function() { return false; } };
+            const to = btn.classList.contains("androidButton") || pc.contains("androidOnly") ? "https://play.google.com/store/apps/details?id=com.google.android.apps.googlevoice"
+                : btn.classList.contains("iOSButton") || pc.contains("iOSOnly") ? "https://apps.apple.com/us/app/google-voice/id318698524"
+                : btn.classList.contains("webButton") ? "https://voice.google.com/signup" : "";
+            if (to) {
+                window.location.href = to;
+            } else if (btn.classList.contains("toggleOptions") && parent.classList) {
+                parent.classList.toggle("showOptions");
+            }
+        });
+        const footer = body.querySelector(".footer .getGoogleVoiceWrapper");
+        const ua = window.navigator.userAgent || "";
+        if (footer && /iPhone/.test(ua)) {
+            footer.classList.add("iOSOnly");
+        } else if (footer && /Android/.test(ua)) {
+            footer.classList.add("androidOnly");
+        }
+        const header = body.querySelector("#header");
+        const marks = [body.querySelector("#heroToggle"), body.querySelector("#getVoiceToggle")].filter(Boolean);
+        if (header && marks.length) {
+            const toggle = function() {
+                header.classList.toggle("showToggle", marks.some(function(m) {
+                    return m.getBoundingClientRect().bottom < 64;
+                }));
+            };
+            window.addEventListener("scroll", toggle, { passive: true });
+            window.addEventListener("resize", toggle);
+            toggle();
+        }
+        // 2017's headline: its words come up one after another every two seconds, the last staying
+        const first = body.querySelector("#answerStart");
+        if (first) {
+            each(first.parentNode.children, function(e) {
+                e.classList.remove("spinUp", "spinUpLast");
+            });
+            const spin = function(e) {
+                if (document.hidden) {
+                    setTimeout(function() {
+                        spin(e);
+                    }, 500);
+                    return;
+                }
+                const next = e.nextElementSibling;
+                if (!next) {
+                    e.classList.add("spinUpLast");
+                    return;
+                }
+                e.classList.add("spinUp");
+                setTimeout(function() {
+                    spin(next);
+                }, 2000);
+            };
+            setTimeout(function() {
+                spin(first);
+            }, 500);
+        }
+    } });
+}
+// ---- end Gplex Google Voice page ----
 function ugfWorkspaceSite() {
     const m = /^\/(?:intl\/[^/]+(?:\/|$))?(.*?)(?:\.html)?\/?$/.exec(window.location.pathname || "/");
     if (window.location.host !== "workspace.google.com" || window.top !== window.self || !m) {
@@ -49368,13 +49511,19 @@ function ugfWorkspaceSite() {
         } catch (e) {}
         return false;
     }
+    // (8.41) Google Voice signed out, where voice.google.com sends it, is ugfVoiceAbout's (today's page with the chrome if it shows none)
+    if (m[1] === "products/voice") {
+        return ugfVoiceAbout();
+    }
     const slug = m[1].replace(/\//g, "-");
     const L = ugfSharedLayout(ugfWsValue);
-    const era = ugfWorkspaceEra(L);
     const file = slug || "home";
     if (slug === "home" || slug === "common") {
         return false;
     }
+    // (8.41) Meet's page, where signed-out meet.google.com goes, is its earliest (Hangouts' of December 2014) before 2015
+    const own = ugfWorkspaceEra(L);
+    const era = file === "products-meet" && own && !Object.prototype.hasOwnProperty.call(UGF_WS_PAGES[own], file) ? "w2015" : own;
     // the 2012 page also serves Late 2011-Early 2012, before the blue icon of August 2012
     return ugfStoredSite(era, file, { mark: "gplex-ws-site", ready: ugfWsControls, icon: function(P, fill) {
         const icon = era === "b2012" && /^201[12]$/.test(L) ? "2010" : P.icon;
@@ -93785,8 +93934,9 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         // start says what Gplex does here and why, and one more what it found of Google's page, for the owner to send in:
         // Google's signed-in page can't be opened from where Gplex is made.
         const era = ugfMeetEra();
+        // (8.42) with its query, which ugfMeetHome reads too (?calling=1)
         const where = function() {
-            return window.location.pathname || "/";
+            return (window.location.pathname || "/") + (window.location.search || "");
         };
         const say = function(s) {
             console.log("[Gplex] Meet: layout " + ugfLayoutLabel() + (era ? " (" + era + ")" : "") + (UGF_VERSION ? ", Gplex " + UGF_VERSION : "") + ": " + s);
@@ -93878,8 +94028,11 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
     // (8.40) Also an account's "/u/1/" and the home under "/meet/", as some links of 2026 have it (no Google source says so;
     // a meeting there, or under "/_meet/", stays a meeting); ?authuser= is in the query, not the path. The Calls of the rail
     // ("/calling") and the rest of Meet's pages stay Google's: the period had no such page.
+    // (8.42) And "/home", the home's address signed in in 2026, as the owner's console line showed; "/landing?calling=1",
+    // where old /calling links go, is Calls
     function ugfMeetHome() {
-        return /^(\/u\/\d+)?(\/meet)?(\/landing)?\/?$/.test(window.location.pathname || "/");
+        return /^(\/u\/\d+)?(\/meet)?(\/landing|\/home)?\/?$/.test(window.location.pathname || "/") &&
+            !/[?&]calling=1(&|$)/.test(window.location.search || "");
     }
     function ugfMeetMine(el) {
         return !!(el && el.closest && el.closest("#ugf-meet"));
@@ -95072,10 +95225,12 @@ html[gplex-meet] #ugf-gmail-accmenu a, html[gplex-meet] #ugf-gmail-appsmenu a { 
             return r.home;
         }));
     }
-    // (8.40) a list that is really empty: Chat's list is there (its Home shortcut or its sections) with no conversation in it
+    // (8.40) a list that is really empty: Chat's list is there (its Home shortcut or its sections) with no conversation in it;
+    // (8.42) a data-group-id that is no conversation's (Home's shortcut has "pinned-item") doesn't count
     function ugfChatEmpty() {
-        return !ugfChatRowEls().length && !ugfChatAll("[data-group-id]").length &&
-            ugfChatAll("[aria-label^='Home shortcut'], [role=group][data-section-type]").length > 0;
+        return !ugfChatRowEls().length && !ugfChatAll("[data-group-id]").some(function(el) {
+            return /^(dm|space)\//.test(el.getAttribute("data-group-id") || "");
+        }) && ugfChatAll("[aria-label^='Home shortcut'], [role=group][data-section-type]").length > 0;
     }
     // (8.40) what the hooks find on Google's page, counted, for the log line
     function ugfChatHooks() {
@@ -102165,7 +102320,8 @@ html[gplex-contacts] #ugf-gmail-accmenu a, html[gplex-contacts] #ugf-gmail-appsm
         let kind = "";
         let m = null;
         let id = "";
-        if (rest === "/" || rest === "/h") {
+        // (8.42) the home is also /h/<view> (the owner's is /h/st); /h/archived is the archived classes
+        if (/^\/(h(\/(?!archived$)[\w-]+)?)?$/.test(rest)) {
             kind = "home";
         } else if ((m = rest.match(/^\/c\/([\w-]+)$/))) {
             kind = "stream";
