@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.44.208
+// @version      8.45.209
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -78181,7 +78181,8 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             forum: '<path d="M21 6h-2v9H6v2a1 1 0 001 1h11l4 4V7a1 1 0 00-1-1zm-4 6V3a1 1 0 00-1-1H3a1 1 0 00-1 1v14l4-4h10a1 1 0 001-1z"/>',
             expand: '<path d="M7 10l5 5 5-5z"/>',
             apps: '<path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/>',
-            bell: '<path d="M12 22a2 2 0 002-2h-4a2 2 0 002 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 00-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>'
+            bell: '<path d="M12 22a2 2 0 002-2h-4a2 2 0 002 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 00-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>',
+            help: '<path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/>'
         };
         return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" aria-hidden="true">' + (p[name] || "") + "</svg>";
     }
@@ -82608,9 +82609,10 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         const group = ugfGmailEraGroup();
         let accountHTML;
         if (chrome === "m2018") {
-            // 2019+ keeps the launcher, the notification bell and the avatar
-            accountHTML = '<span class="ic" id="ugf-gmail-apps">' + ugfGmailIcon("apps", 20) + "</span>" +
-                '<span class="ic bell">' + ugfGmailIcon("bell", 20) + '<i class="n">1</i></span>' +
+            // (8.45) 2019 on: the "?" Support button (April 2019), the launcher and the avatar. The bell left Google's bar
+            // on 7 March 2019 (9to5Google), so there is none, and no made-up count
+            accountHTML = '<a class="ic help" href="https://support.google.com/mail" target="_blank" title="Support">' + ugfGmailIcon("help", 20) + "</a>" +
+                '<span class="ic" id="ugf-gmail-apps">' + ugfGmailIcon("apps", 20) + "</span>" +
                 ugfGmailAvatar();
         } else if (group === "grid") {
             // Gmail and Images belong to the google.com header, not to Gmail's own
@@ -85526,7 +85528,9 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 return;
             }
             seen[key] = true;
-            const thumb = (bg.match(/url\(["']?([^"')]+)/) || [])[1] || "";
+            // (8.45) or the picture in it (today's grid view draws an img from lh3.google.com/u/<n>/d/<id>=w208-iv3)
+            const pic = th && (th.matches("img") ? th : th.querySelector("img"));
+            const thumb = (bg.match(/url\(["']?([^"')]+)/) || [])[1] || (pic && /^https:\/\/[^/]+\/(u\/\d+\/)?d\/[\w-]{25,}/.test(pic.src) ? pic.src : "");
             out.push({ id: id, el: el, title: title, date: txt(el, "[class*='item-time']:not([class*='container'])"),
                 owner: txt(el, "[class*='owner']"), thumb: thumb, shared: /shared/.test(el.className) });
         });
@@ -85826,9 +85830,12 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             }
             const list = sorted();
             let out = "";
+            // (8.45) a file Google gives no thumbnail for (its home in list view draws none) gets the one its grid view would show,
+            // from the file's id, for the account of the page
+            const au = ((window.location.pathname || "").match(/\/u\/(\d+)(\/|$)/) || ["", "0"])[1];
             list.forEach(function(it) {
                 out += '<a class="card" data-id="' + esc(it.id) + '" data-i="' + list.indexOf(it) + '" href="' + esc(open(it.id)) + '"><div class="th">' +
-                    (it.thumb ? '<img src="' + esc(it.thumb) + '" alt="">' : "") + '</div><div class="ft"><div class="t">' + esc(it.title) + "</div>" +
+                    (it.thumb ? '<img src="' + esc(it.thumb) + '" alt="">' : it.id ? '<img src="' + esc("https://lh3.google.com/u/" + au + "/d/" + it.id + "=w208") + '" alt="" loading="lazy">' : "") + '</div><div class="ft"><div class="t">' + esc(it.title) + "</div>" +
                     '<div class="m">' + icon() + "<span>" + esc(it.date ? (/^(opened|modified|edited)\b/i.test(it.date) ? it.date : "Opened " + it.date) : "") + "</span>" +
                     '<span class="dots">' + ugfNtIcon("more_vert", 20) + "</span></div></div></a>";
             });
@@ -90839,6 +90846,11 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         if (!el) {
             return false;
         }
+        // (8.45) Gplex pressing a control of Google's for the user is the user asking Google for something (ugfDvActed), unless
+        // it is a link or a tab, which only goes to another page
+        if (!(el.matches && el.matches("a[href]:not([role]), [role=link], [role=tab]"))) {
+            ugfDvActed.at = Date.now();
+        }
         try {
             el.focus({ preventScroll: true });
         } catch (e) {}
@@ -91600,15 +91612,180 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 return l.querySelectorAll("a[href]").length > 2;
             });
     }
+    // (8.45) when the user last asked Google for something (0 never): Gplex pressed one of Google's controls for them
+    // (ugfDvPress, which sets it), or they pressed or typed (trusted pointerdown, keydown) in a box of Google's that Gplex shows:
+    // a raised one (ugf-dv-up), one shown alone (ugf-dv-alone), or Google's whole page (gplex-dv-reveal). A click or key on
+    // Gplex's page (mine) by itself does not count: going to another page is not asking for a dialog.
+    function ugfDvActed(mine) {
+        if (!ugfDvActed.on) {
+            ugfDvActed.on = true;
+            ["pointerdown", "keydown"].forEach(function(t) {
+                window.addEventListener(t, function(e) {
+                    const el = e.target;
+                    if (e.isTrusted && el && el.closest && !mine(el) && (el.closest("[ugf-dv-up], [ugf-dv-alone]") ||
+                        document.documentElement.hasAttribute("gplex-dv-reveal"))) {
+                        ugfDvActed.at = Date.now();
+                    }
+                }, true);
+            });
+        }
+        return ugfDvActed.at || 0;
+    }
+    // (8.45) a notice (Classroom's "Welcome to the new Google Classroom Home"): a plain dialog (not an alert dialog, Google's
+    // urgent kind) with nothing to fill in or pick (no field, no list), and no control but the dialog's action buttons
+    // (data-mdc-dialog-action, one at least) and at most one link (Learn more)
+    function ugfDvNotice(d) {
+        if (d.getAttribute("role") !== "dialog" || d.closest("[role=alertdialog]")) {
+            return false;
+        }
+        if (d.querySelector("input:not([type=hidden]), textarea, select, [contenteditable]:not([contenteditable=false]), " +
+            "[role=textbox], [role=searchbox], [role=combobox], [role=listbox], [role=checkbox], [role=radio], [role=radiogroup], " +
+            "[role=switch], [role=slider], [role=spinbutton], [role=option], [role=menu], [role=menuitem], [role=tree], " +
+            "[role=grid], [role=tablist], ul, ol, [role=list]")) {
+            return false;
+        }
+        const C = "button, [role=button], a, [role=link]";
+        let acts = 0;
+        let links = 0;
+        let other = 0;
+        d.querySelectorAll(C).forEach(function(c) {
+            const outer = c.parentElement && c.parentElement.closest(C);
+            if (outer && d.contains(outer)) {
+                return;
+            }
+            if (c.matches("[data-mdc-dialog-action]")) {
+                acts++;
+            } else if (c.matches("a, [role=link]")) {
+                links++;
+            } else {
+                other++;
+            }
+        });
+        return acts > 0 && links <= 1 && other === 0;
+    }
+    // (8.45) a notice that came up unasked (ugfDvActed) kept off the period page: not raised, so it stays under Gplex's page,
+    // and hidden there while the page (its html marker) is on: its top-level box with the scrim (the dialog alone if that box is
+    // Google's whole page) marked ugf-dv-hush, which the module's styles hide; the focus Google gave it taken off, so a key on
+    // the period page cannot answer it. Never answered: it stays up on Google's side until it goes (onGone). While one is
+    // hidden, an Escape not in a box of Google's that Gplex shows (pressed on Gplex's page or on nothing, or the Escape
+    // ugfDvCloseMenus sends) goes no further than <html>: Google's document-wide Escape handlers (a Material dialog closes on
+    // any Escape in the document) would close the hidden notice. Gplex's own document-wide ones (its apps and account menus)
+    // are run there instead.
+    function ugfDvHush(d, page, mine, onGone) {
+        const top = ugfDvTop(d);
+        let el = top === document.documentElement || mine(top) || (top.querySelector && top.querySelector("[role=main], main")) ? d : top;
+        const html = document.documentElement;
+        let refocus = null;
+        let refocusTicks = 0;
+        const unfocus = function() {
+            const f = document.activeElement;
+            if (f && f !== document.body && d.contains(f) && html.hasAttribute(page) && f.blur) {
+                f.blur();
+            }
+        };
+        if (!ugfDvHush.keys) {
+            ugfDvHush.keys = true;
+            html.addEventListener("keydown", function(e) {
+                if (e.key !== "Escape" && e.key !== "Esc") {
+                    return;
+                }
+                let held = false;
+                document.querySelectorAll("[ugf-dv-hush]").forEach(function(h) {
+                    held = held || html.hasAttribute(h.getAttribute("ugf-dv-hush"));
+                });
+                const t = e.target && e.target.closest ? e.target : null;
+                if (!held) {
+                    return;
+                }
+                const box = t && t.closest("[role=dialog], [role=alertdialog]");
+                // (on Google's whole page, gplex-dv-reveal, outside any dialog of its own, too: handlers below <html>, Google's
+                // composer's own, still have it)
+                if (!(t && t.closest("[ugf-dv-up], [ugf-dv-alone]")) && !(html.hasAttribute("gplex-dv-reveal") && box)) {
+                    e.stopPropagation();
+                    ugfGmailCloseMenus();
+                    return;
+                }
+                // in a dialog of Google's the user opened (Create class, Unenroll ...), the same Escape would close the hidden
+                // notice as well: that dialog is closed by its own cancel or close button instead (one without lets it through)
+                const x = box && !box.closest("[ugf-dv-hush]") &&
+                    box.querySelector("[data-mdc-dialog-action=cancel], [data-mdc-dialog-action=close]");
+                if (x) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    ugfDvPress(x);
+                }
+            });
+        }
+        el.setAttribute("ugf-dv-hush", page);
+        unfocus();
+        console.log("[Gplex] Google's notice \"" + (d.getAttribute("aria-label") || ugfDvText(d)).slice(0, 80) + "\" came up unasked: kept hidden under the page, not answered");
+        const watch = setInterval(function() {
+            // up: in the page with a size and not faded out (its own hiding by visibility is masked by ours; marked aria-hidden or
+            // inert it is only put behind another of Google's dialogs, and stays hushed, or it would be raised when that one goes)
+            const r = d.isConnected ? d.getBoundingClientRect() : null;
+            let on = !!r && r.width >= 2 && r.height >= 2;
+            for (let n = d; on && n && n !== html; n = n.parentElement) {
+                on = parseFloat(getComputedStyle(n).opacity) !== 0;
+            }
+            if (!on) {
+                clearInterval(watch);
+                el.removeAttribute("ugf-dv-hush");
+                onGone();
+                return;
+            }
+            // a box of Google's that holds every dialog: once another dialog comes up in it, only the notice itself stays
+            // hidden, so that one can be shown and raised
+            // (the notice's own part of that box, with its scrim, stays hidden: the highest box round it that holds no other)
+            const other = el === d ? null : Array.prototype.find.call(el.querySelectorAll("[role=dialog], [role=alertdialog], [aria-modal=true]"),
+                function(o) {
+                    return !d.contains(o) && !o.contains(d);
+                });
+            if (other) {
+                let own = d;
+                while (own.parentElement && own.parentElement !== el && !own.parentElement.contains(other)) {
+                    own = own.parentElement;
+                }
+                el.removeAttribute("ugf-dv-hush");
+                el = own;
+                el.setAttribute("ugf-dv-hush", page);
+                refocus = other;
+                refocusTicks = 10;
+            }
+            // (the other dialog's focus, given while it was still hidden with the notice, did not take: given again once Gplex
+            // shows it, raised and not hidden, if the focus is still nowhere)
+            if (refocus && refocusTicks-- > 0) {
+                const f = document.activeElement;
+                if (f && f !== document.body && f !== html) {
+                    refocus = null;
+                } else if (refocus.isConnected && refocus.closest("[ugf-dv-up], [ugf-dv-alone]") && !refocus.closest("[ugf-dv-hush]") &&
+                    getComputedStyle(refocus).visibility !== "hidden") {
+                    const to = refocus.querySelector("[autofocus], input:not([type=hidden]):not([disabled]), textarea:not([disabled]), " +
+                        "select:not([disabled]), [contenteditable=true], button:not([disabled])");
+                    if (to && to.focus) {
+                        to.focus({ preventScroll: true });
+                    }
+                    refocus = null;
+                }
+            }
+            unfocus();
+        }, 300);
+    }
     // (8.39) every shown Google dialog that is not the page's own (mine), once each: kept in shown while it is up (isShown, by
     // default ugfDvUp, says both). (8.44) A modal one as before; page furniture never; any other (a toast, a picker, a popover)
     // alone, over the period's page without today's page round it, while that page (its html marker, page) is on
-    function ugfDvRevealAll(page, mine, shown, isShown) {
+    // (8.45) quiet: a notice (ugfDvNotice) that came up unasked (ugfDvActed) is not raised but hushed (ugfDvHush)
+    function ugfDvRevealAll(page, mine, shown, isShown, quiet) {
         const up = isShown || ugfDvUp;
+        const acted = quiet ? ugfDvActed(mine) : 0;
         document.querySelectorAll("[role=dialog], [role=alertdialog]").forEach(function(d) {
             if (!mine(d) && shown.indexOf(d) < 0 && up(d)) {
                 const modal = ugfDvModal(d, mine);
-                if (modal || !ugfDvFurniture(d)) {
+                if (modal && quiet && Date.now() - acted > 10000 && ugfDvNotice(d)) {
+                    shown.push(d);
+                    ugfDvHush(d, page, mine, function() {
+                        shown.splice(shown.indexOf(d), 1);
+                    });
+                } else if (modal || !ugfDvFurniture(d)) {
                     shown.push(d);
                     ugfDvReveal(d, function() {
                         shown.splice(shown.indexOf(d), 1);
@@ -98158,6 +98335,9 @@ ${H} .dsep { height: 1px; background: #e0e0e0; margin: 8px 0; }
                 root: "#gvPageRoot, .gv_root, gv-side-nav, gv-sidenav, [gv-test-id='sidenav']",
                 nav: "gv-side-nav a[href], gv-sidenav a[href], a[gv-test-id^='sidenav'][href], [role=navigation] a[href], [role=tablist] a[href], .mat-mdc-nav-list a[href], gmat-nav-list a[href], a.navListItem[href]",
                 badge: ".navItemBadge, [class*='badge' i]",
+                // (8.45) today's side: tabs with no address, named by test id ("sidenav-calls"), the count in the icon's mat-badge
+                navTab: "[role=tab][gv-test-id^='sidenav-'], a[gv-test-id^='sidenav-']",
+                badgeCount: ".mat-badge-content",
                 // a list's rows, one way per age of Google's markup
                 rows: ["gv-thread-item > div", "gv-thread-list-item, gv-message-thread-list-item", ".list-item > .container, .list-item > button",
                     "[role=listitem], [role=option], [role=row]"],
@@ -98223,20 +98403,34 @@ ${H} .dsep { height: 1px; background: #e0e0e0; margin: 8px 0; }
     // the places on the left, with their unread counts; (8.40) any link to a list, the side's first
     function ugfVoiceNav() {
         const out = [];
-        [ugfVoiceHooks().nav, "a[href]"].forEach(function(sel) {
+        const H = ugfVoiceHooks();
+        const add = function(view, a) {
+            if (!view || ugfVoiceMine(a) || out.some(function(o) {
+                return o.view === view;
+            })) {
+                return;
+            }
+            // (8.45) today's count is the number in the icon's mat-badge, none while it is hidden
+            const mb = a.querySelector(H.badgeCount);
+            const hid = mb && mb.closest(".mat-badge-hidden");
+            const b = mb || a.querySelector(H.badge);
+            const c = (ugfVoiceClean(a.getAttribute("aria-label")).match(/(\d+)\s+(?:new|unread)/i) || [])[1];
+            out.push({ view: view, el: a, badge: hid && a.contains(hid) ? 0 : parseInt(b ? ugfVoiceClean(b.textContent) : c, 10) || 0,
+                on: (a.getAttribute("aria-current") || "false") !== "false" || a.getAttribute("aria-selected") === "true" ||
+                    /(^|[\s_-])(active|activated|selected)\b/i.test(a.getAttribute("class") || "") });
+        };
+        // (8.45) today's side: tabs without an address, named by test id, in two copies of the side; the copy on show first
+        const tabs = [].slice.call(document.querySelectorAll(H.navTab));
+        tabs.filter(ugfVoiceSeen).concat(tabs).forEach(function(a) {
+            add(((a.getAttribute("gv-test-id") || "").match(/^sidenav-(calls|messages|voicemail|archive|spam)$/) || [])[1], a);
+        });
+        [H.nav, "a[href]"].forEach(function(sel) {
             document.querySelectorAll(sel).forEach(function(a) {
                 const href = a.getAttribute("href") || "";
                 const m = href.match(/^(?:https:\/\/voice\.google\.com)?\/?(?:u\/\d+\/)?(calls|messages|voicemail|archive|spam)\/?(?:[?#]|$)/);
-                if (!m || /itemId=/.test(href) || ugfVoiceMine(a) || out.some(function(o) {
-                    return o.view === m[1];
-                })) {
-                    return;
+                if (m && !/itemId=/.test(href)) {
+                    add(m[1], a);
                 }
-                const b = a.querySelector(ugfVoiceHooks().badge);
-                const c = (ugfVoiceClean(a.getAttribute("aria-label")).match(/(\d+)\s+(?:new|unread)/i) || [])[1];
-                out.push({ view: m[1], el: a, badge: parseInt(b ? ugfVoiceClean(b.textContent) : c, 10) || 0,
-                    on: (a.getAttribute("aria-current") || "false") !== "false" || a.getAttribute("aria-selected") === "true" ||
-                        /(^|[\s_-])(active|activated|selected)\b/i.test(a.getAttribute("class") || "") });
             });
         });
         return out;
@@ -102849,11 +103043,27 @@ html[gplex-contacts] #ugf-gmail-accmenu a, html[gplex-contacts] #ugf-gmail-appsm
         if (!root) {
             return out;
         }
+        // (8.45) while a notice of Google's is kept hidden and unanswered (ugfDvHush), Google keeps the rest of its page (each
+        // child of <body>) marked aria-hidden, as behind any dialog of its own: that mark alone does not leave its words out, or
+        // the page would be read without names, teachers and work for as long as the notice is up
+        // (walked by hand: a complex :not() in closest() throws in browsers before 2021)
+        const hush = !!document.querySelector("[ugf-dv-hush]");
+        const hidden = function(p) {
+            if (!hush) {
+                return !!p.closest("[aria-hidden=true]");
+            }
+            for (let a = p; a && a !== document.documentElement; a = a.parentElement) {
+                if (a.getAttribute("aria-hidden") === "true" && a.parentElement !== document.body) {
+                    return true;
+                }
+            }
+            return false;
+        };
         const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         for (let n = walk.nextNode(); n; n = walk.nextNode()) {
             const t = String(n.nodeValue || "").replace(/\s+/g, " ").trim();
             const p = n.parentElement;
-            if (t && p && !p.closest("script, style, [aria-hidden=true]") && !(skip && skip(p))) {
+            if (t && p && !p.closest("script, style") && !hidden(p) && !(skip && skip(p))) {
                 out.push({ t: t, el: p });
             }
         }
@@ -103735,7 +103945,8 @@ html[gplex-contacts] #ugf-gmail-accmenu a, html[gplex-contacts] #ugf-gmail-appsm
         };
         const update = function() {
             // (8.39) Google's dialogs (create or join a class, the theme picker) come up above the page, as Drive's do
-            ugfDvRevealAll("gplex-classroom", ugfClassroomMine, state.shown);
+            // (8.45) and a notice Google puts up unasked (the welcome to its new home) is kept off the page, unanswered
+            ugfDvRevealAll("gplex-classroom", ugfClassroomMine, state.shown, null, true);
             if (at.kind === "home" && document.title !== "Classroom") {
                 state.gTitle = document.title;
                 document.title = "Classroom";
@@ -104212,6 +104423,7 @@ html[gplex-contacts] #ugf-gmail-accmenu a, html[gplex-contacts] #ugf-gmail-appsm
         return "#ugf-classroom :where(*:not(svg, svg *)) { all: revert; }\n" + shared.join("\n") + `
 html[gplex-classroom]:not([gplex-dv-reveal]), html[gplex-classroom]:not([gplex-dv-reveal]) body { overflow: hidden !important; }
 html[gplex-classroom] body > [ugf-dv-up] { z-index: 2147483100 !important; }
+html[gplex-classroom] [ugf-dv-hush=gplex-classroom]:not([ugf-dv-up]) { visibility: hidden !important; }
 html[gplex-dv-reveal] #ugf-classroom { display: none !important; }
 html[gplex-classroom] #ugf-gmail-accfence { z-index: 2147483600 !important; }
 html[gplex-classroom] #ugf-gmail-accmenu, html[gplex-classroom] #ugf-gmail-appsmenu { z-index: 2147483601 !important; text-align: left; }
@@ -106302,7 +106514,9 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
     function ugfNtKCorner() {
         const who = ugfCalWho();
         return '<div class="kcorner"><a href="#" class="kic apps" title="Google apps">' + ugfNtIcon("apps", 24) + "</a>" +
-            (who.name || who.email ? '<span class="kic bell">' + ugfNtIcon("notifications", 24) + '</span><a href="#" class="me" title="Google Account">' + ugfGmailAvatar() + "</a>"
+            // (8.45) the bell left Google's bar on 7 March 2019: none in 2019 or 2022 (Classroom and Contacts of 2019 come here)
+            (who.name || who.email ? (["2019", "2022"].indexOf(String(layout || "")) > -1 ? "" : '<span class="kic bell">' + ugfNtIcon("notifications", 24) + "</span>") +
+                '<a href="#" class="me" title="Google Account">' + ugfGmailAvatar() + "</a>"
                 : '<a class="ksignin" href="https://accounts.google.com/ServiceLogin">Sign in</a>') + "</div>";
     }
     // the corner of the Material pages: app grid and round photo (or a blue Sign in)
@@ -111466,6 +111680,21 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         }
         return x;
     }
+    // (8.45) the page's data blocks that hold what test() looks for, in the page's order: today's page numbers its blocks
+    // otherwise than the one Gplex was written for, and signed in otherwise again (a watchlist and portfolios first)
+    function ugfFinFind(blocks, test) {
+        return Object.keys(blocks || {}).sort(function(a, b) {
+            return parseInt(a.split(":")[1], 10) - parseInt(b.split(":")[1], 10);
+        }).map(function(k) {
+            return blocks[k];
+        }).filter(function(v) {
+            try {
+                return !!test(v);
+            } catch (e) {
+                return false;
+            }
+        });
+    }
     // a stock, an index or a pair, the way the chart request names it
     function ugfFinSpec(sym) {
         const m = String(sym).match(/^([A-Za-z]{3,5})-([A-Za-z]{3,5})$/);
@@ -111501,13 +111730,45 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         };
     }
     // Google Finance's own request (batchexecute): the chart for a range, or the stock search
+    // (8.45) what Google's page sends with its requests (WIZ_global_data): the session (FdrFJe), the build (cfb2h) and, signed
+    // in, the request token (SNlM0e), without which Google turns a signed-in request away
+    function ugfFinWiz() {
+        if (ugfFinWiz.v) {
+            return ugfFinWiz.v;
+        }
+        const v = {};
+        let seen = false;
+        document.querySelectorAll("script").forEach(function(s) {
+            const t = s.textContent || "";
+            if (t.indexOf("WIZ_global_data") < 0) {
+                return;
+            }
+            seen = true;
+            ["SNlM0e", "FdrFJe", "cfb2h"].forEach(function(k) {
+                const m = !v[k] && t.match(new RegExp('"' + k + '":"((?:[^"\\\\]|\\\\.)*)"'));
+                if (m) {
+                    try {
+                        v[k] = JSON.parse('"' + m[1] + '"');
+                    } catch (e) {}
+                }
+            });
+        });
+        if (seen) {
+            ugfFinWiz.v = v;
+        }
+        return v;
+    }
     function ugfFinRpc(id, args) {
-        const body = "f.req=" + encodeURIComponent(JSON.stringify([[[id, JSON.stringify(args), null, "generic"]]]));
+        const wiz = ugfFinWiz();
+        const body = "f.req=" + encodeURIComponent(JSON.stringify([[[id, JSON.stringify(args), null, "generic"]]])) + (wiz.SNlM0e ? "&at=" + encodeURIComponent(wiz.SNlM0e) : "") + "&";
         const hl = new URLSearchParams(window.location.search).get("hl") || "en";
         const url = "https://www.google.com/finance/_/FinHubUi/data/batchexecute?rpcids=" + id + "&source-path=" +
-            encodeURIComponent(window.location.pathname) + "&hl=" + encodeURIComponent(hl) + "&rt=c";
-        return fetch(url, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: body })
+            encodeURIComponent(window.location.pathname) + (wiz.FdrFJe ? "&f.sid=" + encodeURIComponent(wiz.FdrFJe) : "") + (wiz.cfb2h ? "&bl=" + encodeURIComponent(wiz.cfb2h) : "") +
+            "&hl=" + encodeURIComponent(hl) + "&rt=c";
+        let status = 0;
+        return fetch(url, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-Same-Domain": "1" }, body: body })
             .then(function(r) {
+                status = r.status;
                 return r.text();
             }).then(function(t) {
                 // the answer is one JSON line among the length lines; the payload is a JSON string in it
@@ -111515,7 +111776,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                     return l.indexOf('["wrb.fr","' + id + '"') > -1;
                 })[0];
                 if (!line) {
-                    throw new Error("no answer");
+                    throw new Error("no answer" + (status !== 200 ? " (HTTP " + status + ")" : ""));
                 }
                 const row = JSON.parse(line).filter(function(r) {
                     return Array.isArray(r) && r[0] === "wrb.fr" && r[1] === id;
@@ -112078,7 +112339,15 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         };
         const COLORS = ["#3366cc", "#dc3912", "#ff9900"];
         const news = function() {
-            return (ugfFinAt(data.blocks["ds:7"], [0]) || []).filter(function(n) {
+            // (8.45) the block of links with their times (ds:7 until 2025, ds:10 today), the longest if there are more
+            const found = ugfFinFind(data.blocks, function(v) {
+                return Array.isArray(v[0]) && v[0].length && v[0].every(function(n) {
+                    return Array.isArray(n) && /^https?:/.test(String(n[0])) && typeof n[1] === "string";
+                }) && typeof v[0][0][4] === "number";
+            }).sort(function(a, b) {
+                return b[0].length - a[0].length;
+            })[0];
+            return (ugfFinAt(found, [0]) || []).filter(function(n) {
                 return Array.isArray(n) && /^https?:/.test(n[0]);
             }).map(function(n) {
                 return { url: n[0], title: ugfPlayPlain(n[1]), src: n[2], t: (n[4] || 0) * 1000, text: ugfPlayPlain(n[16] || "") };
@@ -112104,7 +112373,12 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             }).join("") + "</table>";
         };
         const movers = function() {
-            const m = data.blocks["ds:8"] || [];
+            // (8.45) three lists of quotes (ds:8 until 2025, ds:11 today)
+            const m = ugfFinFind(data.blocks, function(v) {
+                return [0, 1, 2].every(function(i) {
+                    return Array.isArray(v[i]) && v[i].length && ugfFinQuote(ugfFinDig(v[i][0]));
+                });
+            })[0] || [];
             const pick = function(i) {
                 return (m[i] || []).map(function(x) {
                     return ugfFinQuote(ugfFinDig(x));
@@ -112113,7 +112387,10 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             return { up: pick(0), down: pick(1), active: pick(2) };
         };
         const sectors = function() {
-            return (ugfFinAt(data.blocks["ds:1"], [0, 0, 3]) || []).map(function(s) {
+            // (8.45) the block whose [0][0][3] are the sectors, each with its quote at [19] (ds:1 signed out)
+            return (ugfFinAt(ugfFinFind(data.blocks, function(v) {
+                return ugfFinQuote(ugfFinAt(v, [0, 0, 3, 0, 19]));
+            })[0], [0, 0, 3]) || []).map(function(s) {
                 const q = ugfFinQuote(s && s[19]);
                 if (q) {
                     q.label = s[14] || q.name;
@@ -112157,7 +112434,11 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             const world = groups(3).concat(groups(2));
             const fx = groups(4);
             const nws = news();
-            const story = ugfFinAt(data.blocks["ds:5"], [0, 0]);
+            // (8.45) a title, Google's summary and the papers that carried it (ds:5 until 2025, ds:8 today)
+            const story = ugfFinAt(ugfFinFind(data.blocks, function(v) {
+                const st = ugfFinAt(v, [0, 0]);
+                return typeof st[0] === "string" && /^https?:/.test(String(ugfFinAt(st, [2, 0, 0])));
+            })[0], [0, 0]);
             if (era === "fa06") {
                 const four = [".IXIC:INDEXNASDAQ", ".DJI:INDEXDJX", ".INX:INDEXSP", "RUT:INDEXRUSSELL"].map(function(s) {
                     return us.filter(function(q) {
@@ -113608,6 +113889,173 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         ugfCalHarvestCals.last = out;
         return out;
     }
+    // (8.45) Google's own main drawer button (the three lines at the top left of its page): "Main drawer", or in another
+    // language the button with the three-line icon in Google's bar. null when there is none
+    function ugfCalDrawerButton() {
+        const ok = function(b) {
+            return !!b && !ugfCalMine(b) && b.hasAttribute("aria-expanded");
+        };
+        const b = document.querySelector("[aria-label='Main drawer'][aria-expanded]");
+        if (ok(b)) {
+            return b;
+        }
+        return Array.prototype.slice.call(document.querySelectorAll("header [aria-expanded], [role='banner'] [aria-expanded]")).filter(function(x) {
+            return ok(x) && !!x.querySelector("path[d^='M3 18h18v-2H3v2z']");
+        })[0] || null;
+    }
+    // (8.45) a list of calendars as one string, to tell whether it changed
+    function ugfCalCalsSig(list) {
+        return JSON.stringify(list.map(function(c) {
+            return [c.name, c.color, c.mine, c.on];
+        }));
+    }
+    function ugfCalDrawerShut() {
+        const b = ugfCalDrawerButton();
+        return !!b && b.getAttribute("aria-expanded") === "false";
+    }
+    // (8.45) while its drawer is closed Google lists only the first of "My calendars": in Gplex's own layouts it is opened,
+    // once per page (Google's page is hidden under Gplex's). A plain click() is ignored there; a pointer's sequence is not
+    // (Google's handlers may not be on the button yet, and Google may close it after it first reads open: for the first 20 s
+    // it is pressed whenever it reads closed, at most every 2 s and 5 times, until it reads open after a press; then never again)
+    function ugfCalOpenDrawer() {
+        if (ugfCalOpenDrawer.done || String(layout || "") === "2022" || ugfCalMock()) {
+            return;
+        }
+        ugfCalOpenDrawer.done = true;
+        let t0 = Date.now();
+        const began = t0;
+        let tick = t0;
+        let presses = 0;
+        let pressed = 0;
+        const iv = setInterval(function() {
+            const b = ugfCalDrawerButton();
+            const now = Date.now();
+            const since = now - tick;
+            tick = now;
+            // (20 s of looking, not counting the time held back below; 5 minutes at most in all)
+            if (now - t0 > 20000 || now - began > 300000) {
+                clearInterval(iv);
+                return;
+            }
+            if (!b) {
+                return;
+            }
+            const st = b.getAttribute("aria-expanded");
+            if (presses && st === "true") {
+                clearInterval(iv);
+                return;
+            }
+            if (st !== "false" || now - pressed < 2000) {
+                return;
+            }
+            // (not while one of Gplex's bubbles, menus or its view list is open, or the user is typing in Gplex's page: the press
+            // would count as a click outside it and close it; that time does not count against the 20 s)
+            const f = document.activeElement;
+            if (document.querySelector(".ugf-cal-bubble, .ugf-cal-menu, #ugf-cal .viewsel.open") ||
+                (f && ugfCalMine(f) && f.matches && f.matches("input, textarea, select, [contenteditable]:not([contenteditable=false])"))) {
+                t0 += since;
+                return;
+            }
+            if (presses >= 5) {
+                clearInterval(iv);
+                return;
+            }
+            presses++;
+            pressed = now;
+            const r = b.getBoundingClientRect();
+            const at = { bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+            // (no "view": in Firefox the script's window is not the page's)
+            const fire = function(t) {
+                try {
+                    b.dispatchEvent(/^pointer/.test(t) && typeof PointerEvent === "function" ? new PointerEvent(t, Object.assign({ pointerType: "mouse", isPrimary: true, pointerId: 1 }, at)) : new MouseEvent(t, at));
+                } catch (e) {
+                    try {
+                        b.dispatchEvent(new MouseEvent(/^pointer/.test(t) ? t.replace("pointer", "mouse") : t, { bubbles: true, cancelable: true }));
+                    } catch (e2) {}
+                }
+            };
+            const had = document.activeElement;
+            ["pointerdown", "mousedown"].forEach(fire);
+            at.buttons = 0;
+            ["pointerup", "mouseup", "click"].forEach(fire);
+            if (had && had !== document.activeElement && ugfCalMine(had)) {
+                try {
+                    had.focus();
+                } catch (e) {}
+            }
+            console.log("[Gplex] Calendar: pressed Google's main drawer button (" + presses + "), its drawer lists only the first calendar while closed");
+        }, 500);
+    }
+    // (8.45) Google's calendars (ugfCalHarvestCals) taken into Gplex's: one hidden here stays hidden, and while Google's
+    // drawer is closed (it then lists only the first) none is dropped. true when the list changed
+    function ugfCalTakeCals(cals) {
+        if (!cals.length) {
+            return false;
+        }
+        const old = ugfCalS().calendars;
+        const was = {};
+        old.forEach(function(c) {
+            was[c.name] = c.on;
+        });
+        cals.forEach(function(c) {
+            if (was[c.name] === false) {
+                c.on = false;
+            }
+        });
+        if (ugfCalDrawerShut() && old.length) {
+            const fresh = {};
+            cals.forEach(function(c) {
+                fresh[c.name] = c;
+            });
+            const kept = old.map(function(c) {
+                const f = fresh[c.name] || c;
+                delete fresh[c.name];
+                return f;
+            });
+            cals = kept.concat(cals.filter(function(c) {
+                return !!fresh[c.name];
+            }));
+        }
+        const changed = ugfCalCalsSig(old) !== ugfCalCalsSig(cals);
+        ugfCalS().calendars = cals;
+        return changed;
+    }
+    // (8.45) Google's side lists, watched: when what they list changes (Google filling them in late, its drawer opening),
+    // Gplex's list is read again and, when it is not what was drawn, redraw() called. At most one look every 400 ms; Gplex's own nodes are left out
+    function ugfCalWatchCals(redraw) {
+        if (ugfCalWatchCals.on || ugfCalMock() || typeof MutationObserver !== "function") {
+            return;
+        }
+        ugfCalWatchCals.on = true;
+        let last = ugfCalCalsSig(ugfCalHarvestCals.last || []);
+        let timer = 0;
+        const look = function() {
+            timer = 0;
+            const cals = ugfCalHarvestCals();
+            const sig = ugfCalCalsSig(cals);
+            if (sig === last) {
+                return;
+            }
+            last = sig;
+            ugfCalTakeCals(cals);
+            // (what paintCals last drew: the fetch may have taken the new list without drawing it)
+            if (ugfCalCalsSig(ugfCalS().calendars) !== ugfCalS().drawnCals) {
+                redraw();
+            }
+        };
+        new MutationObserver(function(muts) {
+            if (timer) {
+                return;
+            }
+            for (let i = 0; i < muts.length; i++) {
+                const t = muts[i].target;
+                if (!ugfCalMine(t.nodeType === 1 ? t : t.parentNode)) {
+                    timer = setTimeout(look, 400);
+                    return;
+                }
+            }
+        }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-checked", "aria-label"] });
+    }
     // Test pages hand Gplex their events directly
     function ugfCalMock() {
         try {
@@ -113712,19 +114160,8 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                 ugfCalPut(evs.filter(function(e) {
                     return e.end > r.from && e.start < ugfCalAdd(r.from, r.days);
                 }), r.from, r.days);
-                const cals = ugfCalHarvestCals();
-                if (cals.length) {
-                    const was = {};
-                    ugfCalS().calendars.forEach(function(c) {
-                        was[c.name] = c.on;
-                    });
-                    cals.forEach(function(c) {
-                        if (was[c.name] === false) {
-                            c.on = false;
-                        }
-                    });
-                    ugfCalS().calendars = cals;
-                }
+                // (8.45) one hidden here stays hidden; none dropped while Google's drawer is closed
+                ugfCalTakeCals(ugfCalHarvestCals());
                 cb(before !== JSON.stringify(ugfCalEventsIn(r.from, r.days).map(function(e) {
                     return e.id + e.title + e.start.getTime() + e.end.getTime();
                 })));
@@ -114395,8 +114832,9 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                     '<a href="#" class="ib" data-act="next" title="Next">' + ugfCalIcon("chevron_right", 24) + "</a>" +
                     '<span class="title"></span></div>' +
                 '<div class="tools"><a href="#" class="ib" data-act="search" title="Search">' + ugfCalIcon("search", 24) + "</a>" +
-                    // (8.39) no help button in December 2017 or December 2018; it is there by 2023
-                    (era === "c2017" || era === "c2019" ? "" : '<a href="https://support.google.com/calendar" class="ib" title="Support">' + ugfCalIcon("help_outline", 24) + "</a>") +
+                    // (8.39) no help button in December 2017 or December 2018; (8.45) it came on 2 April 2019 (Workspace Updates
+                    // blog), so 2019-Early 2022 has it
+                    (era === "c2017" ? "" : '<a href="https://support.google.com/calendar" class="ib" title="Support">' + ugfCalIcon("help_outline", 24) + "</a>") +
                     (era === "c2017" ? '<div class="viewsel"></div><a href="#" class="ib" data-menu="gear" title="Settings menu">' + ugfCalIcon("settings", 24) + "</a>"
                         : '<a href="#" class="ib" data-menu="gear" title="Settings menu">' + ugfCalIcon("settings", 24) + '</a><div class="viewsel"></div>') +
                     '<a href="#" class="ib apps" title="Google apps">' + ugfCalIcon("apps", 24) + "</a>" +
@@ -114625,6 +115063,8 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         const paintCals = function() {
             const box = shell.querySelector("#ugf-cal-cals");
             const cals = ugfCalS().calendars;
+            // (8.45) what was drawn, for ugfCalWatchCals
+            ugfCalS().drawnCals = ugfCalCalsSig(cals);
             const mine = cals.filter(function(c) {
                 return c.mine !== false;
             });
@@ -116040,6 +116480,33 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             });
         }
         go(st.view, st.date, true);
+        // (8.45) Google's drawer opened (it lists one calendar while closed), and Gplex's list redrawn when Google's lists change
+        ugfCalOpenDrawer();
+        // (an open bubble, a new event being typed or an event's details, and a box of the side list being typed in, "Add a
+        // friend's calendar" and the like, are left alone: the list and the grid are redrawn once they are done with)
+        let redrawDue = false;
+        ugfCalWatchCals(function() {
+            if (redrawDue) {
+                return;
+            }
+            redrawDue = true;
+            const later = function() {
+                const box = shell.querySelector("#ugf-cal-cals");
+                const f = document.activeElement;
+                const typing = !!box && ((f && box.contains(f) && f.matches && f.matches("input, textarea, select, [contenteditable]")) ||
+                    Array.prototype.some.call(box.querySelectorAll("input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea"), function(i) {
+                        return !!i.value;
+                    }));
+                if (bubble || typing) {
+                    setTimeout(later, 1000);
+                    return;
+                }
+                redrawDue = false;
+                paintCals();
+                paintView();
+            };
+            later();
+        });
         // Google's page keeps changing under us (new events, other devices): look again now and then
         setInterval(function() {
             if (!document.hidden) {
