@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.43.206
+// @version      8.44.208
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -41123,9 +41123,35 @@ function ugfYouTubeNoAI() {
         window.addEventListener("load", add, { once: true });
     } catch (e) {}
 }
+// (8.44) The alert bar of the period page (#alerts, which V3 draws) without the ad-blocker notices of today's YouTube (2023 on):
+// V3's "Using an ad blocker may interfere with player functionality ..." and "Ad blocker using is not allowed in player request ...".
+// Every other alert stays. Found by the message's text, which every world a script runs in sees.
+function ugfYouTubePeriodAlerts() {
+    const today = /\bad ?blockers?\b/i;
+    new MutationObserver(function() {
+        const bar = document.getElementById("alerts");
+        if (!bar) {
+            return;
+        }
+        Array.from(bar.children).forEach(function(box) {
+            const msg = box.querySelector("[role=alert]");
+            if (msg && today.test(msg.textContent)) {
+                box.remove();
+            }
+        });
+    }).observe(document, { childList: true, subtree: true });
+}
 if (ugfOnYouTube && !ugfYtmTakesOver() && !ugfYtmPlayerFrame()) {
     (function() {
         ugfYouTubeNoAI();
+        let lay = "2015";
+        try {
+            lay = ugfSharedLayout(typeof GM_getValue === "function" ? GM_getValue : null);
+        } catch (e) {}
+        // (8.44) whoever draws the page, StarTube with V3 or V3 alone; the 2022 layout is left as it is
+        if (lay !== "2022") {
+            ugfYouTubePeriodAlerts();
+        }
         let on = "true";
         try {
             on = String((typeof GM_getValue === "function" ? GM_getValue("UGF_STARTUBE_ON", null) : null) || "true");
@@ -41135,10 +41161,6 @@ if (ugfOnYouTube && !ugfYtmTakesOver() && !ugfYtmPlayerFrame()) {
         }
         // Late 2012-2013 is V3's own look: V3 draws it alone, and StarTube stays off. The layout
         // settings StarTube gave V3 are handed back to V3's defaults once (V3 fills them in itself).
-        let lay = "2015";
-        try {
-            lay = ugfSharedLayout(typeof GM_getValue === "function" ? GM_getValue : null);
-        } catch (e) {}
         const nativeV3 = lay === "2013" || lay === "2013L";
         let wasNative = "0";
         try {
@@ -41184,6 +41206,143 @@ if (ugfOnYouTube && !ugfYtmTakesOver() && !ugfYtmPlayerFrame()) {
             run();
         }
     })();
+}
+// (8.44) The watch page's Share panel (V3's button.share-service-button, made from YouTube's present list of share targets) with
+// the places to share to of the layout's YouTube. The years YouTube's share row offered each, first to last, from the Wayback
+// Machine: its watch pages (email only in 2007; Facebook, MySpace and Digg in 2008; Twitter from spring 2009; Blogger, Bebo and hi5
+// in June 2010, reddit and Delicious but no Bebo by December), its share sprites (share-service-icon-*; Google+ and LinkedIn by June
+// 2012, Pinterest by June 2013, KakaoTalk by June 2015), a comment's "Share to" (MySpace up to December 2011) and its share boxes of
+// November 2013 to January 2021 (Google+ up to March 2019; MySpace, orkut and Delicious gone; the others with no end there in 2020
+// or 2021, or only in the sprites). orkut ends in 2012: the sprites have it up to December 2012 and not from June 2013; Delicious,
+// last seen in December 2010, with it (not confirmed). A service that ended stays out in every later year, 2022 on too. WhatsApp, Messages, LINE, Mix, Threads and Bluesky are in no sprite nor share box: WhatsApp counts from 2020 (in
+// the 2019-Early 2022 layout's years; not confirmed), the others from 2022. Anything else is kept.
+const UGF_YT_SHARE_YEARS = { embed: [2005], email: [2005], facebook: [2008], myspace: [2008, 2011], digg: [2008], twitter: [2009],
+    orkut: [2009, 2012], bebo: [2009, 2010], hi5: [2009], stumbleupon: [2009], blogger: [2010], reddit: [2010], delicious: [2010, 2012],
+    tumblr: [2011], vkontakte: [2011], odnoklassniki: [2011], livejournal: [2011], goo: [2011], mixi: [2011], skyblog: [2011],
+    googleplus: [2012, 2019], linkedin: [2012], pinterest: [2013], weibo: [2013], kakao: [2015], naver: [2016], skype: [2016],
+    whatsapp: [2020], android_messenger: [2022], line: [2022], mix: [2022], threads: [2022], bluesky: [2022] };
+const UGF_YT_SHARE_ALIAS = { x: "twitter", "google+": "googleplus", google_plus: "googleplus", gplus: "googleplus", mail: "email",
+    "e-mail": "email", vk: "vkontakte", ok: "odnoklassniki", kakaotalk: "kakao", kakao_talk: "kakao", skyrock: "skyblog",
+    messages: "android_messenger" };
+// a share button's place: its service name, its class (share-<name>-icon), its icon's class, or its "Share to ..."
+function ugfYtShareName(b) {
+    let n = b.getAttribute("data-service-name") || "";
+    if (!n) {
+        const m = /(?:^|\s)share-(?!service-)([\w+]+)-icon(?:\s|$)/i.exec(b.getAttribute("class") || "");
+        n = m ? m[1] : "";
+    }
+    if (!n) {
+        const i = b.querySelector("[class*='share-service-icon-']");
+        const m = i && /(?:^|\s)share-service-icon-([\w+]+)/i.exec(i.getAttribute("class") || "");
+        n = m ? m[1] : "";
+    }
+    if (!n) {
+        const m = /^Share (?:to|on|via) (.+)$/i.exec(b.getAttribute("title") || b.getAttribute("data-tooltip-text") || b.getAttribute("aria-label") || "");
+        n = m ? m[1].trim().replace(/\s+/g, "_") : "";
+    }
+    n = n.toLowerCase();
+    return UGF_YT_SHARE_ALIAS[n] || n;
+}
+// the year of the YouTube drawn: its layout's (hh2015, stargazer2009_1 ...; poly2019 is the 2019-Early 2022 layout's), or, before
+// it is named or when V3 draws alone, the Gplex layout's as StarTube draws it (1997-2006 as 2007, 2007-2008 as 2008)
+function ugfYtShareYear(gplex) {
+    const c = document.querySelector(".spitfire-body-container[layout]");
+    const drawn = c ? String(c.getAttribute("layout") || "") : "";
+    const m = /(?:19|20)\d\d/.exec(drawn);
+    if (m) {
+        return /^poly2019/.test(drawn) ? 2021 : parseInt(m[0], 10);
+    }
+    return ({ "2007": 2008, "2018": 2017, "2019": 2021 })[gplex] || Math.max(2007, parseInt(gplex, 10) || 2015);
+}
+function ugfYouTubePeriodShare() {
+    let gplex = "2015";
+    try {
+        gplex = ugfSharedLayout(typeof GM_getValue === "function" ? GM_getValue : null);
+    } catch (e) {}
+    if (gplex === "2022") {
+        return;
+    }
+    // YouTube's Twitter of 2013-2019 (www-sharing, share-service-icon-twitter, 32 x 32)
+    const bird = "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACRklEQVR42u2XS2gTURSGv5t5JKlJSGowkoqggra1CrUIItoiiAE3LWI3ogsXLrp1WRR3IrgT3AiCG7uSgmBVUKGIDa0VFB9FtBSM1IZgqh0naZJ5uRAKweYxTSGbnOXc4f7fPfec83MFD7IOTQwPTY4WQAug6QDyZm3UG5YYiCoIAcmsycyyubbm9UDRdgmwLygRVkTZRuuF6oG7fQHO71TLvj/8UeLWfJFTMQXTcbjyadXdFZztUHl0NMjhSPUk3TzQ9p84wGBc5UV/kJPbZMYXDXb4Pe4AOvweol7B5ECQS7u8iHX+iaiCkd2+qoB7AhJXu3wsFWx3AAs5C4A2SXDn0BaSJ0IkYkoZyP6QhFKjjB+nDYandSzHZQ2MpUpc6/ITkP9JHmmXeXosSCpvM5E2mP1lEpBEzeKcWCphVnEbUcmM+qMyvWGZGz1+fHUIVYrTU394kjbct2EipjDa6W+4Ped1e2OD6P73UsV7qzfSBZuvurUxgDnNYuRtriGI8UWjsVF871uRC7M6c5rlWtwBbi8UGgMwbRjt9NMdklwDjKVKdYF7ap3i3GudTNF2JZ4p2lx+n98cN/ywYnHwmcb1z6u8+137RHnLYXi6fui67DhbsvmoWYTV6vNgxXAYSuq8/Gk2ZschRXAmrtKuCnpCEontCnFfddaprMnFN7mabVdXBjTD4VXWZG9AYiiuVhS3HHieMRhM6hyf1FyLVx3FaykS0BeR6Q5JbFUFsgDdhC+6xcyyyYrR2LQSrYdJC6AF0GyAvzYfzRKu1WTfAAAAAElFTkSuQmCC)";
+    // the names YouTube gave them then, and the ones it gives them now
+    const named = { twitter: ["Twitter", /^(x|twitter|x \((formerly )?twitter\))$/i, 2099], reddit: ["reddit", /^reddit$/i, 2016],
+        tumblr: ["tumblr.", /^tumblr\.?$/i, 2016] };
+    const buttons = document.getElementsByClassName("share-service-button");
+    const set = function(el, a, v) {
+        if (el.getAttribute(a) !== v) {
+            el.setAttribute(a, v);
+        }
+    };
+    // a button, and the list item holding it alone, hidden or shown again
+    const show = function(b, on) {
+        const li = b.parentElement && b.parentElement.tagName === "LI" && b.parentElement.children.length === 1 ? b.parentElement : null;
+        [b, li].forEach(function(x) {
+            if (!x) {
+                return;
+            }
+            if (!on && !x.hasAttribute("data-ugf-share-off")) {
+                x.setAttribute("data-ugf-share-off", "");
+                x.style.setProperty("display", "none", "important");
+            } else if (on && x.hasAttribute("data-ugf-share-off")) {
+                x.removeAttribute("data-ugf-share-off");
+                x.style.removeProperty("display");
+            }
+        });
+    };
+    const rename = function(b, now, was) {
+        ["title", "data-tooltip-text", "aria-label"].forEach(function(a) {
+            const v = b.getAttribute(a);
+            const m = v && /^(Share (?:to|on|via) )(.+)$/i.exec(v);
+            if (m && was.test(m[2].trim())) {
+                set(b, a, m[1] + now);
+            } else if (v && was.test(v.trim())) {
+                set(b, a, now);
+            }
+        });
+        const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT);
+        for (let t = w.nextNode(); t; t = w.nextNode()) {
+            const v = t.nodeValue.trim();
+            if (v && v !== now && was.test(v)) {
+                t.nodeValue = t.nodeValue.replace(v, now);
+            }
+        }
+    };
+    const look = function() {
+        if (!buttons.length) {
+            return;
+        }
+        const year = ugfYtShareYear(gplex);
+        Array.prototype.forEach.call(buttons, function(b) {
+            const name = ugfYtShareName(b);
+            if (!name) {
+                return;
+            }
+            const span = UGF_YT_SHARE_YEARS[name];
+            const on = !span || (year >= span[0] && !(year > span[1]));
+            show(b, on);
+            if (!on || year >= 2022) {
+                return;
+            }
+            const was = named[name];
+            if (was && year <= was[2]) {
+                rename(b, was[0], was[1]);
+            }
+            const i = name === "twitter" && b.querySelector("[class*='share-service-icon']");
+            if (i && !i.hasAttribute("data-ugf-bird")) {
+                i.setAttribute("data-ugf-bird", "");
+                i.style.setProperty("background-image", bird, "important");
+                i.style.setProperty("background-position", "center", "important");
+                i.style.setProperty("background-size", "contain", "important");
+                i.style.setProperty("background-repeat", "no-repeat", "important");
+            }
+        });
+    };
+    new MutationObserver(look).observe(document, { childList: true, subtree: true, attributes: true,
+        attributeFilter: ["title", "data-tooltip-text", "aria-label", "layout"] });
+    look();
+}
+if (ugfOnYouTube && !ugfYtmTakesOver() && !ugfYtmPlayerFrame()) {
+    ugfYouTubePeriodShare();
 }
 // ---- end StarTube ----
 // ---- Gplex products page ----
@@ -49763,7 +49922,8 @@ function ugfMobileVertical() {
     if (p === "/imghp" || p === "/search" && (tbm === "isch" || udm === "2")) {
         return "images";
     }
-    if (p === "/videohp" || p === "/search" && (tbm === "vid" || udm === "7")) {
+    // (8.44) udm=vids: where Google sends tbm=vid now
+    if (p === "/videohp" || p === "/search" && (tbm === "vid" || udm === "7" || udm === "vids")) {
         return "videos";
     }
     return "";
@@ -49789,7 +49949,7 @@ function ugfMobileKind() {
     if (tbm === "isch" || udm === "2") {
         return "images";
     }
-    if (tbm === "vid" || udm === "7") {
+    if (tbm === "vid" || udm === "7" || udm === "vids") {
         return "videos";
     }
     if (tbm === "nws" || udm === "12") {
@@ -64636,9 +64796,11 @@ html[shopping-results] #ugf-center {
         location = "images";
         document.querySelector("html").setAttribute("location","images");
     }
+    // (8.44) Google sends tbm=vid on to udm=vids: that is Videos as well, not All
     if (
         url.includes("tbm=vid")||
-        url.includes("udm=7")
+        url.includes("udm=7")||
+        url.includes("udm=vids")
     ) {
         location = "videos";
         document.querySelector("html").setAttribute("location","videos");
@@ -64739,7 +64901,7 @@ html[shopping-results] #ugf-center {
             const tbm0 = sp0.get("tbm") || "";
             if (udm0 === "2" || udm0 === "49" || tbm0 === "isch") {
                 ugfHomeVertical = "images";
-            } else if (udm0 === "7" || tbm0 === "vid") {
+            } else if (udm0 === "7" || udm0 === "vids" || tbm0 === "vid") {
                 ugfHomeVertical = "videos";
             } else if (udm0 === "28" || tbm0 === "shop" || window.location.pathname.indexOf("/shopping") === 0) {
                 ugfHomeVertical = "shopping";
@@ -72981,6 +73143,32 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                     });
                 }
     }
+    // (8.44) The date before a result's text was followed by a spaced hyphen ("Apr 17, 2015 - ") until Google's em dash of late
+    // 2020 ("Apr 17, 2015 — "), which Gplex's results copy from Google's snippet: the period's hyphen on every layout but 2022,
+    // Google's own look. Google's date is the snippet's first text ("Apr 17, 2015", "3 days ago") and the dash ends it, the snippet's
+    // words coming in an element of their own (an em dash within the words is the site's and stays)
+    function ugfDateDash(result) {
+        if (document.documentElement.hasAttribute("gplex2022")) {
+            return;
+        }
+        const desc = result.querySelector(".ugf-search-result-desc");
+        const walk = document.createTreeWalker(desc, NodeFilter.SHOW_TEXT);
+        let before = "";
+        for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+            const at = t.nodeValue.indexOf(" — ");
+            if (at > -1) {
+                const date = (before + t.nodeValue.slice(0, at)).trim();
+                if (date && date.length <= 30 && /\d/.test(date) && !t.nodeValue.slice(at + 3).trim()) {
+                    t.nodeValue = t.nodeValue.slice(0, at) + " - " + t.nodeValue.slice(at + 3);
+                }
+                return;
+            }
+            before += t.nodeValue;
+            if (before.trim().length > 30) {
+                return;
+            }
+        }
+    }
     function createItem(itemGet, itemType) {
         if (itemType == "newsResult") {
             ugfRenderNewsItem(itemGet.newsResult);
@@ -73042,6 +73230,7 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                         </div>
                     </div>
                     `);
+            ugfDateDash(newElem);
             container.insertBefore(newElem, container.children[SRA.itemNo]);
         }
         if (type == "video") {
@@ -73147,6 +73336,7 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                     }, 120);
                 }
             })();
+            ugfDateDash(newElem);
             container.insertBefore(newElem, container.children[SRA.itemNo]);
         }
         if (type == "image") {
@@ -84262,6 +84452,36 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 }
             });
         };
+        // (8.44) today's offer across the top of the editors ("Try Gemini in Slides, Gmail, and more ... Get offer", a Workspace
+        // recommendation in a Material 3 banner) and Slides' rail at the right of the slide (Image, Templates, Blocks, Media,
+        // Uploads, Record, Transform, in a Material 3 floating toolbar): no period had them (2022 keeps Google's page). Each goes
+        // with the boxes around it that hold nothing else, so that its room goes too, and Google's page lays itself out again (once,
+        // after all are hidden; one no longer on the page is skipped). Its resize handlers may draw the rail or banner again, which
+        // brings noExtras back: the page is laid out again for them at most 6 times in all (the CSS keeps a new one hidden)
+        const extrasSel = "[class*='WorkspaceRecommendationBanner'], [class*='ContentLibraryRailWizEntry']";
+        let extrasRelaid = 0;
+        const noExtras = function() {
+            if (l === "2022") {
+                return;
+            }
+            let hid = false;
+            document.querySelectorAll(extrasSel).forEach(function(e) {
+                let box = e.closest("[role='toolbar'], [class*='Floating-toolbar']") || e;
+                if (!box.isConnected || box.closest("[ugf-hide]")) {
+                    return;
+                }
+                while (box.parentElement && box.parentElement !== document.body && box.parentElement.childElementCount === 1) {
+                    box = box.parentElement;
+                }
+                box.setAttribute("ugf-hide", "");
+                hid = true;
+            });
+            if (hid && extrasRelaid < 6) {
+                extrasRelaid++;
+                relaid = 0;
+                relayout();
+            }
+        };
         // Google's Gemini welcome ("Hello ..., Ready to create with Gemini?") and other AI
         // pop-ups: shut with their own "No thanks"/close button the moment they appear,
         // and the grey veil behind them taken away with them
@@ -84423,6 +84643,11 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             });
             if (added.length) {
                 noAiDialogs(added);
+                if (added.some(function(n) {
+                    return n.matches(extrasSel) || !!n.querySelector(extrasSel);
+                })) {
+                    noExtras();
+                }
                 added.forEach(function(n) {
                     if (n.matches && (n.matches(".goog-menu, .goog-menuitem, .goog-submenu") || n.querySelector(".goog-menuitem"))) {
                         tidyMenus(n);
@@ -85049,6 +85274,7 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             presentBtn();
             slideBits();
             noAi();
+            noExtras();
             noAiDialogs();
             tidyMenus(document);
             if (place()) {
@@ -86073,6 +86299,17 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         // the toolbars, "suggested" pills
         add("[class*='GenerativeaiNudges'], [class*='GenerativeAiNudge'], [class*='appsSketchyGenerativeai'], [class*='appsElementsGenerativeAi'], " +
             "[class*='appsDocsAiGenerativeai'], [class*='suggestionNudgeView'], [class*='CanvasNudge']", "display: none !important;");
+        // (8.44) the room Google keeps at the right for today's side panel (its strip of Calendar, Keep, Tasks and add-ons is hidden
+        // above; #docs-chrome and #docs-editor are "companion-enabled"): none, and the toolbar its full width (Google gives it, or
+        // the bars it is in, the width left of the strip), so the toolbar and the page reach the edge as in every period
+        if (String(layout || "") !== "2022") {
+            add("*", "--docs_companion_app_switcher_width: 0px !important;");
+            add(".companion-enabled #docs-bars, .companion-enabled #docs-toolbar-wrapper", "width: auto !important; max-width: none !important;");
+            // (8.44) today's offer across the top and Slides' content rail (hidden with the boxes around them in ugfDocsEditor):
+            // hidden here as well, so that one Google draws again is never seen
+            add("[class*='WorkspaceRecommendationBanner'], [class*='Floating-toolbar']:has([class*='ContentLibraryRailWizEntry']), " +
+                "[class*='ContentLibraryRailWizEntry']", "display: none !important;");
+        }
         add("*", "letter-spacing: normal !important;");
         add("body, #docs-chrome, .goog-menu, .goog-toolbar, .docs-menubar, .modal-dialog", "font-family: " + font + " !important;");
         // ---- the header
@@ -86519,6 +86756,13 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             ".waffle-sidebar-container:has([class*='inline-assistant']), .waffle-sidebar-container:has([class*='chip-extraction']), [class*='smart-summary'], " +
             // (8.39) the name box came in January 2021
             (gm && String(layout || "") === "2022" ? "" : ".waffle-name-box-container, #t-name-box-dropdown, .name-box-dropdown, #formula-bar-name-box-wrapper > .formula-bar-separator, ") + "#t-formula-bar-columnsmith-text", "display: none !important;");
+        // (8.44) the last cell of the bar under the grid (today's sums and suggestions) kept, empty: Google's table gives it the
+        // bar's spare width. Hidden, the table shared that out among the other cells, + and All Sheets standing some 200 px in and
+        // the tabs from the middle; the periods had them at the left, after the row numbers (2022 not changed here)
+        if (String(layout || "") !== "2022") {
+            add("td.docs-sheet-status-container-avs", "display: table-cell !important;");
+            add("td.docs-sheet-status-container-avs > *", "display: none !important;");
+        }
         // ---- the $ % 123 buttons: text, as they always were
         add("#t-num-fmt-currency, #t-num-fmt-percent, #t-num-fmt-other, #t-num-fmt-currency *, #t-num-fmt-percent *, #t-num-fmt-other *",
             "font-family: " + font + " !important; color: " + (old || era === "d2010" ? "#000" : "#444") + " !important; letter-spacing: normal !important;");
@@ -86545,8 +86789,8 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             add("#formula-bar-name-box-wrapper, #formula-bar", "height: 24px !important; border: 0 !important; background: #fff !important;");
             add("#t-formula-bar-label, #formula-bar-dragger", "display: none !important;");
             add("#t-formula-bar-input, #t-formula-bar-input .cell-input", "color: #555 !important;");
-            add("td.docs-sheet-status-container-avs", "display: table-cell !important; width: 300px !important;");
-            add("td.docs-sheet-status-container-avs > *", "visibility: hidden !important;");
+            // (8.44) the box's room at the right end of the bar, in the cell kept there (above)
+            add("td.docs-sheet-status-container-avs", "padding-left: 300px !important;");
         } else {
             add("#t-formula-bar-label", "opacity: .6 !important; background: transparent !important;");
             add("#t-formula-bar-label .docs-icon-img", "filter: grayscale(1) !important;");
@@ -90554,7 +90798,9 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             it.owner = c.Owner || c["Shared by"] || "";
             it.modified = c["Last modified"] || c["Date modified"] || c["Last opened by me"] || c["Opened by me"] || c["Date shared"] || c["Trashed date"] || c["Date trashed"] ||
                 (c["Reason suggested"] || "").replace(/^You (edited|modified|opened|created|uploaded)\s*•\s*/, "");
-            it.size = c["File size"] || c.Size || "";
+            // (8.44) the size alone (today's Drive says "Size: 1 KB Storage used: 1 KB"); Google's own formats (the "Google ..."
+            // type labels; not uploads named after a Google app, like a Colab notebook) took no room, and showed none, until June 2021
+            it.size = /^Google /.test(type) && labels.indexOf(type) >= 0 && String(layout || "2015") !== "2022" ? "" : (c["File size"] || c.Size || "").replace(/^Size:\s*(.+?)(\s+Storage used:.*)?$/, "$1");
             it.location = c.Location || c["Original location"] || "";
             seen[id] = true;
             out.push(it);
@@ -91184,36 +91430,116 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         });
         return found;
     }
-    // Show one of Google's dialogs above Gplex's page: the fallback when Gplex cannot do
-    // what was asked through its own dialog
-    // (8.40) isUp, when given, is the test that the dialog is still up; without it, it is up until it goes or has no size
-    function ugfDvReveal(el, onGone, isUp) {
-        if (!el) {
-            return;
-        }
+    // (8.44) the top-level box (child of <body>) an element of Google's page is in, and its lifting above Gplex's page: how is ""
+    // for the whole box, "alone" for only the boxes in it marked ugf-dv-alone (ugfDvClip)
+    function ugfDvTop(el) {
         let top = el;
         while (top.parentElement && top.parentElement !== document.body) {
             top = top.parentElement;
         }
-        const whole = top.querySelector && top.querySelector("[role=main]");
+        return top;
+    }
+    function ugfDvLift(top, how) {
+        top.setAttribute("ugf-dv-up", how);
+        if (getComputedStyle(top).position === "static") {
+            top.style.setProperty("position", "relative", "important");
+            top.setAttribute("ugf-dv-pos", "");
+        }
+    }
+    function ugfDvDrop(top) {
+        top.removeAttribute("ugf-dv-up");
+        if (top.hasAttribute("ugf-dv-pos")) {
+            top.style.removeProperty("position");
+            top.removeAttribute("ugf-dv-pos");
+        }
+    }
+    // (8.44) a top-level box no longer holding a box shown alone: its clip gone, and its lift if that was all it was for
+    function ugfDvUnclip(top) {
+        top.style.removeProperty("clip-path");
+        if (top.getAttribute("ugf-dv-up") === "alone") {
+            ugfDvDrop(top);
+        }
+    }
+    // (8.44) every top-level box holding boxes shown alone (ugf-dv-alone, its value the html marker of the module's page they are
+    // shown over) while that page is on: lifted and clipped to them (clip-path, which passes the clicks round them to Gplex's
+    // page), kept in step each frame while one is. Once the page is off (the module's undo) the box is let go, so Google's page
+    // is whole again. Not clipped while Google's whole page is shown (gplex-dv-reveal) or while the box is lifted whole for a
+    // dialog of its own.
+    function ugfDvClip() {
+        cancelAnimationFrame(ugfDvClip.frame);
         const html = document.documentElement;
-        if (whole || top === el.ownerDocument.documentElement) {
+        const tops = new Map();
+        document.querySelectorAll("[ugf-dv-alone]").forEach(function(b) {
+            const top = ugfDvTop(b);
+            const live = tops.get(top) || [];
+            if (html.hasAttribute(b.getAttribute("ugf-dv-alone"))) {
+                live.push(b.getBoundingClientRect());
+            }
+            tops.set(top, live);
+        });
+        const open = html.hasAttribute("gplex-dv-reveal");
+        let on = 0;
+        tops.forEach(function(live, top) {
+            if (!live.length) {
+                ugfDvUnclip(top);
+                return;
+            }
+            on++;
+            if (!top.hasAttribute("ugf-dv-up")) {
+                ugfDvLift(top, "alone");
+            }
+            if (open || top.getAttribute("ugf-dv-up") !== "alone") {
+                top.style.removeProperty("clip-path");
+                return;
+            }
+            // one rectangle for each box (a path of them, not the rectangle round them all, which would show Google's page between
+            // two boxes), in the top box's own frame
+            const t = top.getBoundingClientRect();
+            const rects = live.filter(function(r) {
+                return r.width && r.height;
+            }).map(function(r) {
+                const x = r.left - t.left;
+                const y = r.top - t.top;
+                return "M" + x + " " + y + " H" + (x + r.width) + " V" + (y + r.height) + " H" + x + " Z";
+            });
+            top.style.setProperty("clip-path", rects.length ? "path('" + rects.join(" ") + "')" : "inset(50%)", "important");
+        });
+        ugfDvClip.frame = on ? requestAnimationFrame(ugfDvClip) : 0;
+    }
+    // Show one of Google's dialogs above Gplex's page: the fallback when Gplex cannot do
+    // what was asked through its own dialog
+    // (8.40) isUp, when given, is the test that the dialog is still up; without it, it is up until it goes or has no size
+    // (8.44) alone, the html marker of the module's page (gplex-meet): only el shows (ugfDvClip), and only while that page is
+    // on, for a box Google puts up beside its page, where lifting its whole top-level box (often the whole app) would bring
+    // today's whole page up with it
+    // (an inline or display:contents top box can't be clipped to the box: Chrome takes an inline box's clip from its first line,
+    // and contents takes none; it is shown the 8.43 way)
+    function ugfDvReveal(el, onGone, isUp, page) {
+        if (!el) {
+            return;
+        }
+        const top = ugfDvTop(el);
+        const html = document.documentElement;
+        const alone = page && !/^(inline|contents)$/.test(getComputedStyle(top).display) ? page : "";
+        if (alone) {
+            el.setAttribute("ugf-dv-alone", alone);
+            ugfDvClip();
+        } else if ((top.querySelector && top.querySelector("[role=main]")) || top === el.ownerDocument.documentElement) {
             html.setAttribute("gplex-dv-reveal", "");
         } else {
-            top.setAttribute("ugf-dv-up", "");
-            if (getComputedStyle(top).position === "static") {
-                top.style.setProperty("position", "relative", "important");
-                top.setAttribute("ugf-dv-pos", "");
-            }
+            ugfDvLift(top, "");
         }
         const watch = setInterval(function() {
             if (!el.isConnected || (isUp ? !isUp(el) : !el.getClientRects().length || getComputedStyle(el).visibility === "hidden")) {
                 clearInterval(watch);
-                html.removeAttribute("gplex-dv-reveal");
-                top.removeAttribute("ugf-dv-up");
-                if (top.hasAttribute("ugf-dv-pos")) {
-                    top.style.removeProperty("position");
-                    top.removeAttribute("ugf-dv-pos");
+                if (!alone) {
+                    html.removeAttribute("gplex-dv-reveal");
+                    ugfDvDrop(top);
+                } else {
+                    el.removeAttribute("ugf-dv-alone");
+                    if (!top.matches("[ugf-dv-alone]") && !top.querySelector("[ugf-dv-alone]")) {
+                        ugfDvUnclip(top);
+                    }
                 }
                 if (onGone) {
                     onGone();
@@ -91235,16 +91561,59 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         }
         return true;
     }
+    // (8.44) how much of the window's width and height an element of Google's page takes ([w, h], 1 the whole)
+    function ugfDvSpan(el) {
+        const r = el.getBoundingClientRect();
+        return [r.width / window.innerWidth, r.height / window.innerHeight];
+    }
+    // (8.44) a dialog that holds the page until it is answered: said so (aria-modal, an alert dialog), or with a scrim: something
+    // beside it (holding neither it nor the page's own, mine) over nearly the whole window, tinted but see-through
+    function ugfDvModal(d, mine) {
+        if (d.closest("[aria-modal=true], [role=alertdialog]")) {
+            return true;
+        }
+        for (let n = d; n.parentElement && n !== document.body; n = n.parentElement) {
+            for (let o = n.parentElement.firstElementChild; o; o = o.nextElementSibling) {
+                const w = o === n || mine(o) ? [0, 0] : ugfDvSpan(o);
+                if (w[0] > 0.85 && w[1] > 0.85 && ugfDvShown(o)) {
+                    const cs = getComputedStyle(o);
+                    const c = cs.backgroundColor.match(/[\d.]+/g) || [];
+                    const a = c.length > 3 ? parseFloat(c[3]) : c.length ? 1 : 0;
+                    if (a > 0 && (a < 1 || parseFloat(cs.opacity) < 1)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    // (8.44) page furniture Google calls a dialog (Contacts' menu of places, a "navigational drawer" always up): a side or a bar
+    // of the window (nearly its full height or width, not both), or, smaller, holding navigation (a navigation landmark, a list
+    // of links) or named a drawer. Only asked of a dialog that is not modal.
+    function ugfDvFurniture(d) {
+        const w = ugfDvSpan(d);
+        if (w[0] > 0.85 || w[1] > 0.85) {
+            return w[0] <= 0.85 || w[1] <= 0.85;
+        }
+        return /drawer/i.test(d.getAttribute("aria-label") || "") || !!d.querySelector("[role=navigation], nav") ||
+            Array.prototype.some.call(d.querySelectorAll("ul, ol, [role=list]"), function(l) {
+                return l.querySelectorAll("a[href]").length > 2;
+            });
+    }
     // (8.39) every shown Google dialog that is not the page's own (mine), once each: kept in shown while it is up (isShown, by
-    // default ugfDvUp, says both)
-    function ugfDvRevealAll(mine, shown, isShown) {
+    // default ugfDvUp, says both). (8.44) A modal one as before; page furniture never; any other (a toast, a picker, a popover)
+    // alone, over the period's page without today's page round it, while that page (its html marker, page) is on
+    function ugfDvRevealAll(page, mine, shown, isShown) {
         const up = isShown || ugfDvUp;
         document.querySelectorAll("[role=dialog], [role=alertdialog]").forEach(function(d) {
             if (!mine(d) && shown.indexOf(d) < 0 && up(d)) {
-                shown.push(d);
-                ugfDvReveal(d, function() {
-                    shown.splice(shown.indexOf(d), 1);
-                }, up);
+                const modal = ugfDvModal(d, mine);
+                if (modal || !ugfDvFurniture(d)) {
+                    shown.push(d);
+                    ugfDvReveal(d, function() {
+                        shown.splice(shown.indexOf(d), 1);
+                    }, up, !modal && page);
+                }
             }
         });
     }
@@ -92305,7 +92674,7 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             const thumb = ["image", "pdf", "document", "spreadsheet", "presentation", "drawing", "video"].indexOf(it.kind) > -1;
             let extra = "";
             Object.keys(it.cols).forEach(function(k) {
-                if (["Owner", "Last modified", "File size", "Location", "Reason suggested"].indexOf(k) < 0) {
+                if (["Owner", "Last modified", "File size", "Size", "Location", "Reason suggested"].indexOf(k) < 0) {
                     extra += row(k, it.cols[k]);
                 }
             });
@@ -94602,7 +94971,7 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             when();
             // (8.39) Google's dialogs (Settings, a meeting for later) come up above the page, as Drive's do; (8.40) up while
             // ugfDvUp says so, each said as it comes up and as it closes (fades or is put away, too)
-            ugfDvRevealAll(ugfMeetMine, state.shown);
+            ugfDvRevealAll("gplex-meet", ugfMeetMine, state.shown);
             const said = function(list, others, what) {
                 list.forEach(function(d) {
                     if (others.indexOf(d) < 0) {
@@ -101814,7 +102183,7 @@ html[gplex-voice] #ugf-gmail-accmenu a, html[gplex-voice] #ugf-gmail-appsmenu a 
                 document.title = myTitle;
             }
             // (8.39) Google's dialogs (a label being made, a contact being deleted, import) come up above the page, as Drive's do
-            ugfDvRevealAll(ugfContactsMine, state.shown, ugfContactsShown);
+            ugfDvRevealAll("gplex-contacts", ugfContactsMine, state.shown, ugfContactsShown);
             const v = ugfContactsView();
             if (v && v.k !== state.view.k && (!state.pend || state.pend.k !== v.k)) {
                 state.pend = v;
@@ -103366,7 +103735,7 @@ html[gplex-contacts] #ugf-gmail-accmenu a, html[gplex-contacts] #ugf-gmail-appsm
         };
         const update = function() {
             // (8.39) Google's dialogs (create or join a class, the theme picker) come up above the page, as Drive's do
-            ugfDvRevealAll(ugfClassroomMine, state.shown);
+            ugfDvRevealAll("gplex-classroom", ugfClassroomMine, state.shown);
             if (at.kind === "home" && document.title !== "Classroom") {
                 state.gTitle = document.title;
                 document.title = "Classroom";
