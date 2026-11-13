@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.42.205
+// @version      8.43.206
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -44562,6 +44562,35 @@ if (!ugfOnYouTube && !ugfOnGplexPlus) (function() {
 // Gplex starts at document-start so that, on the Docs/Sheets/Slides editors, the page
 // can be veiled (white, with the Gmail spinner) before any of Google's present-day
 // layout is painted. Everything else waits, as before, until the page's <body> exists.
+// (8.43) The veil: a white sheet over the page, not the page hidden (the editor must be able to take the keyboard while it starts,
+// or Slides never gets it back; the six sites' modules read Google's page under it), with the loading wheel
+const UGF_VEIL_CSS = "html { background: #fff !important; } html::before { content: ''; position: fixed; inset: 0; background: #fff; z-index: 2147483645; pointer-events: auto; }" +
+    " html::after { content: ''; position: fixed; left: 50%; top: 50%; width: 28px; height: 28px; margin: -17px 0 0 -17px; border: 3px solid #e8eaed;" +
+    " border-top-color: #9aa0a6; border-radius: 50%; animation: ugfEarlySpin .8s linear infinite; z-index: 2147483647; box-sizing: content-box; }" +
+    " @keyframes ugfEarlySpin { to { transform: rotate(360deg); } }";
+// a <style> put in at document-start: at once, or the moment there is somewhere to put it
+function ugfEarlyStyle(id, css) {
+    const st = document.createElement("style");
+    st.id = id;
+    st.textContent = css;
+    const put = function() {
+        const at = document.head || document.documentElement;
+        if (!at) {
+            return false;
+        }
+        at.appendChild(st);
+        return true;
+    };
+    if (!put()) {
+        const wait = new MutationObserver(function() {
+            if (put()) {
+                wait.disconnect();
+            }
+        });
+        wait.observe(document, { childList: true, subtree: true });
+    }
+    return st;
+}
 (function ugfEarlyVeil() {
     try {
         if (window.location.host !== "docs.google.com" || window.top !== window.self) {
@@ -44576,31 +44605,7 @@ if (!ugfOnYouTube && !ugfOnGplexPlus) (function() {
         if (String((typeof GM_getValue === "function" ? GM_getValue(key, null) : null) || "true") === "false") {
             return;
         }
-        const st = document.createElement("style");
-        st.id = "ugf-early-veil";
-        // (a white sheet over the page, not the page hidden: the editor must be able to take
-        // the keyboard while it starts, or Slides never gets it back)
-        st.textContent = "html { background: #fff !important; } html::before { content: ''; position: fixed; inset: 0; background: #fff; z-index: 2147483645; pointer-events: auto; }" +
-            " html::after { content: ''; position: fixed; left: 50%; top: 50%; width: 28px; height: 28px; margin: -17px 0 0 -17px; border: 3px solid #e8eaed;" +
-            " border-top-color: #9aa0a6; border-radius: 50%; animation: ugfEarlySpin .8s linear infinite; z-index: 2147483647; box-sizing: content-box; }" +
-            " html:has(#ugf-docs-loading)::after { display: none; } @keyframes ugfEarlySpin { to { transform: rotate(360deg); } }";
-        const put = function() {
-            const at = document.head || document.documentElement;
-            if (!at) {
-                return false;
-            }
-            at.appendChild(st);
-            return true;
-        };
-        if (!put()) {
-            // nothing of the page exists yet: put it in the moment there is somewhere to
-            const wait = new MutationObserver(function() {
-                if (put()) {
-                    wait.disconnect();
-                }
-            });
-            wait.observe(document, { childList: true, subtree: true });
-        }
+        ugfEarlyStyle("ugf-early-veil", UGF_VEIL_CSS + " html:has(#ugf-docs-loading)::after { display: none; }");
         // never left up by mistake
         setTimeout(function() {
             const s = document.getElementById("ugf-early-veil");
@@ -44652,6 +44657,85 @@ if (!ugfOnYouTube && !ugfOnGplexPlus) (function() {
         setTimeout(function() {
             st.remove();
         }, 10000);
+    } catch (e) {}
+})();
+// (8.43) Meet, Chat, Sites, Voice, Contacts and Classroom: the veil from the start wherever Gplex may draw, so that today's page
+// doesn't show before the period's; the site's module keeps it or takes it off (ugfAppStart, ugfAppVeil)
+// a site's module, started: the veil goes as it returns unless the module has kept it
+function ugfAppStart(start) {
+    try {
+        start();
+    } finally {
+        if (!ugfAppVeil.kept) {
+            ugfAppVeilOff();
+        }
+    }
+}
+// the module keeps the veil while wanted() says it still waits to draw on this address, 6 seconds at most: Google's real pages are
+// read well within that, and past it Google's page shows (and takes clicks) while the module goes on waiting, as before 8.43,
+// rather than a white page for the module's whole wait when its hooks miss; the console says so, for the owner to send in
+function ugfAppVeil(site, wanted) {
+    clearTimeout(ugfAppVeil.timer);
+    ugfAppVeil.kept = true;
+    const end = Date.now() + 6000;
+    const check = function() {
+        let keep = false;
+        try {
+            keep = wanted();
+        } catch (e) {}
+        if (keep && Date.now() >= end) {
+            keep = false;
+            console.log("[Gplex] " + site + ": Google's page not read after 6 seconds, shown while Gplex goes on waiting for it");
+        }
+        if (!keep) {
+            clearInterval(every);
+            ugfAppVeilOff();
+        }
+    };
+    const every = setInterval(check, 100);
+    check();
+}
+function ugfAppVeilOff() {
+    const st = document.getElementById("ugf-app-veil");
+    if (st) {
+        st.remove();
+    }
+}
+(function ugfAppEarlyVeil() {
+    try {
+        const sites = ["meet.google.com", "chat.google.com", "sites.google.com", "voice.google.com", "contacts.google.com", "classroom.google.com"];
+        if (sites.indexOf(window.location.host) < 0 || window.top !== window.self) {
+            return;
+        }
+        const gv = function(k, d) {
+            try {
+                return String((typeof GM_getValue === "function" ? GM_getValue(k, null) : null) || d);
+            } catch (e) {
+                return d;
+            }
+        };
+        if (gv("UGF_WORKSPACE_ON", "true") === "false" || ugfSharedLayout(gv) === "2022") {
+            return;
+        }
+        ugfEarlyStyle("ugf-app-veil", UGF_VEIL_CSS);
+        // never left up by mistake: off 1.5 s after the page's <body> is there, unless a module has kept it by then (they do within
+        // 0.1 s of it), so a way out of Gplex's start that runs no module shows Google's page, as it would without the veil
+        const until = function() {
+            if (!ugfAppVeil.kept) {
+                ugfAppVeil.timer = setTimeout(ugfAppVeilOff, 1500);
+            }
+        };
+        if (document.body) {
+            until();
+        } else {
+            const mo = new MutationObserver(function() {
+                if (document.body) {
+                    mo.disconnect();
+                    until();
+                }
+            });
+            mo.observe(document.documentElement || document, { childList: true, subtree: true });
+        }
     } catch (e) {}
 })();
 // (7.2.27) Play: today's store is kept out of sight from the start as well, until Gplex's is up
@@ -49577,8 +49661,9 @@ function ugfWhenBody(fn) {
     mo.observe(document.documentElement || document, { childList: true, subtree: !document.documentElement });
 }
 ugfWhenBody(function ugfBoot() {
-// Google's error page is ugfErrorPage's; pages Gplex doesn't restyle are left alone
+// Google's error page is ugfErrorPage's; pages Gplex doesn't restyle are left alone (with no veil over them, 8.43)
 if (ugfIsErrorPage() || !ugfOwnPage()) {
+    ugfAppVeilOff();
     return;
 }
 // the sign-in page is only restyled (by ugfSignInTheme above): none of the rest runs there
@@ -67167,27 +67252,27 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
     }
     // (8.39) Meet, Chat, Sites, Voice, Contacts and Classroom: Gplex's own page of the period, or Google's
     if (window.location.host === "meet.google.com") {
-        ugfMeetStart();
+        ugfAppStart(ugfMeetStart);
         return;
     }
     if (window.location.host === "chat.google.com") {
-        ugfChatStart();
+        ugfAppStart(ugfChatStart);
         return;
     }
     if (window.location.host === "sites.google.com") {
-        ugfSitesStart();
+        ugfAppStart(ugfSitesStart);
         return;
     }
     if (window.location.host === "voice.google.com") {
-        ugfVoiceStart();
+        ugfAppStart(ugfVoiceStart);
         return;
     }
     if (window.location.host === "contacts.google.com") {
-        ugfContactsStart();
+        ugfAppStart(ugfContactsStart);
         return;
     }
     if (window.location.host === "classroom.google.com") {
-        ugfClassroomStart();
+        ugfAppStart(ugfClassroomStart);
         return;
     }
     // Google Photos: Picasa Web Albums, Google+ Photos, or the Google Photos of the period
@@ -93964,6 +94049,9 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         let page = null;
         let gaveUp = "";
         let logged = where();
+        ugfAppVeil("Meet", function() {
+            return ugfMeetHome() && !page && gaveUp !== where();
+        });
         // (8.39) Meet is a single-page app: follow its address, drawing on the home only; (8.40) giving up holds for the
         // address it happened on, and coming back to the home after a call tries again
         const tick = function() {
@@ -94939,6 +95027,9 @@ html[gplex-meet] #ugf-gmail-accmenu a, html[gplex-meet] #ugf-gmail-appsmenu a { 
         let trying = false;
         let gaveUp = "";
         let logged = where();
+        ugfAppVeil("Chat", function() {
+            return ugfChatScreen() && !page && gaveUp !== where();
+        });
         // giving up holds for the address it happened on; another screen tries again
         const giveUp = function(why) {
             gaveUp = where();
@@ -96734,6 +96825,9 @@ html[gplex-meet] #ugf-gmail-accmenu a, html[gplex-meet] #ugf-gmail-appsmenu a { 
         let since = 0;
         let still = 0;
         let gaveUp = false;
+        ugfAppVeil("Sites", function() {
+            return ugfSitesHome() && !page && !gaveUp;
+        });
         // (8.39) Sites is a single-page app: follow its address, drawing on the home only
         const tick = function() {
             if (ugfSitesHome() !== home) {
@@ -97522,6 +97616,10 @@ ${H} .dsep { height: 1px; background: #e0e0e0; margin: 8px 0; }
         let told = start;
         let wait = { view: "", at: 0 };
         const drawn = {};
+        ugfAppVeil("Voice", function() {
+            const v = ugfVoiceView().view;
+            return !gaveUpAt && (v ? !drawn[v] : /^\/(u\/\d+\/?)?$/.test(window.location.pathname || "/"));
+        });
         const giveUp = function(why) {
             gaveUpAt = window.location.pathname;
             if (page) {
@@ -99980,6 +100078,9 @@ html[gplex-voice] #ugf-gmail-accmenu a, html[gplex-voice] #ugf-gmail-appsmenu a 
         let said = "";
         // a contact handed to Google's own editor: Gplex stays away until the address changes or the editing is over
         let handed = null;
+        ugfAppVeil("Contacts", function() {
+            return !!ugfContactsView() && !page && !gaveUpAt && !handed && !ugfContactsEditing();
+        });
         const here = function() {
             return window.location.pathname + window.location.search;
         };
@@ -100041,7 +100142,7 @@ html[gplex-voice] #ugf-gmail-accmenu a, html[gplex-voice] #ugf-gmail-appsmenu a 
             }
             trying = true;
             ugfDvWait(function() {
-                return ugfContactsReady(view);
+                return here() !== at || ugfContactsReady(view);
             }, ugfContactsWait()).then(function(ok) {
                 trying = false;
                 if (page || here() !== at || !ugfContactsView()) {
@@ -102222,6 +102323,10 @@ html[gplex-contacts] #ugf-gmail-accmenu a, html[gplex-contacts] #ugf-gmail-appsm
         let seen = first.path;
         // (8.40) what each of Google's Classwork rows showed when first read, kept for the whole visit (ugfClassroomWork)
         const kept = new WeakMap();
+        ugfAppVeil("Classroom", function() {
+            const at = ugfClassroomWhere(era);
+            return !!at.kind && !page && gaveUp !== at.key;
+        });
         // (8.39) Classroom is a single-page app: follow its address, drawing the pages of the period only
         const tick = function() {
             const at = ugfClassroomWhere(era);
