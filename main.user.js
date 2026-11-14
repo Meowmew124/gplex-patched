@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.46.211
+// @version      8.47.212
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -5168,7 +5168,8 @@ let ScFa={
 	},
 	"expFixedXIcon":{
 		name:"expFixedXIcon",
-		desc:"Makes the X share option use the modern icon, as opposed to the pre-2023 icon."
+		label:"expFixedTwitterIcon",
+		desc:"Gives the Twitter share option the icon of 2023 on, instead of the bird. Only on YouTube layouts of 2022 on: before them, Gplex keeps the bird."
 	}
 };
 let radioSets={
@@ -22957,7 +22958,7 @@ filter: invert(1);
 	</div>
 `);
 		dump.insertBefore(settingElem,dump.children[number-1]);
-		settingElem.querySelector(".astro-setting-title span").textContent=i[1].name;
+		settingElem.querySelector(".astro-setting-title span").textContent=i[1].label||i[1].name;
 		settingElem.querySelector(".astro-setting-desc span").innerHTML=ugfTT(i[1].desc);
 		settingElem.setAttribute("value",i[1].value);
 		settingElem.setAttribute("iron",i[1].locked);
@@ -23070,7 +23071,7 @@ filter: invert(1);
 				var arraySettings = document.querySelectorAll(".astro-checkbox-setting");
 				arraySettings.forEach(i => {
 					if(i){
-						var item = i.getAttribute("id");
+						var item = i.getAttribute("id") + " " + ((i.querySelector(".astro-setting-title span") || {}).textContent || "");
 						item = item.toUpperCase();
 						value = value.toUpperCase();
 						if(item.includes(value)){
@@ -41254,16 +41255,39 @@ function ugfYtShareYear(gplex) {
     }
     return ({ "2007": 2008, "2018": 2017, "2019": 2021 })[gplex] || Math.max(2007, parseInt(gplex, 10) || 2015);
 }
+// (8.47) YouTube's Twitter bird of 2013-2019 (www-sharing, share-service-icon-twitter, 32 x 32), for the Share panel and the links
+const UGF_YT_BIRD_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACRklEQVR42u2XS2gTURSGv5t5JKlJSGowkoqggra1CrUIItoiiAE3LWI3ogsXLrp1WRR3IrgT3AiCG7uSgmBVUKGIDa0VFB9FtBSM1IZgqh0naZJ5uRAKweYxTSGbnOXc4f7fPfec83MFD7IOTQwPTY4WQAug6QDyZm3UG5YYiCoIAcmsycyyubbm9UDRdgmwLygRVkTZRuuF6oG7fQHO71TLvj/8UeLWfJFTMQXTcbjyadXdFZztUHl0NMjhSPUk3TzQ9p84wGBc5UV/kJPbZMYXDXb4Pe4AOvweol7B5ECQS7u8iHX+iaiCkd2+qoB7AhJXu3wsFWx3AAs5C4A2SXDn0BaSJ0IkYkoZyP6QhFKjjB+nDYandSzHZQ2MpUpc6/ITkP9JHmmXeXosSCpvM5E2mP1lEpBEzeKcWCphVnEbUcmM+qMyvWGZGz1+fHUIVYrTU394kjbct2EipjDa6W+4Ped1e2OD6P73UsV7qzfSBZuvurUxgDnNYuRtriGI8UWjsVF871uRC7M6c5rlWtwBbi8UGgMwbRjt9NMdklwDjKVKdYF7ap3i3GudTNF2JZ4p2lx+n98cN/ywYnHwmcb1z6u8+137RHnLYXi6fui67DhbsvmoWYTV6vNgxXAYSuq8/Gk2ZschRXAmrtKuCnpCEontCnFfddaprMnFN7mabVdXBjTD4VXWZG9AYiiuVhS3HHieMRhM6hyf1FyLVx3FaykS0BeR6Q5JbFUFsgDdhC+6xcyyyYrR2LQSrYdJC6AF0GyAvzYfzRKu1WTfAAAAAElFTkSuQmCC";
+// (8.47) The year of a YouTube layout picked in StarTube's list (UGF_ST_layoutPick, read as Gplex Mobile reads it, so m.youtube.com
+// and embeds see it too), 0 with "auto". A pick wins over the Gplex layout, 2022 included, as in StarTube and Gplex Mobile. A pick
+// named without a year ("passive", Custom) is 0 too: like Gplex Mobile, the Gplex layout's year then.
+function ugfYtPickYear() {
+    let pick = "";
+    try {
+        pick = String((typeof GM_getValue === "function" ? GM_getValue("UGF_ST_layoutPick", null) : null) ||
+            window.localStorage.getItem("layoutPick") || "");
+    } catch (e) {}
+    if (!pick || pick === "auto" || pick === "ugfauto") {
+        return 0;
+    }
+    const m = /(?:19|20)\d\d/.exec(pick);
+    return /^poly2019/.test(pick) ? 2021 : m ? parseInt(m[0], 10) : 0;
+}
+// (8.47) The year of the YouTube drawn: StarTube's named layout, else the pick's, else the Gplex layout's (ugfYtShareYear)
+function ugfYtYearNow(gplex, picked) {
+    return picked && !document.querySelector(".spitfire-body-container[layout]") ? picked : ugfYtShareYear(gplex);
+}
 function ugfYouTubePeriodShare() {
     let gplex = "2015";
     try {
         gplex = ugfSharedLayout(typeof GM_getValue === "function" ? GM_getValue : null);
     } catch (e) {}
-    if (gplex === "2022") {
+    // (8.47) a picked layout first
+    const picked = ugfYtPickYear();
+    if (picked ? picked >= 2022 : gplex === "2022") {
         return;
     }
     // YouTube's Twitter of 2013-2019 (www-sharing, share-service-icon-twitter, 32 x 32)
-    const bird = "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACRklEQVR42u2XS2gTURSGv5t5JKlJSGowkoqggra1CrUIItoiiAE3LWI3ogsXLrp1WRR3IrgT3AiCG7uSgmBVUKGIDa0VFB9FtBSM1IZgqh0naZJ5uRAKweYxTSGbnOXc4f7fPfec83MFD7IOTQwPTY4WQAug6QDyZm3UG5YYiCoIAcmsycyyubbm9UDRdgmwLygRVkTZRuuF6oG7fQHO71TLvj/8UeLWfJFTMQXTcbjyadXdFZztUHl0NMjhSPUk3TzQ9p84wGBc5UV/kJPbZMYXDXb4Pe4AOvweol7B5ECQS7u8iHX+iaiCkd2+qoB7AhJXu3wsFWx3AAs5C4A2SXDn0BaSJ0IkYkoZyP6QhFKjjB+nDYandSzHZQ2MpUpc6/ITkP9JHmmXeXosSCpvM5E2mP1lEpBEzeKcWCphVnEbUcmM+qMyvWGZGz1+fHUIVYrTU394kjbct2EipjDa6W+4Ped1e2OD6P73UsV7qzfSBZuvurUxgDnNYuRtriGI8UWjsVF871uRC7M6c5rlWtwBbi8UGgMwbRjt9NMdklwDjKVKdYF7ap3i3GudTNF2JZ4p2lx+n98cN/ywYnHwmcb1z6u8+137RHnLYXi6fui67DhbsvmoWYTV6vNgxXAYSuq8/Gk2ZschRXAmrtKuCnpCEontCnFfddaprMnFN7mabVdXBjTD4VXWZG9AYiiuVhS3HHieMRhM6hyf1FyLVx3FaykS0BeR6Q5JbFUFsgDdhC+6xcyyyYrR2LQSrYdJC6AF0GyAvzYfzRKu1WTfAAAAAElFTkSuQmCC)";
+    const bird = "url(" + UGF_YT_BIRD_PNG + ")";
     // the names YouTube gave them then, and the ones it gives them now
     const named = { twitter: ["Twitter", /^(x|twitter|x \((formerly )?twitter\))$/i, 2099], reddit: ["reddit", /^reddit$/i, 2016],
         tumblr: ["tumblr.", /^tumblr\.?$/i, 2016] };
@@ -41311,7 +41335,7 @@ function ugfYouTubePeriodShare() {
         if (!buttons.length) {
             return;
         }
-        const year = ugfYtShareYear(gplex);
+        const year = ugfYtYearNow(gplex, picked);
         Array.prototype.forEach.call(buttons, function(b) {
             const name = ugfYtShareName(b);
             if (!name) {
@@ -41320,7 +41344,8 @@ function ugfYouTubePeriodShare() {
             const span = UGF_YT_SHARE_YEARS[name];
             const on = !span || (year >= span[0] && !(year > span[1]));
             show(b, on);
-            if (!on || year >= 2022) {
+            // (8.47) hidden ones too, so no "Share to X" is left in the page
+            if (year >= 2022) {
                 return;
             }
             const was = named[name];
@@ -41343,6 +41368,243 @@ function ugfYouTubePeriodShare() {
 }
 if (ugfOnYouTube && !ugfYtmTakesOver() && !ugfYtmPlayerFrame()) {
     ugfYouTubePeriodShare();
+}
+// (8.47) YouTube's links to Twitter as Twitter, on every YouTube of before 2022, wherever YouTube puts them: StarTube's c3 channel
+// sidebar (1997-2012 layouts), V3's c4 channel header and About tab (2013-2019), descriptions, comments, YouTube's present-day About
+// links and share dialogs (embedded players; the phone pages Gplex leaves to YouTube; desktop pages V3 doesn't draw) and Gplex
+// Mobile's own pages. Every link to x.com or twitter.com (youtube.com/redirect?q= unwrapped) gets x.com in its address as twitter.com
+// (which takes it to the same place), a title or text that is X's name ("X", "𝕏", "X (formerly Twitter)", "X / Twitter") as
+// "Twitter", an address shown as text from twitter.com, and a favicon (x.com's, X's logo; also what Google's favicon service now
+// gives for twitter.com) as the bird. A creator's own words ("Follow me on X") are left. In the share dialogs Twitter is hidden
+// before 2009, as in the Share panel. Not on a YouTube of 2022 on: the 2022 layout, or a layout of 2022 on picked in StarTube's list.
+function ugfYouTubeTwitterLinks() {
+    let gplex = "2015";
+    try {
+        gplex = ugfSharedLayout(typeof GM_getValue === "function" ? GM_getValue : null);
+    } catch (e) {}
+    const picked = ugfYtPickYear();
+    // Gplex Mobile draws its own pages of before 2022 whatever is picked (its 2015-2017 site for a pick of 2023 on)
+    let mobile = false;
+    try {
+        mobile = ugfYtmTakesOver();
+    } catch (e) {}
+    if (!mobile && (picked ? picked >= 2022 : gplex === "2022")) {
+        return;
+    }
+    const yearNow = function() {
+        if (mobile) {
+            return picked && picked < 2022 ? picked : picked ? 2017 : ugfYtShareYear(gplex);
+        }
+        return ugfYtYearNow(gplex, picked);
+    };
+    const nameRe = /^(?:x|𝕏|x \((?:formerly )?twitter\)|twitter ?\/ ?x|x ?\/ ?twitter)$/i;
+    // "x" or "twitter" for a link to X, "" for any other
+    const hostOf = function(href) {
+        let h = "";
+        try {
+            let u = new URL(href, location.href);
+            if (/(^|\.)youtube\.com$/i.test(u.hostname) && u.pathname === "/redirect") {
+                u = new URL(u.searchParams.get("q") || "");
+            }
+            h = u.hostname.toLowerCase();
+        } catch (e) {
+            return "";
+        }
+        return /^(www\.|mobile\.)?x\.com$/.test(h) ? "x" : /^(www\.|mobile\.)?twitter\.com$/.test(h) ? "twitter" : "";
+    };
+    const said = function(v) {
+        const t = v.trim();
+        if (!t) {
+            return v;
+        }
+        if (nameRe.test(t)) {
+            return v.replace(t, "Twitter");
+        }
+        return v.replace(/^(\s*(?:https?:\/\/)?)(?:www\.|mobile\.)?x\.com(?=\/|\s*$)/i, "$1twitter.com");
+    };
+    const set = function(el, a, v) {
+        if (el.getAttribute(a) !== v) {
+            el.setAttribute(a, v);
+        }
+    };
+    const texts = function(el) {
+        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        for (let t = w.nextNode(); t; t = w.nextNode()) {
+            const v = said(t.nodeValue);
+            if (v !== t.nodeValue) {
+                t.nodeValue = v;
+            }
+        }
+    };
+    const names = function(el) {
+        ["title", "aria-label"].forEach(function(at) {
+            const v = el.getAttribute(at);
+            if (v) {
+                set(el, at, said(v));
+            }
+        });
+    };
+    const bird = function(i) {
+        if (i.getAttribute("src") !== UGF_YT_BIRD_PNG) {
+            i.removeAttribute("srcset");
+            i.setAttribute("src", UGF_YT_BIRD_PNG);
+        }
+    };
+    // a share dialog's place for Twitter: hidden before 2009
+    const offer = function(r, year) {
+        const on = year >= UGF_YT_SHARE_YEARS.twitter[0];
+        if (!on && !r.hasAttribute("data-ugf-share-off")) {
+            r.setAttribute("data-ugf-share-off", "");
+            r.style.setProperty("display", "none", "important");
+        } else if (on && r.hasAttribute("data-ugf-share-off")) {
+            r.removeAttribute("data-ugf-share-off");
+            r.style.removeProperty("display");
+        }
+    };
+    const fix = function(a) {
+        const href = a.getAttribute("href") || "";
+        const host = hostOf(href);
+        const year = host ? yearNow() : 0;
+        if (host && year < 2022) {
+            if (host === "x") {
+                set(a, "href", href.replace(/(\/\/|%2F%2F)(?:www\.|mobile\.)?x\.com(?=[\/%?#]|$)/i, "$1twitter.com"));
+            }
+            names(a);
+            texts(a);
+            // the favicon (V3's sprite of a known network, pixel-vfl..., is its bird already)
+            Array.prototype.forEach.call(a.getElementsByTagName("img"), function(i) {
+                const src = i.getAttribute("src") || "";
+                if (/pixel-vfl/.test(src) || src === UGF_YT_BIRD_PNG) {
+                    return;
+                }
+                if (/favicon/i.test(src + " " + (i.getAttribute("class") || "")) || a.classList.contains("c3-channel-link")) {
+                    bird(i);
+                }
+            });
+            // YouTube's present-day About link: its title and favicon are beside the link
+            const vm = a.closest("yt-channel-external-link-view-model");
+            if (vm) {
+                const tt = vm.querySelector(".ytChannelExternalLinkViewModelTitle");
+                if (tt) {
+                    texts(tt);
+                }
+                const fi = vm.querySelector("img.ytChannelExternalLinkViewModelFavicon, img[class*='Favicon']");
+                if (fi) {
+                    bird(fi);
+                }
+            }
+            const r = a.closest("ytm-share-target-renderer, yt-share-target-renderer, ytd-share-target-renderer");
+            if (r) {
+                offer(r, year);
+            }
+        }
+        a.setAttribute("data-ugf-tw", a.getAttribute("href") || "");
+    };
+    // YouTube's present-day desktop share dialog: a button titled "X" with X's icon, no link
+    const tsel = "yt-share-target-renderer, ytd-share-target-renderer";
+    const target = function(r) {
+        const year = yearNow();
+        const tt = r.querySelector("#title");
+        const b = r.querySelector("#target") || r;
+        const name = ((tt ? tt.textContent : "") || b.getAttribute("title") || b.getAttribute("aria-label") || "").trim();
+        const ic = r.querySelector("yt-icon");
+        if (year >= 2022 || !(nameRe.test(name) || /^twitter$/i.test(name))) {
+            // a renderer YouTube used again for another place: what Gplex set, undone
+            if (ic && ic.hasAttribute("data-ugf-bird")) {
+                ic.removeAttribute("data-ugf-bird");
+                ic.style.removeProperty("background");
+            }
+            Array.prototype.forEach.call(r.querySelectorAll("[data-ugf-tw-hid]"), function(c) {
+                c.removeAttribute("data-ugf-tw-hid");
+                c.style.removeProperty("opacity");
+            });
+            if (r.hasAttribute("data-ugf-share-off")) {
+                offer(r, 9999);
+            }
+            return;
+        }
+        if (tt) {
+            texts(tt);
+        }
+        names(b);
+        if (ic) {
+            ic.setAttribute("data-ugf-bird", "");
+            ic.style.setProperty("background", "no-repeat center/contain url(" + UGF_YT_BIRD_PNG + ")", "important");
+            Array.prototype.forEach.call(ic.children, function(c) {
+                c.setAttribute("data-ugf-tw-hid", "");
+                c.style.setProperty("opacity", "0", "important");
+            });
+        }
+        offer(r, year);
+    };
+    const rsel = "ytm-share-target-renderer, yt-share-target-renderer, ytd-share-target-renderer";
+    // a link is looked at when it comes, when its address changes (data-ugf-tw keeps the address it was looked at with) and when
+    // its title, text or picture is set again; only what changed is looked at, never the whole page again
+    const sel = 'a[href*="x.com" i], a[href*="twitter.com" i]';
+    const stale = function(a) {
+        return a.getAttribute("data-ugf-tw") !== (a.getAttribute("href") || "");
+    };
+    const take = function(n) {
+        if (n.nodeType !== 1) {
+            return;
+        }
+        if (n.matches(sel) && stale(n)) {
+            fix(n);
+        } else if (n.tagName === "A" && n.hasAttribute("data-ugf-tw") && stale(n)) {
+            // a share link YouTube used again for another place: shown again
+            n.removeAttribute("data-ugf-tw");
+            const r = n.closest(rsel);
+            if (r && r.hasAttribute("data-ugf-share-off")) {
+                offer(r, 9999);
+            }
+        }
+        if (n.matches(tsel)) {
+            target(n);
+        }
+        if (n.firstElementChild) {
+            Array.prototype.forEach.call(n.querySelectorAll(sel), function(a) {
+                if (stale(a)) {
+                    fix(a);
+                }
+            });
+            Array.prototype.forEach.call(n.querySelectorAll(tsel), target);
+        }
+    };
+    // (its own changes come back once and change nothing more)
+    new MutationObserver(function(recs) {
+        recs.forEach(function(r) {
+            if (r.type === "attributes" && r.attributeName === "href") {
+                take(r.target);
+                return;
+            }
+            if (r.type === "childList") {
+                Array.prototype.forEach.call(r.addedNodes, take);
+            }
+            // a title, text or picture of a link looked at, set again
+            const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+            if (!t || !t.closest) {
+                return;
+            }
+            const a = t.closest("a[data-ugf-tw]");
+            if (a && a.matches(sel)) {
+                fix(a);
+            }
+            const vm = t.closest("yt-channel-external-link-view-model");
+            const va = vm && !a ? vm.querySelector("a[data-ugf-tw]") : null;
+            if (va && va.matches(sel)) {
+                fix(va);
+            }
+            const st = t.closest(tsel);
+            if (st) {
+                target(st);
+            }
+        });
+    }).observe(document, { childList: true, subtree: true, characterData: true, attributes: true,
+        attributeFilter: ["href", "title", "aria-label", "src"] });
+    take(document.documentElement || document);
+}
+if (ugfOnYouTube && !ugfYtmPlayerFrame()) {
+    ugfYouTubeTwitterLinks();
 }
 // ---- end StarTube ----
 // ---- Gplex products page ----
