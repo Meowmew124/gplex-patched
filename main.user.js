@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      8.45.209
+// @version      8.46.211
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube: StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -85536,6 +85536,180 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         });
         return out;
     }
+    // (8.46) the pictures of the rows Google's home in its list view gives no id (no link, no data attribute, none in the page's
+    // scripts; Google's page has them from Drive and keeps them in its own script): from Drive's file list, which Gplex asks for
+    // as Google's pages ask Drive (the page's key, the account's cookies, the SAPISIDHASH signature), the app's kind of file, last
+    // opened first as Google's home lists them. Only the picture: the row keeps no id, so its card still opens its file by
+    // pressing Google's row, and a row matched wrongly can only show another file's picture. again() when an answer has come.
+    function ugfDocsThumbs(items, again) {
+        const S = ugfDocsThumbs.s || (ugfDocsThumbs.s = { files: null, seen: null, asked: 0, at: 0, busy: false });
+        const norm = function(t) {
+            return String(t || "").replace(/\s+/g, " ").trim();
+        };
+        const rows = items.filter(function(it) {
+            return !it.id && !it.thumb;
+        });
+        if (!rows.length) {
+            return;
+        }
+        const au = ((window.location.pathname || "").match(/\/u\/(\d+)(\/|$)/) || ["", "0"])[1];
+        // (an answer holds for the rows it was asked for and for rows Google's list adds below them as it grows; a list that
+        // changes otherwise (a file made, deleted or opened elsewhere, another sort or filter) is asked for again, and keeps the
+        // pictures it had until the answer comes)
+        // (the row's date too, Google's "Opened" column: a file of a title the other rows share, made, deleted or opened elsewhere,
+        // leaves the titles and owners as they were, or as if the list had grown below)
+        const seq = rows.map(function(it) {
+            return norm(it.title) + "\t" + norm(it.owner) + "\t" + norm(it.date);
+        }).join("\n");
+        if (S.files && S.seen === null) {
+            S.seen = seq;
+        }
+        const fresh = !!S.files && (seq === S.seen || seq.indexOf(S.seen + "\n") === 0);
+        if (S.files) {
+            const used = {};
+            items.forEach(function(it) {
+                if (it.id) {
+                    used[it.id] = true;
+                }
+            });
+            const free = S.files.filter(function(x) {
+                return !used[x.id];
+            });
+            const onPage = {};
+            const inDrive = {};
+            rows.forEach(function(it) {
+                onPage[norm(it.title)] = (onPage[norm(it.title)] || 0) + 1;
+            });
+            free.forEach(function(x) {
+                inDrive[x.title] = (inDrive[x.title] || 0) + 1;
+            });
+            // (two files of one title are told apart only by their order, which is Drive's (last opened first) only when the
+            // rows read in that order; a title more than once is taken only when Drive has as many files of it as there are rows
+            // of it: a list showing only some owners can read in order when the file it leaves out is next to the one it shows)
+            const a = free.filter(function(x) {
+                return onPage[x.title];
+            }).map(function(x) {
+                return x.title;
+            });
+            const b = rows.map(function(it) {
+                return norm(it.title);
+            }).filter(function(t) {
+                return inDrive[t];
+            });
+            const inOrder = a.slice(0, b.length).join("\n") === b.join("\n");
+            // (whose a row is, from Google's owner column ("me" in the page's language), and whose a file is (Drive's ownedByMe):
+            // a row never takes a file of the other kind; null when not known)
+            const me = ugfSitesMe();
+            const rowMine = function(it) {
+                const o = norm(it.owner).toLowerCase();
+                return me && o ? o === me.toLowerCase() : null;
+            };
+            const fits = function(it, x) {
+                const m = rowMine(it);
+                return m === null || x.mine === null || m === x.mine;
+            };
+            // (search results are in Google's order of relevance, not Drive's: only a title once in each)
+            const search = !!new URLSearchParams(window.location.search).get("q");
+            // (Google's default list: its rows, every one, are Drive's first files title for title and owner for owner, in order,
+            // however few of them it has loaded yet: each row is the file in its place)
+            const whole = !search && rows.length <= free.length && rows.every(function(it, i) {
+                const m = rowMine(it);
+                return norm(it.title) === free[i].title && m !== null && free[i].mine !== null && m === free[i].mine;
+            });
+            const pic = function(id) {
+                return "https://lh3.google.com/u/" + au + "/d/" + id + "=w208";
+            };
+            rows.forEach(function(it, i) {
+                if (whole) {
+                    it.thumb = pic(free[i].id);
+                    used[free[i].id] = true;
+                    return;
+                }
+                const t = norm(it.title);
+                if ((onPage[t] !== 1 || inDrive[t] !== 1) && (search || !inOrder || onPage[t] !== inDrive[t])) {
+                    return;
+                }
+                const f = free.filter(function(x) {
+                    return !used[x.id] && x.title === t && fits(it, x);
+                })[0];
+                if (f) {
+                    it.thumb = pic(f.id);
+                    used[f.id] = true;
+                }
+            });
+        }
+        if (fresh || S.busy || S.asked >= 8 || Date.now() - S.at < 20000) {
+            return;
+        }
+        const app = ugfDocsWords().app;
+        const say = function(m) {
+            console.log("[Gplex] " + app + ": Drive's file list for the pictures of the rows Google's list view gives no id: " + m);
+        };
+        let key = "";
+        document.querySelectorAll("script").forEach(function(sc) {
+            const m = !key && String(sc.textContent || "").match(/"homescreen_drive_client_key":"(AIza[\w-]{30,})"/);
+            if (m) {
+                key = m[1];
+            }
+        });
+        const ck = (document.cookie.match(/(?:^|;\s*)SAPISID=([^;]+)/) || document.cookie.match(/(?:^|;\s*)__Secure-3PAPISID=([^;]+)/) || [])[1] || "";
+        const subtle = window.crypto && window.crypto.subtle;
+        if (!key || !ck || !subtle || typeof TextEncoder !== "function") {
+            S.asked = 8;
+            say("not asked (" + (!key ? "no key on the page" : !ck ? "not signed in" : "no SHA-1 here") + ")");
+            return;
+        }
+        S.busy = true;
+        S.asked++;
+        S.at = Date.now();
+        const mime = { sheets: "spreadsheet", slides: "presentation", forms: "form", drawings: "drawing" }[ugfDocsApp()] || "document";
+        const ts = Math.floor(Date.now() / 1000);
+        const done = function(files, why) {
+            S.busy = false;
+            // (the 20 s from the answer: a way that times out takes 15 s)
+            S.at = Date.now();
+            if (files) {
+                S.files = files;
+                S.seen = null;
+                const have = {};
+                files.forEach(function(f) {
+                    have[f.title] = true;
+                });
+                say(files.length + " files, " + rows.filter(function(it) {
+                    return have[norm(it.title)];
+                }).length + " of " + rows.length + " rows' titles among them");
+            } else {
+                say("no answer (" + why + ")");
+            }
+            again();
+        };
+        subtle.digest("SHA-1", new TextEncoder().encode(ts + " " + ck + " " + window.location.origin)).then(function(buf) {
+            const hex = Array.prototype.map.call(new Uint8Array(buf), function(b) {
+                return ("0" + b.toString(16)).slice(-2);
+            }).join("");
+            const url = "https://clients6.google.com/drive/v2internal/files?" + [["q", "mimeType = 'application/vnd.google-apps." + mime + "' and trashed = false"],
+                ["orderBy", "lastViewedByMeDate desc"], ["maxResults", "200"], ["fields", "items(id,title,ownedByMe)"], ["key", key]].map(function(p) {
+                return encodeURIComponent(p[0]) + "=" + encodeURIComponent(p[1]);
+            }).join("&");
+            ugfMapsGet(url, function(t, why) {
+                if (t === null) {
+                    done(null, why);
+                    return;
+                }
+                let files = null;
+                try {
+                    files = (JSON.parse(t).items || []).filter(function(f) {
+                        return f && /^[\w-]{25,}$/.test(String(f.id || ""));
+                    }).map(function(f) {
+                        return { id: String(f.id), title: norm(f.title), mine: f.ownedByMe === true ? true : f.ownedByMe === false ? false : null };
+                    });
+                } catch (e) {}
+                done(files, files ? "" : "not Drive's list");
+            }, { method: "GET", headers: { "Authorization": "SAPISIDHASH " + ts + "_" + hex, "X-Goog-AuthUser": au }, anonymous: false });
+        }).catch(function(e) {
+            done(null, (e && e.message) || "no SHA-1");
+        });
+    }
     // the templates Google offers at the top of its list (2016 on)
     function ugfDocsTemplates() {
         const out = [];
@@ -85648,7 +85822,8 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         const state = { items: [], templates: [], sort: "date", starred: {}, checked: {}, loaded: false, view: "grid" };
         const create = "https://docs.google.com/" + W.path + "/create";
         const open = function(id) {
-            return id ? "https://docs.google.com/" + W.path + "/d/" + id + "/edit" : "#";
+            const n = ((window.location.pathname || "").match(/\/u\/(\d+)(\/|$)/) || ["", "0"])[1];
+            return id ? "https://docs.google.com/" + W.path + (n !== "0" ? "/u/" + n : "") + "/d/" + id + "/edit" : "#";
         };
         const byIndex = function(i) {
             return sorted()[+i] || null;
@@ -86234,9 +86409,13 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         let lastKey = "";
         const harvest = function() {
             const items = ugfDocsHarvest();
+            // (8.46) the rows' pictures from Drive's list when Google's (its list view) gives no id
+            ugfDocsThumbs(items, function() {
+                harvest();
+            });
             const tpls = ugfDocsTemplates();
             const key = items.map(function(i) {
-                return i.id + i.title + i.date + (i.thumb ? 1 : 0);
+                return i.id + i.title + i.date + (i.thumb || "");
             }).join("|") + "#" + tpls.map(function(t) {
                 return t.title + (t.img ? 1 : 0);
             }).join("|");
@@ -112388,9 +112567,32 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         };
         const sectors = function() {
             // (8.45) the block whose [0][0][3] are the sectors, each with its quote at [19] (ds:1 signed out)
-            return (ugfFinAt(ugfFinFind(data.blocks, function(v) {
-                return ugfFinQuote(ugfFinAt(v, [0, 0, 3, 0, 19]));
-            })[0], [0, 0, 3]) || []).map(function(s) {
+            // (8.46) signed in the account's own list comes first (named "", its quotes or null at [3]) and the sectors, named
+            // "sectors" in every language, second: the list named "sectors" in any block, else the one of the sector indexes,
+            // never a watchlist
+            const quoted = function(e) {
+                return Array.isArray(e) && Array.isArray(e[3]) && e[3].some(function(s) {
+                    return !!ugfFinQuote(ugfFinAt(s, [19]));
+                });
+            };
+            const blocks = ugfFinFind(data.blocks, function(v) {
+                return Array.isArray(v[0]) && v[0].some(quoted);
+            });
+            const lists = [];
+            blocks.forEach(function(v) {
+                v[0].filter(quoted).forEach(function(e) {
+                    lists.push(e);
+                });
+            });
+            const list = lists.filter(function(e) {
+                return String(e[0] || "").toLowerCase() === "sectors";
+            })[0] || lists.filter(function(e) {
+                return e[3].every(function(s) {
+                    const q = ugfFinQuote(ugfFinAt(s, [19]));
+                    return !q || /^SIX[A-Z]{1,3}:INDEXCBOE$/.test(q.sym);
+                });
+            })[0];
+            return (list ? list[3] : []).map(function(s) {
                 const q = ugfFinQuote(s && s[19]);
                 if (q) {
                     q.label = s[14] || q.name;
