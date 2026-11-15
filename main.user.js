@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Gplex Extended - Fixed and extended version of the legendary Gplex Old Google script
 // @namespace    http://tampermonkey.net/
-// @version      9.0.214
+// @version      9.1.216
 // @description  1997-2024 Old Google Frontend, now with Gmail, Google Maps, Google Calendar, Google News, Google Translate, Google Docs, Google Sheets, Google Slides, Google Forms, Google Drive, Google Photos, Google Keep, Google Play and Google Finance, plus YouTube (Gplex Extended for YouTube, rewritten from StarTube by lightbeam24, with the V3 extension)
 // @author       Ziptino9098, lightbeam24
 // @match        *://www.google.com/search*
@@ -1514,10 +1514,34 @@ function ugfResultArrow(href) {
         '<a href="https://www.google.com/search?q=' + encodeURIComponent("related:" + bare) + '">Similar</a>' +
         '<a href="' + UGF_PLUS_HOME + "?share=" + encodeURIComponent(href) + '">Share</a></span></span>';
 }
+// (9.1) Share in the bar opens Gplex+'s share box in a new tab, as Google's opened the Google+ one: with an address
+// to share when there is one (Gplex+ fills its post box from ?share=), else the empty box
+function ugfPlusShareOpen(addr) {
+    try {
+        window.open(addr ? UGF_PLUS_HOME + "?share=" + encodeURIComponent(addr) : UGF_PLUS_HOME, "_blank");
+    } catch (e) {}
+}
 // sized and spaced as the search pages draw it (8.3). v is the period: "2013N", "2014E" or "2014N".
 function ugfB13Css() {
     if (document.getElementById("ugf-b13-css")) {
         return;
+    }
+    // (9.1) Share does something: Gplex+'s empty share box (these are app pages: their address is not one to share);
+    // the bell opens the notifications card the search pages' bell opens
+    if (!ugfB13Css.wired) {
+        ugfB13Css.wired = true;
+        document.addEventListener("click", function(e) {
+            const sh = e.target && e.target.closest ? e.target.closest(".ugf-b13-share") : null;
+            if (sh) {
+                e.preventDefault();
+                ugfPlusShareOpen("");
+            }
+            const bl = e.target && e.target.closest ? e.target.closest(".ugf-b13-bell") : null;
+            if (bl) {
+                e.preventDefault();
+                ugfB13NotifsOpen(bl);
+            }
+        });
     }
     const st = document.createElement("style");
     st.id = "ugf-b13-css";
@@ -1533,17 +1557,49 @@ function ugfB13Css() {
         ".ugf-b13-share:hover { background: rgba(0,0,0,.08) !important; }",
         '.ugf-b13-share::after { content: ""; position: absolute; right: 0; top: 30px; border-top: 6px solid rgba(0,0,0,.04); border-left: 6px solid transparent; }',
         ".ugf-b13-share:hover::after { border-top-color: rgba(0,0,0,.08); }",
-        // October to December 2014: the grid of 19px, the bell of 28px, Share an icon of 24x21 (all 55% black,
-        // full black under the pointer) and the photo at 34px, with the spacing Google's own screenshot has
-        ".ugf-b13-grid.late { width: 19px; height: 19px; margin: 0 8px 0 0; background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 19 19'%3E%3Cpath d='M0 0h5v5H0zM7 0h5v5H7zM14 0h5v5h-5zM0 7h5v5H0zM7 7h5v5H7zM14 7h5v5h-5zM0 14h5v5H0zM7 14h5v5H7zM14 14h5v5h-5z'/%3E%3C/svg%3E\") center / 19px 19px no-repeat; }",
-        ".ugf-b13-bell.late { margin: 0 16px 0 8px; }",
-        ".ugf-b13-share.icon { min-width: 24px; width: 24px; margin: 0 8px 0 0 !important; padding: 0 !important; background: none !important; color: #000 !important; opacity: .55; }",
-        ".ugf-b13-share.icon svg { width: 24px; height: 21px; fill: currentColor; }",
+        // October to December 2014; (9.1) as Google's bar CSS of 10 November 2014 and the dated 1x screenshots of
+        // 21 October and 15 December 2014 have it: the grid, the bell and Share 30x30 cells of Google's icon sheet
+        // (the 2x copy on 2x screens) at 55% black, 85% under the pointer, 15px apart, the photo at 32px. 8.1's grid 19,
+        // bell 28, Share 24x21 and photo 34 were about 1.18 times Google's size. Sizes are held against the pages' own
+        // icon boxes (Gmail's .ic is 34px), and the spacing is the pages' own gap less what the cells already leave
+        ".ugf-b13-grid.late { width: 30px !important; min-width: 30px !important; height: 30px !important; padding: 0 !important; border: none !important; border-radius: 0 !important; background: url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') -69px -467px / 134px 1238px no-repeat !important; background-image: -webkit-image-set(url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') 1x, url('https://ssl.gstatic.com/gb/images/v2_81e8ef99.png') 2x) !important; background-image: image-set(url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') 1x, url('https://ssl.gstatic.com/gb/images/v2_81e8ef99.png') 2x) !important; color: #000 !important; opacity: .55; }",
+        ".ugf-b13-grid.late { margin: 0 !important; outline: none !important; }",
+        // (9.1) Google's text-to-grid 22px (15px padding and the cell's own 7px) against each page's own spacing
+        "#ugf-gmail-account .ugf-b13-grid.late { margin-left: -4px !important; }",
+        "#ugf-cal-account .ugf-b13-grid.late { margin-left: 5px !important; }",
+        "#ugf-maps-account .ugf-b13-grid.late { margin-left: 5px !important; }",
+        // News's corner is a flex row with a 15px gap already: the bell and Share drop their own margins (Share keeps
+        // the photo's -1px, .gb_4)
+        ".kcorner.gplus .ugf-b13-bell.late { margin-left: 0 !important; }",
+        ".kcorner.gplus .ugf-b13-share.icon { margin: 0 -1px 0 0 !important; }",
+        // (9.1) the Docs list's corner is a flex row with a 14px gap: 1px more before the bell and Share, the photo
+        // straight after Share, +Name 1px before the grid (Late 2014 only; its +Name row is on every 2014 variant)
+        ".gtop .corner .ugf-b13-bell.late { margin-left: 1px !important; }",
+        ".gtop .corner .ugf-b13-share.icon { margin: 0 0 0 1px !important; }",
+        ".gtop .corner .ugf-b13-photo.late { margin-left: 0 !important; }",
+        'html[layout="2014"][gplex2014n] .gtop .corner .plusname { margin-right: 1px !important; }',
+        // (9.1) +Name #404040 on Calendar, Maps, News and Drive too (Google's a.gb_c/a.gb_d), with id weight so it beats
+        // the pages' own #666 !important
+        'html[layout="2014"][gplex2014n] :is(#ugf-cal-account, #ugf-maps-account, .kcorner.gplus) .plusname { color: #404040 !important; }',
+        ".ugf-b13-bell.late { width: 30px !important; min-width: 30px !important; height: 30px !important; padding: 0 !important; border: none !important; border-radius: 0 !important; background: url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') -35px -1151px / 134px 1238px no-repeat !important; background-image: -webkit-image-set(url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') 1x, url('https://ssl.gstatic.com/gb/images/v2_81e8ef99.png') 2x) !important; background-image: image-set(url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') 1x, url('https://ssl.gstatic.com/gb/images/v2_81e8ef99.png') 2x) !important; color: #000 !important; opacity: .55; }",
+        ".ugf-b13-bell.late { margin: 0 0 0 5px; }",
+        ".ugf-b13-bell.late svg { display: none; }",
+        ".ugf-b13-share.icon { width: 30px !important; min-width: 30px !important; height: 30px !important; padding: 0 !important; border: none !important; border-radius: 0 !important; background: url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') -35px -1116px / 134px 1238px no-repeat !important; background-image: -webkit-image-set(url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') 1x, url('https://ssl.gstatic.com/gb/images/v2_81e8ef99.png') 2x) !important; background-image: image-set(url('https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png') 1x, url('https://ssl.gstatic.com/gb/images/v2_81e8ef99.png') 2x) !important; color: #000 !important; opacity: .55; }",
+        ".ugf-b13-share.icon { margin: 0 4px 0 5px !important; }",
+        ".ugf-b13-share.icon svg { display: none; }",
         ".ugf-b13-share.icon::after { display: none; }",
-        ".ugf-b13-grid.late:hover, .ugf-b13-bell.late:hover, .ugf-b13-share.icon:hover { opacity: 1; }",
+        // (9.1) and while focused (Google's .gb_A:hover, .gb_A:focus). Google's open() focuses the popup (.gb_D tabindex=0),
+        // so an open launcher falls back to .55 unless hovered or keyboard-focused (the GOS shots of 19 Dec 2014)
+        // the menu's fence lies over the open grid, so its hover is tracked as ugf-b13-hov (ugfB13AppsOpen)
+        ".ugf-b13-grid.late.ugf-b13-open:not(:focus-visible):not(.ugf-b13-hov) { opacity: .55; }",
+        ".ugf-b13-grid.late.ugf-b13-open.ugf-b13-hov { opacity: .85; }",
+        ".ugf-b13-grid.late:hover, .ugf-b13-grid.late:focus, .ugf-b13-bell.late:hover, .ugf-b13-bell.late:focus, .ugf-b13-share.icon:hover, .ugf-b13-share.icon:focus { opacity: .85; }",
         // January and February 2014 (an inbox of 27 February 2014): the grid of 16px, the bell an outline of 24px,
         // Share a flat grey block with no tail, the photo round at 32px, with the spacing that inbox has
         ".ugf-b13-grid.e14 { width: 16px; height: 16px; margin: 0 6px 0 4px; background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M0 0h4v4H0zM6 0h4v4H6zM12 0h4v4h-4zM0 6h4v4H0zM6 6h4v4H6zM12 6h4v4h-4zM0 12h4v4H0zM6 12h4v4H6zM12 12h4v4h-4z'/%3E%3C/svg%3E\") center / 16px 16px no-repeat; }",
+        // (9.1) no focus ring; keyboard focus shows as the hover's .85 (Google's .gbgt:focus, .gb_A{outline:none})
+        ".ugf-b13-grid.e14 { outline: none !important; }",
+        ".ugf-b13-grid.e14:focus-visible { opacity: .85; }",
         ".ugf-b13-bell.e14 { margin: 0 6px 0 0; }",
         ".ugf-b13-bell.e14 svg { width: 24px; height: 24px; }",
         ".ugf-b13-share.e14 { margin-right: 4px !important; }",
@@ -1553,7 +1609,7 @@ function ugfB13Css() {
         ".ugf-b13-photo .car { display: none !important; }",
         ".ugf-b13-photo .pfp { width: 30px !important; height: 30px !important; line-height: 30px !important; border: none !important; border-radius: 50% !important; }",
         ".ugf-b13-photo.sq .pfp { border-radius: 0 !important; }",
-        ".ugf-b13-photo.late .pfp { width: 34px !important; height: 34px !important; line-height: 34px !important; }"
+        ".ugf-b13-photo.late .pfp { width: 32px !important; height: 32px !important; line-height: 32px !important; }"
     ].join("\n");
     (document.head || document.documentElement).appendChild(st);
 }
@@ -1565,7 +1621,8 @@ function ugfB13Bits(v) {
     // 27 February 2014, 24px), 28px from the October 2014 bar
     const bell = "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" + (late || early ? "m-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z" : "");
     return '<span class="ugf-b13-bell' + (late ? " late" : early ? " e14" : "") + '" title="Notifications"><svg viewBox="0 0 24 24"><path d="' + bell + '"/></svg></span>' +
-        (late ? '<span class="ugf-b13-share icon" title="Share"><svg viewBox="0 0 24 21"><path fill-rule="evenodd" d="M1.5 0h18A1.5 1.5 0 0 1 21 1.5V17l3 4H0V1.5A1.5 1.5 0 0 1 1.5 0zM2 2v15h17V2zm7.25 2.5h2.5v3.75h3.75v2.5h-3.75v3.75h-2.5v-3.75H5.5v-2.5h3.75z"/></svg></span>'
+        // (9.1) Late 2014's Share: Google's icon (drawn by ugfB13Css from Google's sheet) and its tooltip "Google+ Share"
+        (late ? '<span class="ugf-b13-share icon" title="Google+ Share"></span>'
             : '<span class="ugf-b13-share' + (early ? " e14" : "") + '" title="Share">Share</span>');
 }
 // the grid before them; (8.7) ugfB13AppsOpen opens the launcher from it, the address is for a middle click
@@ -1643,12 +1700,202 @@ function ugfB13AppsList(base, L) {
          ["chrome", "https://www.google.com/chrome/", "Chrome"]]
     ];
 }
+// (9.1) Late 2013 to Late 2014's One Google card (layout 2014), shared by ugfGmailAccountMenu14 (Gmail, Calendar, News, Maps)
+// and the account pages' openAcc: its style, its markup (each page inserts it its own way) and where it sits
+function ugfAcc14Css() {
+    if (document.getElementById("ugf-acc14-css")) {
+        return;
+    }
+    const st = document.createElement("style");
+    st.id = "ugf-acc14-css";
+    st.textContent = [
+        "html #ugf-gmail-accmenu.acc14 { width: auto; background: #f5f5f5; color: #666; font: 13px arial, sans-serif; text-align: left; border: 1px solid #ccc; border-color: rgba(0,0,0,.2); border-radius: 2px; box-shadow: 0 2px 10px rgba(0,0,0,.2); overflow: visible; letter-spacing: normal; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-arrow, html #ugf-gmail-accmenu.acc14 .a14-arrow2 { position: absolute; width: 0; height: 0; border-style: solid; border-color: transparent; border-width: 0 9px 9px; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-arrow { top: -9px; border-bottom-color: rgba(0,0,0,.2); }",
+        "html #ugf-gmail-accmenu.acc14 .a14-arrow2 { top: -8px; border-bottom-color: #fff; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-top { display: flex; background: #fff; padding: 20px; border-bottom: 1px solid #ccc; border-bottom-color: rgba(0,0,0,.2); border-radius: 2px 2px 0 0; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-pic { position: relative; display: block; flex: 0 0 96px; width: 96px; height: 96px; margin-right: 20px; overflow: hidden; text-decoration: none !important; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-pic img, html #ugf-gmail-accmenu.acc14 .a14-pic .letter { display: flex; width: 96px; height: 96px; object-fit: cover; border-radius: 0; align-items: center; justify-content: center; background: #c62828; color: #fff; font-size: 48px; text-transform: uppercase; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-pic img { background: none; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-change { position: absolute; left: 0; bottom: 0; width: 96px; padding: 7px 0; background: rgba(78,144,254,.7); color: #fff; font-size: 9px; font-weight: bold; line-height: 9px; text-align: center; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-meta { white-space: nowrap; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-name { color: #000; font-weight: bold; margin: -4px 0 1px; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-links { color: #ccc; margin: 6px 0; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-links a { color: #36c !important; margin: 0 10px; text-decoration: none; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-links a:first-child { margin-left: 0; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-links a:last-child { margin-right: 0; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-links a:hover { text-decoration: underline; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-btn { display: inline-block; font: 13px/28px arial, sans-serif; height: 28px; padding: 0 12px; border: 1px solid #c6c6c6; border-radius: 2px; background: #f8f8f8; color: #666 !important; text-decoration: none !important; cursor: default; white-space: nowrap; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-blue { margin-top: 10px; background: #4d90fe; border-color: #3079ed; color: #fff !important; font-weight: bold; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-blue:hover { background: #357ae8; border-color: #2f5bb7; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-foot { display: flex; justify-content: space-between; padding: 10px 0; }",
+        "html #ugf-gmail-accmenu.acc14 .a14-foot .a14-btn { margin: 0 20px; }"
+    ].join("\n");
+    (document.head || document.documentElement).appendChild(st);
+}
+function ugfAcc14Html(id) {
+    const esc = function(t) {
+        return String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    };
+    const big = String(id.photo || "").replace(/=s\d+(-[a-z-]*)?$/, "=s96-c").replace(/\/s\d+(-c)?\//, "/s96-c/");
+    const photo = id.photo ? '<img src="' + esc(big) + '" alt="">'
+        : '<span class="letter">' + esc((id.first || id.email || "?").charAt(0)) + "</span>";
+    return '<div class="a14-arrow"></div><div class="a14-arrow2"></div>' +
+        '<div class="a14-top"><a class="a14-pic" href="https://myaccount.google.com/">' + photo + '<span class="a14-change">Change photo</span></a>' +
+            '<div class="a14-meta"><div class="a14-name">' + esc(id.name || id.first || "Account") + "</div>" +
+            '<div class="a14-mail">' + esc(id.email) + "</div>" +
+            '<div class="a14-links"><a href="https://myaccount.google.com/">Account</a>\u2013<a href="https://myaccount.google.com/privacy">Privacy</a></div>' +
+            '<a class="a14-btn a14-blue" href="' + esc(ugfPlusProfileLink()) + '">View profile</a></div></div>' +
+        '<div class="a14-foot"><a class="a14-btn" href="https://accounts.google.com/AddSession">Add account</a>' +
+            '<a class="a14-btn" href="https://accounts.google.com/Logout">Sign out</a></div>';
+}
+// the card's right edge at the photo's, its top 44px below the 30px row's top (Google's .gb_D), the arrow under the
+// photo's middle
+function ugfAcc14Place(menu, anchor) {
+    const r = anchor.getBoundingClientRect();
+    const w = menu.offsetWidth;
+    let left = r.right + window.scrollX - w;
+    left = Math.max(8, Math.min(left, window.innerWidth + window.scrollX - w - 8));
+    menu.style.left = left + "px";
+    menu.style.top = Math.round(r.top + window.scrollY + r.height / 2 + 29) + "px";
+    const ar = Math.round(left + w - (r.left + window.scrollX + r.width / 2) - 10);
+    menu.querySelectorAll(".a14-arrow, .a14-arrow2").forEach(function(a) {
+        a.style.right = Math.max(4, ar) + "px";
+    });
+}
+// (9.1) the bell of the 2014 corner on Gmail, Calendar, News, Maps and the settings pages opens what the search pages'
+// bell opens (#ugf-notifs-dd, the same sizes and colours): the grey Gplex+ notifications card, "All caught up!" over
+// Mr. Jingles, and "Previously read", which tries for a second and then cannot connect. Built node by node (these pages
+// refuse innerHTML), and placed as the search page places it: 15px under the bell, its right edge 51px past the bell's
+// (Late 2014) or 56px (Late 2013, Early 2014), the arrow under the glyph
+function ugfB13NotifsClose() {
+    document.querySelectorAll("#ugf-b13n, #ugf-b13n-fence").forEach(function(el) {
+        el.remove();
+    });
+    document.querySelectorAll(".ugf-b13-bell.open").forEach(function(b) {
+        b.classList.remove("open");
+    });
+}
+function ugfB13NotifsOpen(bell) {
+    if (document.getElementById("ugf-b13n")) {
+        ugfB13NotifsClose();
+        return;
+    }
+    ugfB13AppsClose();
+    if (!document.getElementById("ugf-b13n-css")) {
+        const sp = "https://ssl.gstatic.com/s2/oz/images/sprites/notsg-eb27f5870940f5aacf4b28805c7d5ad3.png";
+        const st = document.createElement("style");
+        st.id = "ugf-b13n-css";
+        st.textContent = [
+            "#ugf-b13n-fence { position: fixed; inset: 0; z-index: 2147483600; }",
+            "#ugf-b13n { position: absolute; z-index: 2147483601; background: #e5e5e5; box-shadow: 0 2px 1px #aaa; font: 13px arial, sans-serif; color: #222; text-align: left; letter-spacing: normal; line-height: normal; }",
+            "#ugf-b13n, #ugf-b13n * { box-sizing: content-box; }",
+            "#ugf-b13n .tri { position: absolute; top: -22px; width: 0; height: 0; border: 12px solid transparent; border-bottom-color: #e5e5e5; }",
+            "#ugf-b13n .card { width: 400px; box-shadow: 0 0 5px #bbb; border: 1px solid #bbb; }",
+            "#ugf-b13n .top { display: flex; align-items: center; height: 40px; padding: 4px 20px; }",
+            "#ugf-b13n .tl { display: inline-block; line-height: 40px; margin-left: 40px; text-align: center; width: 280px; vertical-align: top; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }",
+            "#ugf-b13n .tl a { color: #404040 !important; margin-left: 14px; font-size: 13px; text-decoration: none; }",
+            "#ugf-b13n .read { padding: 12px; opacity: .27; cursor: pointer; }",
+            "#ugf-b13n .read:hover { opacity: .55; }",
+            "#ugf-b13n .readi { background: no-repeat url(" + sp + ") -18px -82px; height: 16px; width: 16px; }",
+            "#ugf-b13n .jingles { width: fit-content; margin: 0 auto; padding-bottom: 20px; min-height: 256px; }",
+            "#ugf-b13n .caught { border-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,.2); background: #fff; color: #aaa; display: inline-block; font-size: 13px; padding: 15px 20px; position: relative; text-align: center; margin-top: 50px; }",
+            "#ugf-b13n .mrj { margin: 0 auto; width: fit-content; }",
+            "#ugf-b13n .mrj img { display: inline; width: 96px; height: auto; border: 0; }",
+            "#ugf-b13n .prev { display: flex; align-items: center; border-radius: 3px 3px 0 0; background: #ebebeb; cursor: pointer; line-height: 14px; margin: 0 0 0 20px; padding: 17px 0; text-align: center; width: 360px; color: #737373; font-size: 13px; }",
+            "#ugf-b13n .prev:hover { background: #f1f1f1; }",
+            "#ugf-b13n .pt { margin-left: auto; width: fit-content; }",
+            "#ugf-b13n .pi { background: no-repeat url(" + sp + ") -82px -100px; height: 12px; width: 12px; opacity: .55; display: inline-block; margin: 0 auto 0 10px; vertical-align: bottom; }",
+            "#ugf-b13n .prev:hover .pi { opacity: .7; }",
+            "#ugf-b13n .opening { padding-top: 90px; min-height: 186px; }",
+            "#ugf-b13n .circle { height: 32px; width: 32px; margin: 0 auto; background-image: url(https://ssl.gstatic.com/s2/oz/images/notifications/spinner_32_041dcfce66a2d43215abb96b38313ba0.gif); }",
+            "#ugf-b13n .otext { color: #aaa; font: 16px arial, sans-serif; padding: 40px 0; position: relative; width: fit-content; margin: 0 auto; }",
+            "#ugf-b13n .banner { position: absolute; left: 65px; width: 236px; min-width: 200px; height: 24px; padding: 9px 15px 0 15px; border: 3px solid transparent; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.2); background: #fff1a8; color: #000; font-size: 13px; font-weight: bold; text-align: center; }",
+            '#ugf-b13n[status="none"] .banner, #ugf-b13n[status="none"] .opening, #ugf-b13n[status="loading"] .cant, #ugf-b13n[status="loading"] .jingles, #ugf-b13n[status="failed"] .loading, #ugf-b13n[status="failed"] .opening { display: none; }',
+            '#ugf-b13n[status="loading"] .prev { visibility: hidden; }',
+            ".ugf-b13-bell.open { opacity: .8 !important; }",
+            ".ugf-b13-bell.late.open { opacity: .85 !important; }"
+        ].join("\n");
+        (document.head || document.documentElement).appendChild(st);
+        // on window, capturing: Calendar's shortcut keys stop Escape at the document
+        window.addEventListener("keydown", function(ev) {
+            if (ev.key === "Escape") {
+                ugfB13NotifsClose();
+            }
+        }, true);
+    }
+    const el = function(parent, tag, cls, text) {
+        const e = document.createElement(tag);
+        if (cls) {
+            e.className = cls;
+        }
+        if (text) {
+            e.textContent = text;
+        }
+        if (parent) {
+            parent.appendChild(e);
+        }
+        return e;
+    };
+    const name = ugfPlusName();
+    const fence = el(null, "div");
+    fence.id = "ugf-b13n-fence";
+    const box = el(null, "div");
+    box.id = "ugf-b13n";
+    box.setAttribute("status", "none");
+    const tri = el(box, "div", "tri");
+    const card = el(box, "div", "card");
+    const banner = el(card, "div", "banner");
+    el(el(banner, "div", "loading"), "span", "", "Loading...");
+    el(el(banner, "div", "cant"), "span", "", "Cannot connect to " + name + ".");
+    const top = el(card, "div", "top");
+    const link = el(el(top, "div", "tl"), "a", "", name + " notifications");
+    link.href = ugfPlusLink();
+    el(el(el(top, "div", "tr"), "div", "read"), "div", "readi");
+    const mid = el(card, "div", "mid");
+    const opening = el(mid, "div", "opening");
+    el(opening, "div", "circle");
+    el(el(opening, "div", "otext"), "span", "", "Opening...");
+    const jingles = el(mid, "div", "jingles");
+    el(el(jingles, "div", "caught"), "span", "", "All caught up!");
+    const img = el(el(jingles, "div", "mrj"), "img");
+    img.alt = "";
+    img.src = "https://ssl.gstatic.com/s2/oz/images/notifications/jingles_gif_2x_f3cc6d214824b9711a0e8c1a75d285ff.gif";
+    const prev = el(el(card, "div", "bottom"), "div", "prev");
+    el(el(prev, "div", "pt"), "span", "", "Previously read");
+    el(prev, "div", "pi");
+    prev.addEventListener("click", function() {
+        box.setAttribute("status", "loading");
+        setTimeout(function() {
+            if (box.isConnected) {
+                box.setAttribute("status", "failed");
+            }
+        }, 1000);
+    });
+    fence.addEventListener("click", ugfB13NotifsClose);
+    document.body.appendChild(fence);
+    document.body.appendChild(box);
+    bell.classList.add("open");
+    const b = bell.getBoundingClientRect();
+    const late = bell.classList.contains("late");
+    const w = box.offsetWidth;
+    const right = Math.min(b.right + (late ? 51 : 56), window.innerWidth - 8);
+    const left = Math.max(8, right - w);
+    box.style.left = Math.round(left + window.scrollX) + "px";
+    box.style.top = Math.round(b.bottom + window.scrollY + 15) + "px";
+    tri.style.left = Math.round((late ? b.left + 11.5 : b.left + b.width / 2) - left - 12) + "px";
+}
 function ugfB13AppsClose() {
+    document.querySelectorAll(".ugf-b13-open").forEach(function(el) {
+        el.classList.remove("ugf-b13-open", "ugf-b13-hov");
+    });
     document.querySelectorAll("#ugf-gmail-appsmenu, #ugf-ma-appsfence").forEach(function(el) {
         el.remove();
     });
 }
 function ugfB13AppsOpen(anchor, L, chrome, base) {
+    // (9.1) read before the fence covers it
+    const hovered = !!(anchor && anchor.matches && anchor.matches(":hover"));
     if (document.getElementById("ugf-gmail-appsmenu")) {
         ugfB13AppsClose();
         return;
@@ -1661,11 +1908,12 @@ function ugfB13AppsOpen(anchor, L, chrome, base) {
             "\n#ugf-gmail-appsmenu { z-index: 2147483601 !important; text-align: left; letter-spacing: normal; }" +
             "\n#ugf-gmail-appsmenu a { text-decoration: none; }";
         (document.head || document.documentElement).appendChild(st);
-        document.addEventListener("keydown", function(ev) {
+        // (9.1) on window, capturing, as the bell's: Drive's shell and Calendar's shortcuts stop the key at the page
+        window.addEventListener("keydown", function(ev) {
             if (ev.key === "Escape") {
                 ugfB13AppsClose();
             }
-        });
+        }, true);
     }
     const el = function(tag, cls, id) {
         const e = document.createElement(tag);
@@ -1728,6 +1976,17 @@ function ugfB13AppsOpen(anchor, L, chrome, base) {
         }
     });
     fence.addEventListener("click", ugfB13AppsClose);
+    if (anchor.classList && anchor.classList.contains("ugf-b13-grid")) {
+        anchor.classList.toggle("ugf-b13-hov", hovered);
+        anchor.classList.add("ugf-b13-open");
+        fence.addEventListener("mousemove", function(ev) {
+            const b = anchor.getBoundingClientRect();
+            anchor.classList.toggle("ugf-b13-hov", ev.clientX >= b.left && ev.clientX < b.right && ev.clientY >= b.top && ev.clientY < b.bottom);
+        });
+        fence.addEventListener("mouseleave", function() {
+            anchor.classList.remove("ugf-b13-hov");
+        });
+    }
 }
 // (8.3) the launcher's artwork for every page Gplex draws one on: 2012 to mid 2015 Google a lowercase g,
 // Google+ a red square, the older Books, Contacts, Translate and Maps marks, and in 2014 the rest of the
@@ -11789,7 +12048,7 @@ const UGF_GPX = {"logo12": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHcAAA
 // (8.41) And Google Voice signed out, where voice.google.com sends it (v2009 to v2019, ugfVoiceAbout).
 const UGF_WS_DATA = "3";
 const UGF_WS_URL = "https://plus.gplexextended.com/static/ws-" + UGF_WS_DATA + "-";
-const UGF_WS_PAGES = {"a2007": {"home": "610ad615f3cee28a13cf8380cba217ecd0ee017613299ce18a30a4b524244d28", "business-small-business": "4b14dd271eceea06488c3e4345420fe25297ec056c548aedd91896bffb87fe82", "enterprise": "6c6ad017b0be218859d5a057a2c375efccac4646467881f8ccaaa8dd45a73487", "pricing": "7fb1fa98ea598788b92f5dd17564d14e871a71a315cdfaa2d6f597f8c2f9226b", "common": "9d819464f251846b81812b7506cdd4c34cb5456972e101b9c3e91fc90110fc6c"}, "a2009": {"home": "15a888aaa8ea9d803803aec0ca5b67c0744d71d7c796d78af78b8e0e431b4a8e", "customers": "e3e69d0235ee6963744148c36de1e45f634b1712dc0a886ba415a514bc4e2638", "products-docs": "feb4aece436115a92f072380e721bc1602471d9a97d36f337469ad5c21463195", "products-gmail": "db615f71962f7a95eb4698d264b539f70367c52d3fbc2de36e5db040cac7d535", "resources": "facdf75cddbce46b8974d3589bd5d1197d96e0baf0f0d233a091f66263cba5c8", "pricing": "a59ccc279ca0a760a2f6d52777ef0976aa6a0230a4147307f45eb66db6eca2e5", "common": "ff577dcdd7c63ed9f29909062ec5a226dabf368b6bd8542cba8f3325e892384d"}, "a2010": {"home": "ea5349f521396da84cb063e527837ff5d1da19a8a6c280507956fa9f8fdb7356", "business": "f46091cddaa706374e5f4663c7c80935247231cdc7be979ffbab559426cefcf9", "customers": "68c654733a2c1e4ad2081332be69f305e6bfe727879bb60af7697fd3e09deb68", "features": "6ccaaabe2addd046af72ad1e566085658bcdf1701d6c256a73f06e624d356a81", "products-calendar": "32891f3b65bdba5a822108198cca36c9c77feaecd37aae0b58f4a25efb5ee723", "products-docs": "dd134d0f2098f36cf2b61ef36cb01e1e9cd3b9cf9821d9985dc9e41c870f5e7a", "products-gmail": "f5f0430a35584c69b73a8956731e29cf899f3ddb4f5263f9e03b7998cb192f67", "products-sites": "de25bb8f1810f0063f57e7cf0a9c45c6fe98bdfbcca0fabe0e61f191b2df4f66", "resources": "a919fd9f081ce61931d1a1b7f15e72ca9b86c6b3a20b7601b8e8e4b27f16b668", "security": "25b03b24660a7e28329ea8d714165bd42a0f88c61cbc3783063472983f885ca4", "pricing": "6ccaaabe2addd046af72ad1e566085658bcdf1701d6c256a73f06e624d356a81", "common": "a6ef8a674cc57adc353bc526b1f4f5e404ded86416a114ef285cd55ff16c5fdf"}, "b2012": {"home": "840b84ea06037eb4cc3aab7d8efb86265e4b1961ea9e5e7f85225404502ccccd", "business": "7db95a90171d08f3ef4286f2626c59bc01846aeea0e8110da8c595e418b31928", "customers": "ecad9d4f3b6ead986f69cac6aab53ef6e812c6466525f6701db3e99842e175ef", "features": "e903112c3d4fe849d1ccfb7b12cbf0393230ded50f52f17c7c97c2a57c48bdec", "resources": "4b232e721b33d9163a365f616df438ee9b51dfc405488c68c2b2c74b07ffc626", "pricing": "c2e8948e7a733af9e4ad6813530466562112faae79194c8dc682e9c97a8fbc36", "common": "7a356ef01e84a1c02bb988f2111bee8591d10d11bc11548a8a04c405599fb531"}, "g2017": {"home": "7599afd2b5a65c30f877b14a0242993740547bbbef6e517a4047febcb83d6729", "customers": "ab0b52901d8fbf6085b6b26fd18d109ab5cb7150c8ebdf77b9047676a9596ea1", "faq": "ee594ccaf65948d313fe70e0f51660c8f868a6990c4334a9a3ac00ef1f30c2bf", "features": "bef86a47604a4941344a602d5cec43a045d950e724ad48101d11899bbbdbb5bb", "products-admin": "644a0cf3d3e81ee6977e0366dd32a63dddfbf893263231f3c107393e87252f93", "products-calendar": "56a3f31ebf7b64c4f3ccb281eb8972c10c92f70542ef29c2dcdc21c24e0f9f6b", "products-docs": "dbc348b421f63cf66c4631de6b01e5e15346e4d9b924339b02974952a595d01f", "products-drive": "cc94242ced7417e6f775a525fe9975a540ba2560ca24054e8f323002d2202858", "products-forms": "0d7d16fe04c8e603fd9fcdbbbc0a76cf6465f9dde8a8f444375907f9b2e07f1a", "products-gmail": "994782a6bd162c5cc8711d11332d47fe206c17ab2a3bfc0bfcc3b5c483441acc", "products-meet": "c2131937e38a06350254812c3aa90c7f3d2c080b80f02729ab67b99af87bf20d", "products-sheets": "b31c54c4a11eae4825ccefef4b62f33300ec4f8db8f278ccdbc822e623de40d7", "products-sites": "b4fa83d1e4310d53c921789a4c14c4826be663bd3d8204be532231d8964aefad", "products-slides": "a09bfab86c73995bfd7c4dad653913b5f5285969c9368e2ef6c4d2288bbb5779", "products-vault": "3bece55ffd4be53cbb61b8f0e732c89421800ad10b7e22fb3cf83f4a240459a1", "security": "cc6c386f0f2dbcddb319d6f3a5b47d436c0fdae7dc8afbbfc6b3b15c7b946600", "pricing": "69431e9e0ed9893a8caadbb971d1a637c5b37515886a445746398ae50727bad3", "common": "bf4eca14dcbc0e1aeed6a4c962dd28e28d6003ca1fd793697d34f88f1686128c"}, "k2008": {"home": "7cf91de2452ce833b5f3c556ea21dda7c1227f0e6ee19ddaf1f35b3b44308eb1", "thankyou": "19cd981e02377a8fbf4dd2132de6e7a5a279a5f596b5c68f8262bd1b5f8f064a", "common": "d3b4b1107b432537d5d0af6e3a0be0bb0e95dcc95b2847ca1868d50ec2bfcffa"}, "k2009": {"home": "9d88d7423e67d2353176714db2626038b3a6acc21bd513949d004940eeb97c5a", "thankyou": "85e22d5a396185198dd2104b16cbe7f34e7136108053772adb39ac686a353b7e", "common": "672af432ac13d4a8b458b7254bdbaeaf0654135ff8a5aac02903fa2a8b54ff48"}, "k2009l": {"home": "237350c4f7cfc04a9f1ef0777440554010241127732afbb736d128716a4c90e6", "thankyou": "b7ce0702586564871225915577b2632492d2267fa539652b9815849e956f1520", "common": "f5f79461148474bec60b010fb8e83f6edca08ad908034a7e59cbba660dadd8b0"}, "k2010": {"home": "355775ef45ae94bbd18c280b439803ce3814c537f43a86ac392c89838bbd63de", "thankyou": "df1bfc3d4822f7c78e497108495925b7d5e5def679a6840a4f76c5c683b0d2ae", "common": "9d841ecc9e4cc06343db1e0cc67737ef6ab3cb23da9a9498861dcfec3b532878"}, "k2011": {"home": "d8fc1ac6db636327ab51f2ac7a2ffd40215888fbda498b3dac9657e74aee71c4", "thankyou": "061c7f9c34917d3f80df9bce3a636014eee0f7670ea17108320c80430b8adc0e", "common": "a2dba6f3431d2332ce2a0ba228373394a9d2dd1fe32fa3983a94d641401be23b"}, "k2012": {"home": "84cbe3fe5b2489fbdb260d382610f8e91deec96b28a484794310602a4f452ccf", "thankyou": "8d54eb4960af81a355886697c2d44d31428d3ce19275330dcece7f08a45ee921", "common": "a5c60be09e1ef9a58d453e117197f026946a332f347903ba559a858fd4c7ecce"}, "k2013": {"home": "44827505ae5d9aa75832876b765af13fb331b9eccb79cd2b443cb6e830d552c9", "thankyou": "daeac100f7ba7ea6a3d3156790945a61a4ca8b96d96e9cbdec8a057e07231716", "common": "e901eb2096cea628b528a27af348bf162b64dde96499feb88f80b1371e86f631"}, "k2014": {"home": "1b67388b5e914ac7b2069068d0fca315c7f66dc1f613a6080cc431cfa3a5b27a", "thankyou": "d3275655f977a26ec7ee4735e12ad0af5b821616b98f98aa6543dcdca9621fab", "common": "c7dad89f0639c54e145209aab0a7b0f8af9aa4a72fa07eb08040ba07c92a4513"}, "k2015": {"home": "321576230a1ae679959c714000612c944c89804008e03c3ca24af4d57f07a995", "thankyou": "bd983e7822689a62c5563fbae0bca684f706163089cfa035979262ed7a110a0e", "common": "48448d4c6523daa9bc234f6d50ac7eeafc28d0e4ed5570ee7d9869b8a55c8123"}, "k2016": {"home": "3fe3846116f99f834f6864c198823e0ed4e626ab684aca6ded9a7f1fbcdf5929", "thankyou": "0f6b87fcd7cb01e428d0b50869297f0693067f5b9fa726428dd673bd7f6a217a", "common": "e82100f1e9d5f0e1bf101311966482b65ee964faf9b973bb337e16cdcdafeefe"}, "k2018": {"home": "0177a742331c0ff3777c515bc176b75f74eb2b44528a3d4a61a3bfb5cbf71889", "thankyou": "d0b670f9d0765c0eb2f36e9628d586dd619a181cf5229e748ddf56504975e6aa", "common": "8fb0001422c7118cac0708abab12ab386508ff086f4cacd20f6b830dbb75a1ef"}, "k2019": {"home": "61dd63ede827ad20375570be3cf81a00b5b9f6dcb3bd45cd9fe1b00c1c857133", "thankyou": "254d22b84cda61d0247eaec2844249a09af499a686c86d7cc253257ddadc57b8", "common": "5be96cd762be5187fa71d2561242a095716e4cc5cf262d9f27eb2c6cd323d9e8"}, "m2013": {"home": "0c541b3dec7f410dee0f86f064430f04950851e7d57a7a202ab1dfbbfd5c2d89", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2015": {"home": "58a637b9ee8e5041986f9bae85c1f712c2942bcbef4f57baf5bfce6c2f342f4d", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2016": {"home": "b077262991b42e6d4af5c0c7332362b01279bddaf5739f7e8744bcfce9a96015", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2019": {"home": "08ae8437a310432be27c11c71b4b426abac3a9afcbbc25fcc479d973684ff5e5", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2022": {"home": "e9ea806b0d10e4206cc7b10700b5437591492868d3a18f8e67fb2477b4209587", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "w2015": {"home": "7486c1760fb5b8f6da200363ce0c369dba9526e902acb0e38a418e84dfc5d304", "customers": "ced5cb74112cea4286af9ff01530d31b14c0f7f5852b257380968da772d64b2e", "features": "7e6b57242228e8a65e96e9b7cfc9bc00949a5913a1b1953eb5db4908c5f28879", "products-admin": "f0a6ee4482fcb88d766babb39bdba156eef514b590acf02046951adb52885d83", "products-calendar": "113ac470d6425ce972304e4baeae6a6a569d07dce59fd0bbe9670525215e9f0c", "products-docs": "2eb4c9795de71e0f99b26916042a0e3d79cf76313b16cb386064059e5ab14852", "products-drive": "151a9aa8e6f270da8747c36e0fbf02d9c3478fc4a4d8ccd1dfd3b9558831d143", "products-forms": "d6b61bf32cbbe79b34cf927dd5e8c8de9d522a1aa96bf2a5bdb85f4934296002", "products-gmail": "d4497bab4095e9763f5aa07803c5bd46a095a34798141be1a903bce997d6c359", "products-meet": "b1ccf06684dfb3de9fc71db8aacd275a14cb88913bb1f3e00ba8b7f3c25d2251", "products-sheets": "7009d709193e25db2e7eec8472d93e84830e703b4ee6a8464bf9a702d3eca933", "products-sites": "8952bf14c59e49221605d0d47f5dfa8cfe711da79644ec7a2eb0c85eb001bc00", "products-slides": "b417c184463d47ea0ed009b919f73a2be8eeb4bcc8d1113f3b2ea9b558e9749f", "products-vault": "1168bb24d85288db6f585532f03f4c269e344dd1a9d6129b8756a3e877084960", "security": "ace5508f4c4d352b4a274d1e1aa01bfcaa3af9fd1e442ad17f1ae43c5800d712", "pricing": "b8b1b0aabce88c47423f92732f7432ee2bbe3b787f568ce9603f87a79e1536e3", "common": "f5e7dcd4ad9e6b72ace7ddf5bf8e65b3bd7e1658198a078ff7d775bd9debe181"}, "w2016": {"home": "0ff0a5c6d1aa3e90f192d887d7fd9b325df0cf55132cc9b75bfacd7adc587cf7", "customers": "d43a7d94c591646d29f16c27f4ee39d5bbc62d83f7276ff21c0a97681ba2b588", "faq": "719ae9b611271c1376071e4a27fc0c863d01743912c52f90fe68eca4c6bd010c", "features": "1ec7cb71aa4b56180dbb903e79481766eb6004788e388533f8835f64b95e6e47", "products-admin": "4993229e8694249b47ecffe92302c1d4af7f274d1a1f54a2db455f37839905b6", "products-calendar": "9079b78d076ef38a2a813e28cb268caee2f3f041a989725fe6544da71c46576c", "products-docs": "35999740cdaa347f2df91a7174805703d07de86021400b52b21fcb3f66390fa3", "products-drive": "9d1a4cb824a4b6340173d9bdb1def46755dc2c27bfa8406651d6b9dd59aca403", "products-forms": "dfe4adc78bae168d23d263b11e00d865704baa9a5de0813e8236a90ed076eeb1", "products-gmail": "e2655d9011549255696ac87eab51a635de88ec5bae047ee6bbee4188fbd9ea76", "products-meet": "46ad75bbad17297dfa619a9263e7ce2fb595845effb54b61123cf768900e2d91", "products-sheets": "33eb7353a92f52048e3c52f9eae01b54a668118a7ddba35d4a5c1445845a0324", "products-sites": "20d795f5d6cf1c34cbe7b41ae87aa07b37ee97e49bb0d5a73c60f4d173fbed12", "products-slides": "ac5b29ea579e9edf70d66e0b9aeb69ab0e7b3ec8f63be6a5de7ae59e7f6a4a24", "products-vault": "3a13c18720c03eca006c40723800ba23ee9d7cbbf44ec01424363676d35f2387", "pricing": "5f0e1a75af36f9a19412418ec8bb3c10e44674b5c1514a9ed8a658439b6a39c8", "common": "3870891edb986158315be1951c74fca65a84bb00963332e761f17857967c448a"}, "ws2021": {"home": "8ed679c0da57c91360f53fb21fca37f032b8648199378c5df9cc1411599250ba", "customers": "36db1843b7b36228a10c57863d098d401b3c3c176656fa5cf1df4d17a89ffdc5", "faq": "3a1e504dc733eec3c3083ec08374469d97b0c2add72e3a7114127a592c8a5e5e", "features": "6883b856a57501cd619c968a9e75ebd6e15fbd1b365517f35fde4b05b906924e", "products-admin": "7c7cc9499d4c35d5bfe3a209bdcff35e6910514f8be892d879d591491bc07cf7", "products-calendar": "7b84a4b521f81aae181ebb080d13ab13898887c10f3916f8b8784c43f20e4ecf", "products-chat": "242c1189d09d7673a8669238248b48970fa0945b612700137360a650bb0231d3", "products-docs": "a6043d99cb325eec8c213a7c38cec28062212bc97257420ceafaa5e91933bc64", "products-drive": "1c1c62f6836864c23f8ddde305ad77b8299799f389a7e7e91f293e535bc48d1e", "products-forms": "a09c28c73b4173cc06eef1fc85a3523d4338bcdb6b7e0d0f2861ef53b2257f3a", "products-gmail": "b4fdbe8f9c7501eb96480e1f420ab0fda353c0295677e1f5fb36a2472f97412f", "products-keep": "088d17ff7a30d80839e9372be1973cb3559fb28d9549ada7e0e19e213c9a0972", "products-meet": "33407d9c4144e76b014e54a460a3747804aac0d2866a4e1cb809fee48db2c218", "products-sheets": "73bf608d2f5840f57c5978706398c564ef13487b32d6f9fecefcd200ba0787f8", "products-sites": "d88a6945ff1e2b04fb23edad519cc1018a971eeb7d9d01f5e9e68f2e1edf517f", "products-slides": "7ab2b0f88e5768bf39ca7ef45e869998d9ffce76071df5cc5a1e0fc6d08b1daa", "products-vault": "e2b9f7f526395f5fddd534d9f08fe60898abd1c6c1c54ecf99a9371209292ced", "security": "2483a5f245eb73e4d3d6dc14a9988466ff4a44447cfd2c6830bd49cb9a760949", "pricing": "cb4ad956610ae8e61bbd85333c4df65d0f00d49c39b8706955f26f2b46f90c2c", "common": "369924a32ec75abdeb5aef9882daa13f835ea4a2182dbf52a298d521ef6cbb4e"}, "v2009": {"home": "854049bca89953badb13529c79180c59fcf2990906f394726061eaa0b55b33a6", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2009l": {"home": "de50a58f88431b3fa351582b78e0a88234c6c118ead2d831c4d5cd9c187d7356", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2010": {"home": "c14f0a42ebef3c46fa6a1d02b99c0f5ec8d02a0e3915f81c735a442065845adb", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2012": {"home": "a81140a4b988ecbb9623ed53dad2393a18508afde5669e382281be1cf99892d5", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2014": {"home": "82007d74eecff1aa9b7bed79de6259d48c00f51615ded6bc5702f00ddd4c306c", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2015": {"home": "6965ab0a914a6d77e72221d79df9a2228f269288a941c0e30c89d41fbfe15656", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2017": {"home": "1db64af904031d138df5c250cd245c53dacf1a19539c27802167af7c51778eb7", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2019": {"home": "3e1b8996007eafc7b4fe3dbdcd677759b30434bb1a8952deb6969bc76936a099", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}};
+const UGF_WS_PAGES = {"a2007": {"home": "610ad615f3cee28a13cf8380cba217ecd0ee017613299ce18a30a4b524244d28", "business-small-business": "4b14dd271eceea06488c3e4345420fe25297ec056c548aedd91896bffb87fe82", "enterprise": "6c6ad017b0be218859d5a057a2c375efccac4646467881f8ccaaa8dd45a73487", "pricing": "7fb1fa98ea598788b92f5dd17564d14e871a71a315cdfaa2d6f597f8c2f9226b", "common": "9d819464f251846b81812b7506cdd4c34cb5456972e101b9c3e91fc90110fc6c"}, "a2009": {"home": "15a888aaa8ea9d803803aec0ca5b67c0744d71d7c796d78af78b8e0e431b4a8e", "customers": "e3e69d0235ee6963744148c36de1e45f634b1712dc0a886ba415a514bc4e2638", "products-docs": "feb4aece436115a92f072380e721bc1602471d9a97d36f337469ad5c21463195", "products-gmail": "db615f71962f7a95eb4698d264b539f70367c52d3fbc2de36e5db040cac7d535", "resources": "facdf75cddbce46b8974d3589bd5d1197d96e0baf0f0d233a091f66263cba5c8", "pricing": "a59ccc279ca0a760a2f6d52777ef0976aa6a0230a4147307f45eb66db6eca2e5", "common": "ff577dcdd7c63ed9f29909062ec5a226dabf368b6bd8542cba8f3325e892384d"}, "a2010": {"home": "ea5349f521396da84cb063e527837ff5d1da19a8a6c280507956fa9f8fdb7356", "business": "f46091cddaa706374e5f4663c7c80935247231cdc7be979ffbab559426cefcf9", "customers": "68c654733a2c1e4ad2081332be69f305e6bfe727879bb60af7697fd3e09deb68", "features": "6ccaaabe2addd046af72ad1e566085658bcdf1701d6c256a73f06e624d356a81", "products-calendar": "32891f3b65bdba5a822108198cca36c9c77feaecd37aae0b58f4a25efb5ee723", "products-docs": "dd134d0f2098f36cf2b61ef36cb01e1e9cd3b9cf9821d9985dc9e41c870f5e7a", "products-gmail": "f5f0430a35584c69b73a8956731e29cf899f3ddb4f5263f9e03b7998cb192f67", "products-sites": "de25bb8f1810f0063f57e7cf0a9c45c6fe98bdfbcca0fabe0e61f191b2df4f66", "resources": "a919fd9f081ce61931d1a1b7f15e72ca9b86c6b3a20b7601b8e8e4b27f16b668", "security": "25b03b24660a7e28329ea8d714165bd42a0f88c61cbc3783063472983f885ca4", "pricing": "6ccaaabe2addd046af72ad1e566085658bcdf1701d6c256a73f06e624d356a81", "common": "a6ef8a674cc57adc353bc526b1f4f5e404ded86416a114ef285cd55ff16c5fdf"}, "b2012": {"home": "840b84ea06037eb4cc3aab7d8efb86265e4b1961ea9e5e7f85225404502ccccd", "business": "7db95a90171d08f3ef4286f2626c59bc01846aeea0e8110da8c595e418b31928", "customers": "ecad9d4f3b6ead986f69cac6aab53ef6e812c6466525f6701db3e99842e175ef", "features": "e903112c3d4fe849d1ccfb7b12cbf0393230ded50f52f17c7c97c2a57c48bdec", "resources": "4b232e721b33d9163a365f616df438ee9b51dfc405488c68c2b2c74b07ffc626", "pricing": "c2e8948e7a733af9e4ad6813530466562112faae79194c8dc682e9c97a8fbc36", "common": "7a356ef01e84a1c02bb988f2111bee8591d10d11bc11548a8a04c405599fb531"}, "g2017": {"home": "7599afd2b5a65c30f877b14a0242993740547bbbef6e517a4047febcb83d6729", "customers": "ab0b52901d8fbf6085b6b26fd18d109ab5cb7150c8ebdf77b9047676a9596ea1", "faq": "ee594ccaf65948d313fe70e0f51660c8f868a6990c4334a9a3ac00ef1f30c2bf", "features": "bef86a47604a4941344a602d5cec43a045d950e724ad48101d11899bbbdbb5bb", "products-admin": "644a0cf3d3e81ee6977e0366dd32a63dddfbf893263231f3c107393e87252f93", "products-calendar": "56a3f31ebf7b64c4f3ccb281eb8972c10c92f70542ef29c2dcdc21c24e0f9f6b", "products-docs": "dbc348b421f63cf66c4631de6b01e5e15346e4d9b924339b02974952a595d01f", "products-drive": "cc94242ced7417e6f775a525fe9975a540ba2560ca24054e8f323002d2202858", "products-forms": "0d7d16fe04c8e603fd9fcdbbbc0a76cf6465f9dde8a8f444375907f9b2e07f1a", "products-gmail": "994782a6bd162c5cc8711d11332d47fe206c17ab2a3bfc0bfcc3b5c483441acc", "products-meet": "c2131937e38a06350254812c3aa90c7f3d2c080b80f02729ab67b99af87bf20d", "products-sheets": "b31c54c4a11eae4825ccefef4b62f33300ec4f8db8f278ccdbc822e623de40d7", "products-sites": "b4fa83d1e4310d53c921789a4c14c4826be663bd3d8204be532231d8964aefad", "products-slides": "a09bfab86c73995bfd7c4dad653913b5f5285969c9368e2ef6c4d2288bbb5779", "products-vault": "3bece55ffd4be53cbb61b8f0e732c89421800ad10b7e22fb3cf83f4a240459a1", "security": "cc6c386f0f2dbcddb319d6f3a5b47d436c0fdae7dc8afbbfc6b3b15c7b946600", "pricing": "69431e9e0ed9893a8caadbb971d1a637c5b37515886a445746398ae50727bad3", "common": "bf4eca14dcbc0e1aeed6a4c962dd28e28d6003ca1fd793697d34f88f1686128c"}, "k2008": {"home": "7cf91de2452ce833b5f3c556ea21dda7c1227f0e6ee19ddaf1f35b3b44308eb1", "thankyou": "19cd981e02377a8fbf4dd2132de6e7a5a279a5f596b5c68f8262bd1b5f8f064a", "common": "d3b4b1107b432537d5d0af6e3a0be0bb0e95dcc95b2847ca1868d50ec2bfcffa"}, "k2009": {"home": "9d88d7423e67d2353176714db2626038b3a6acc21bd513949d004940eeb97c5a", "thankyou": "85e22d5a396185198dd2104b16cbe7f34e7136108053772adb39ac686a353b7e", "common": "672af432ac13d4a8b458b7254bdbaeaf0654135ff8a5aac02903fa2a8b54ff48"}, "k2009l": {"home": "237350c4f7cfc04a9f1ef0777440554010241127732afbb736d128716a4c90e6", "thankyou": "b7ce0702586564871225915577b2632492d2267fa539652b9815849e956f1520", "common": "f5f79461148474bec60b010fb8e83f6edca08ad908034a7e59cbba660dadd8b0"}, "k2010": {"home": "355775ef45ae94bbd18c280b439803ce3814c537f43a86ac392c89838bbd63de", "thankyou": "df1bfc3d4822f7c78e497108495925b7d5e5def679a6840a4f76c5c683b0d2ae", "common": "9d841ecc9e4cc06343db1e0cc67737ef6ab3cb23da9a9498861dcfec3b532878"}, "k2011": {"home": "d8fc1ac6db636327ab51f2ac7a2ffd40215888fbda498b3dac9657e74aee71c4", "thankyou": "061c7f9c34917d3f80df9bce3a636014eee0f7670ea17108320c80430b8adc0e", "common": "a2dba6f3431d2332ce2a0ba228373394a9d2dd1fe32fa3983a94d641401be23b"}, "k2012": {"home": "84cbe3fe5b2489fbdb260d382610f8e91deec96b28a484794310602a4f452ccf", "thankyou": "8d54eb4960af81a355886697c2d44d31428d3ce19275330dcece7f08a45ee921", "common": "a5c60be09e1ef9a58d453e117197f026946a332f347903ba559a858fd4c7ecce"}, "k2013": {"home": "44827505ae5d9aa75832876b765af13fb331b9eccb79cd2b443cb6e830d552c9", "thankyou": "daeac100f7ba7ea6a3d3156790945a61a4ca8b96d96e9cbdec8a057e07231716", "common": "e901eb2096cea628b528a27af348bf162b64dde96499feb88f80b1371e86f631"}, "k2014": {"home": "1b67388b5e914ac7b2069068d0fca315c7f66dc1f613a6080cc431cfa3a5b27a", "thankyou": "d3275655f977a26ec7ee4735e12ad0af5b821616b98f98aa6543dcdca9621fab", "common": "c7dad89f0639c54e145209aab0a7b0f8af9aa4a72fa07eb08040ba07c92a4513"}, "k2015": {"home": "321576230a1ae679959c714000612c944c89804008e03c3ca24af4d57f07a995", "thankyou": "bd983e7822689a62c5563fbae0bca684f706163089cfa035979262ed7a110a0e", "common": "48448d4c6523daa9bc234f6d50ac7eeafc28d0e4ed5570ee7d9869b8a55c8123"}, "k2016": {"home": "3fe3846116f99f834f6864c198823e0ed4e626ab684aca6ded9a7f1fbcdf5929", "thankyou": "0f6b87fcd7cb01e428d0b50869297f0693067f5b9fa726428dd673bd7f6a217a", "common": "e82100f1e9d5f0e1bf101311966482b65ee964faf9b973bb337e16cdcdafeefe"}, "k2018": {"home": "0177a742331c0ff3777c515bc176b75f74eb2b44528a3d4a61a3bfb5cbf71889", "thankyou": "d0b670f9d0765c0eb2f36e9628d586dd619a181cf5229e748ddf56504975e6aa", "common": "8fb0001422c7118cac0708abab12ab386508ff086f4cacd20f6b830dbb75a1ef"}, "k2019": {"home": "61dd63ede827ad20375570be3cf81a00b5b9f6dcb3bd45cd9fe1b00c1c857133", "thankyou": "254d22b84cda61d0247eaec2844249a09af499a686c86d7cc253257ddadc57b8", "common": "5be96cd762be5187fa71d2561242a095716e4cc5cf262d9f27eb2c6cd323d9e8"}, "m2013": {"home": "0c541b3dec7f410dee0f86f064430f04950851e7d57a7a202ab1dfbbfd5c2d89", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2015": {"home": "58a637b9ee8e5041986f9bae85c1f712c2942bcbef4f57baf5bfce6c2f342f4d", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2016": {"home": "b077262991b42e6d4af5c0c7332362b01279bddaf5739f7e8744bcfce9a96015", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2019": {"home": "08ae8437a310432be27c11c71b4b426abac3a9afcbbc25fcc479d973684ff5e5", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "m2022": {"home": "e9ea806b0d10e4206cc7b10700b5437591492868d3a18f8e67fb2477b4209587", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "w2015": {"home": "7486c1760fb5b8f6da200363ce0c369dba9526e902acb0e38a418e84dfc5d304", "customers": "ced5cb74112cea4286af9ff01530d31b14c0f7f5852b257380968da772d64b2e", "features": "7e6b57242228e8a65e96e9b7cfc9bc00949a5913a1b1953eb5db4908c5f28879", "products-admin": "f0a6ee4482fcb88d766babb39bdba156eef514b590acf02046951adb52885d83", "products-calendar": "113ac470d6425ce972304e4baeae6a6a569d07dce59fd0bbe9670525215e9f0c", "products-docs": "2eb4c9795de71e0f99b26916042a0e3d79cf76313b16cb386064059e5ab14852", "products-drive": "151a9aa8e6f270da8747c36e0fbf02d9c3478fc4a4d8ccd1dfd3b9558831d143", "products-forms": "d6b61bf32cbbe79b34cf927dd5e8c8de9d522a1aa96bf2a5bdb85f4934296002", "products-gmail": "d4497bab4095e9763f5aa07803c5bd46a095a34798141be1a903bce997d6c359", "products-meet": "b1ccf06684dfb3de9fc71db8aacd275a14cb88913bb1f3e00ba8b7f3c25d2251", "products-sheets": "7009d709193e25db2e7eec8472d93e84830e703b4ee6a8464bf9a702d3eca933", "products-sites": "8952bf14c59e49221605d0d47f5dfa8cfe711da79644ec7a2eb0c85eb001bc00", "products-slides": "b417c184463d47ea0ed009b919f73a2be8eeb4bcc8d1113f3b2ea9b558e9749f", "products-vault": "1168bb24d85288db6f585532f03f4c269e344dd1a9d6129b8756a3e877084960", "security": "ace5508f4c4d352b4a274d1e1aa01bfcaa3af9fd1e442ad17f1ae43c5800d712", "pricing": "b8b1b0aabce88c47423f92732f7432ee2bbe3b787f568ce9603f87a79e1536e3", "common": "f5e7dcd4ad9e6b72ace7ddf5bf8e65b3bd7e1658198a078ff7d775bd9debe181"}, "w2016": {"home": "0ff0a5c6d1aa3e90f192d887d7fd9b325df0cf55132cc9b75bfacd7adc587cf7", "customers": "d43a7d94c591646d29f16c27f4ee39d5bbc62d83f7276ff21c0a97681ba2b588", "faq": "719ae9b611271c1376071e4a27fc0c863d01743912c52f90fe68eca4c6bd010c", "features": "1ec7cb71aa4b56180dbb903e79481766eb6004788e388533f8835f64b95e6e47", "products-admin": "4993229e8694249b47ecffe92302c1d4af7f274d1a1f54a2db455f37839905b6", "products-calendar": "9079b78d076ef38a2a813e28cb268caee2f3f041a989725fe6544da71c46576c", "products-docs": "35999740cdaa347f2df91a7174805703d07de86021400b52b21fcb3f66390fa3", "products-drive": "9d1a4cb824a4b6340173d9bdb1def46755dc2c27bfa8406651d6b9dd59aca403", "products-forms": "dfe4adc78bae168d23d263b11e00d865704baa9a5de0813e8236a90ed076eeb1", "products-gmail": "e2655d9011549255696ac87eab51a635de88ec5bae047ee6bbee4188fbd9ea76", "products-meet": "46ad75bbad17297dfa619a9263e7ce2fb595845effb54b61123cf768900e2d91", "products-sheets": "33eb7353a92f52048e3c52f9eae01b54a668118a7ddba35d4a5c1445845a0324", "products-sites": "20d795f5d6cf1c34cbe7b41ae87aa07b37ee97e49bb0d5a73c60f4d173fbed12", "products-slides": "ac5b29ea579e9edf70d66e0b9aeb69ab0e7b3ec8f63be6a5de7ae59e7f6a4a24", "products-vault": "3a13c18720c03eca006c40723800ba23ee9d7cbbf44ec01424363676d35f2387", "pricing": "5f0e1a75af36f9a19412418ec8bb3c10e44674b5c1514a9ed8a658439b6a39c8", "common": "3870891edb986158315be1951c74fca65a84bb00963332e761f17857967c448a"}, "ws2021": {"home": "8ed679c0da57c91360f53fb21fca37f032b8648199378c5df9cc1411599250ba", "customers": "36db1843b7b36228a10c57863d098d401b3c3c176656fa5cf1df4d17a89ffdc5", "faq": "3a1e504dc733eec3c3083ec08374469d97b0c2add72e3a7114127a592c8a5e5e", "features": "6883b856a57501cd619c968a9e75ebd6e15fbd1b365517f35fde4b05b906924e", "products-admin": "7c7cc9499d4c35d5bfe3a209bdcff35e6910514f8be892d879d591491bc07cf7", "products-calendar": "7b84a4b521f81aae181ebb080d13ab13898887c10f3916f8b8784c43f20e4ecf", "products-chat": "242c1189d09d7673a8669238248b48970fa0945b612700137360a650bb0231d3", "products-docs": "a6043d99cb325eec8c213a7c38cec28062212bc97257420ceafaa5e91933bc64", "products-drive": "1c1c62f6836864c23f8ddde305ad77b8299799f389a7e7e91f293e535bc48d1e", "products-forms": "a09c28c73b4173cc06eef1fc85a3523d4338bcdb6b7e0d0f2861ef53b2257f3a", "products-gmail": "b4fdbe8f9c7501eb96480e1f420ab0fda353c0295677e1f5fb36a2472f97412f", "products-keep": "088d17ff7a30d80839e9372be1973cb3559fb28d9549ada7e0e19e213c9a0972", "products-meet": "33407d9c4144e76b014e54a460a3747804aac0d2866a4e1cb809fee48db2c218", "products-sheets": "73bf608d2f5840f57c5978706398c564ef13487b32d6f9fecefcd200ba0787f8", "products-sites": "d88a6945ff1e2b04fb23edad519cc1018a971eeb7d9d01f5e9e68f2e1edf517f", "products-slides": "7ab2b0f88e5768bf39ca7ef45e869998d9ffce76071df5cc5a1e0fc6d08b1daa", "products-vault": "e2b9f7f526395f5fddd534d9f08fe60898abd1c6c1c54ecf99a9371209292ced", "security": "2483a5f245eb73e4d3d6dc14a9988466ff4a44447cfd2c6830bd49cb9a760949", "pricing": "cb4ad956610ae8e61bbd85333c4df65d0f00d49c39b8706955f26f2b46f90c2c", "common": "369924a32ec75abdeb5aef9882daa13f835ea4a2182dbf52a298d521ef6cbb4e"}, "v2009": {"home": "854049bca89953badb13529c79180c59fcf2990906f394726061eaa0b55b33a6", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2009l": {"home": "de50a58f88431b3fa351582b78e0a88234c6c118ead2d831c4d5cd9c187d7356", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2010": {"home": "c14f0a42ebef3c46fa6a1d02b99c0f5ec8d02a0e3915f81c735a442065845adb", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2012": {"home": "a81140a4b988ecbb9623ed53dad2393a18508afde5669e382281be1cf99892d5", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2014": {"home": "82007d74eecff1aa9b7bed79de6259d48c00f51615ded6bc5702f00ddd4c306c", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2015": {"home": "6965ab0a914a6d77e72221d79df9a2228f269288a941c0e30c89d41fbfe15656", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2017": {"home": "1db64af904031d138df5c250cd245c53dacf1a19539c27802167af7c51778eb7", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "v2019": {"home": "3e1b8996007eafc7b4fe3dbdcd677759b30434bb1a8952deb6969bc76936a099", "common": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}, "k2014n": {"home": "0be91d2518c9889121b94c64b4de0614891b284b5c45cab5cdfe164fc60924cf", "chromebook": "48edf61169643644a0b78a59682e341e7c6088598b0d71da5a3e2338b76839dd", "chromecast": "15be7316749c1f2132b318f1eff9d8ef055da1bb295e0361fb68a70446b94931", "setup": "97eb093243cf767f87ba8e641bd3fc6d4541c834fe13c17c386006d57aba2503", "signin": "e995271d7c54cd8aa769c4a1cd064ea1319e73d2f32b41e4a78b1244d561415b", "common": "33f73872d081c81f6f83a0c7858e392ef77d747362874814a1f880bae3ab3f13"}};
 // A stored page's text: the browser's copy, or from the site the first time (then kept), or null if neither can be had. Only
 // the file whose SHA-256 is sum counts: a damaged or changed one is never shown, and a damaged copy is replaced.
 function ugfWsFetch(url, sum, done, answered) {
@@ -11990,6 +12249,8 @@ function ugfStoredSite(era, file, o) {
 // 2008-2009), Late 2009, 2010, Late 2011, Late 2012-2013, Late 2013, 2014, 2015, 2016, 2017-2018 ("Browse fast") and 2019
 // ("Get more done with the new Chrome"). The Set up, Sign in, Chromebook and Chromecast pages are Gplex's, from period
 // screenshots and Google's own images where its servers still have them. The 2022 layout keeps today's pages.
+// (9.1) Late 2014 has Google's own download page of October 2014 and its Set up, Sign in, Chromecast and Chromebooks pages of
+// November 2014, stored (k2014n); the drawn ones stay where a stored page can't be had just now.
 // The button still gets today's Chrome, from Google's own download servers; the period's terms box decides
 // the two choices Google's installer takes (default browser, usage statistics), and the thank-you page starts it.
 const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,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", "cb19l": "data:image/jpeg;base64,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", "cb19r": "data:image/jpeg;base64,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", "cb19b": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUEBAQEAwUEBAQGBQUGCA0ICAcHCBALDAkNExAUExIQEhIUFx0ZFBYcFhISGiMaHB4fISEhFBkkJyQgJh0gISD/2wBDAQUGBggHCA8ICA8gFRIVICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICD/wAARCACRAz4DASIAAhEBAxEB/8QAHAAAAgIDAQEAAAAAAAAAAAAAAAECBwUGCAME/8QAWhAAAQEFAgUMCwoKCwEBAQAAAAECAwQGEQUhBxYxQdESFRdRVVZhgZKTlNIIExQ1U3GDkaHT4RgiNkVGUlSChLElJjIzNEJEc6LBIyQnQ2JkcnSjpMJjw/D/xAAVAQEBAAAAAAAAAAAAAAAAAAAAAv/EABwRAQEBAAEFAAAAAAAAAAAAAAABAhESISJRkf/aAAwDAQACEQMRAD8A7LAAAAAAAAAAADG2rF9pc9pdr79vLwIBCJtll08aYdO9XS7VKtynxN21FKvvWHbPFUxqqRvqBkdeI35zHJDXmN+cxyTGheBk9eYxM7vkhr1Gf/PkmLvFeBlNfIvad8k9XVuPNS2j9m+7UqwmTbymGEBnNe78rfITSGve2rXITSYJRAZ7XxM+q5CaQ19Z4eR7TAKJeADYdfmcyV+p7Q1/Z+b/AA+014V9ANi1/Y+b/CukkluouRhOT7TW7xAbItvsp+onmUWMDHzLvEpraqFVA2TGFjwfoUMYWPB+hTWqhUDZMYWPB+gMYnfg/QprWYSgbNjG78H6AxjdU/Nr5jWBKBs+MjrwS+YMZHXgl8xq4KBtCzI6zOVDGVzS90pq1RAbTjM5r+ZUMZnPgVNVVRKBteM7jwKixnceAaNVrcKoG14zuPAtBjQ48A0anUANsxoceBaDGhx4Fo1KtM4qgbdjQ48C0LGhx4FTUa0CqqBtyzS4RPzKhjS48CpqFdsVQNvxqceBUManHgVNPqAG341uPAKGNcPncqaeIDcca3HgVFjY48Cpp9RVA3HGyH8CosbXHgFNOqFVA3HG1x4FQxtcU/MKaaogNyxuc+AX0hjc48AvpNMrwgoG5Y3uPAr6R43w/gVTzmlqJVvA3RZvceC+8WN7jwP3ml1FUDdcb3HgfvDG9z4JPSaVnzir4wN1xwc+BT0hji58CnpNJr5hV4AN2xxc0/NJ6QxxdeBT0mkVEBu+OTrM6Z9OgWOTrwTP8RpNdoioG8Y5OvBs+ZoWObrwbHmaNIvFnA3fHN38xjzNCWc2PmMclo0i+i7QrwN3x0Y+Y75LQsdWa/kO+S0aQogN4WdUT+7Y5LRFZ4RF/Msr4mVNIUWUDf4OdYV7Esu4tjtLtUWrepWiKeDye2WXjTLuA1bCLc0rylU8VDRxXgbqs+NZrNTnfYRWfXlbrMZ532GlLtCXIBuuPz3cxnnV0E0n/bszzPfYaJxhUDfWZ/d199ZjSJwPU0H0Op7gGmqPoN+7TbRUaK5rnqSRrhAuez7QhbThWYmEeat2q0WqUVF2lQ+sq6VraSy7S7W+apDP6MtLmZXM0Wii1SoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoHm/fMOHLTxvImbbNWiHrT5+08aWqqvmPttOL7c97Ww17xj0qYyoEVENeAjUBXhkGJQEqiHVBZgEqhUQVAKiVeEBUAAAQBmCosqgAC4wABCXKMQAIFqJVAaCEK+gDEqgJVXaABBVRAMQqhUA4hBW4AFkABAAhqIAuEF20ABnEHEGcBBUMwgHcJaCyBUAXxivGIBBxgviEABfti4gABUAQBluqHjFXaFeBISoIABfELPUSrQQDogrhKFQAQVoKoAFM9QUSgKgZwqFeABKguMa5SKgG2LVbQZiCrtgSVeAWcSrcLjAM+YVQ4hAFeG4FUSpcgs4B4iK3KHCACvqJR8RFVovsAQVEqiVaAeiLQsuTrX7ts9YJ83qn8MlErlaYzebJ5isEW4yFl2k9sy0XUY5VVVhffM/OTOgF0AeEJFOY2DdRThrVO3jKNMqe4AAAAAAAAAAAAAAAAAAAAAAAAAAAB8FpRXaHHa2F9+36EPsePGXTtptpaIylTWIl+2/ftPGs+RNpAPBpaqeaklqpFQFeIakagGQBVABCHUQBmEAq1AKiHUVQAV4xXAFRDUVwCVoSqNchHiAarQiMQCqtQzguTIFQEohkQD7xDFfUBZsoBQVADMIAAFoIAXKAVFnC4SZQAPEAs4BnEtAEAwrcIV1QGqqucQKKtwAKoKIAqFaCEvjAkKogz5QFdlqIYgELOO4VwAKoKIAqFbqBnqK4AFVQF4wD7xV2gyAALwiBbhAHGLKArlAeTIIdLqCVKZFASrmEo1S8iAl2hKSpwHm/fOYZw0/ft6hhnKqgSvVRKYp3MEC9esu2Xb6rS0SrKaQ1+g6qnan122yifzAygsxi9f4PU6rtT6irtJpGxb0G9eMu3Lp+9bayMssXr6QMmqVFnPk7ueLksyN5tNJ87dtwbp6rt87fumkyo0wi08ygZHKglMW1b1no3qWUfN5qoxd6SS2zD3/ANC98dWNIGQz1Epi1t6ERaK5iOJlF+5TIOXzERDsPnaNahpKpqmVZXzKBJdsipJctSK+MBUuBGqBmUS02wNnly3I+DcPoSHesqylXrLDTNf9VPvMzjVaaZ3K/UNAcv3sNEMRDlrUvHa6plf/AOzGcaeuniMv4dKOnqapln5i52V8S+igGzMzfHsr75y4a4lT+Z9TqclrR9BJ9RvSabqwRta3gWTAzBBRzfa2Ubdt7TRl0WqVQqZw/acvmXjCqisqWJY9osRsIyuq99S9AMqAAAAAAAAAAAAAAAAAAfLHRSQ0OrSL79q5kDH2rF6pvtDC3M/lcKmIaUbbStKqtLlPNVAFUgo1IgCqIAqACAQAJQXIJQAXAFwgGK+uUVQrtqAxCXxjqACEoXgCiAQALMCiqA1EJVCtQAQyIDVRCyCreA1FthUQBcAqhUAzgKoqgOiCuFUVQGJRVEBIWfKRqFQHftiUVQqA6CFUFUAASr4hVvAfEIVeEVQHkEq3irUVQHW4WYVQrlAARRVzC1VwEhEVVSNVAn41ERqFQJXKJfuIVCqgSXKIiq3iqBKoVIqvmFXaAlfW8VaKRVeAVU2wJK0RVpaEa3iAlVdsNVtKRIqq0uA+V9Zzh89V4r2IYVq9UYfKiHmtkQTaor1Hr2mZt6qn3I1noGqA+JqyLNaY1KwjKJtoqop5JYkCiIjPbkTgeqZFVyCVQPiSyoJKI07beUzNtq0Sas6CV0rtIZliqXNMKrLSeJUvPqVSKrdmAx7NjwjKUVuJaRczT9pf5k2LKs1htGkhGFaS9NVVfvPrqJVA+F7ZFnPGla7mRlVzMNKieap56yWai1Rh6nifNJT0mRrUjVaXrcB4Q0DDQjercMto1SlWnjTX3qfQrS+MSreRVbsoDVSCtKNVuSpBVTOAapSKrTPeCkFpmQCWqvvMhZkSyjxYR60jLt8vvWlyMN5l8S5F4lzGNrmFWtwGwKqstKy0io0i0VFzKCNHi5iFjIZHzS1fO6MPf8XzWuOlF4U4SSKB7I0ZexbRag4xKr7xpbzCIp6MrnAt6HfMvnLLbK1RUPU06WrWqiQz1q9MhuCKipVAGAAAAAAAAAAAAAmmkZZVppaIl6mtRsUsTEK1kZS5lOA++1YtUTuZhb8rWgwjS1zgJVIqvACkfEACBa5hX1AOEBZQABDqRUAuIqAAIBZgqACptKOtRAJbgUFFcACUArwgFeEKiXILKAKolW8LguAVRDI1AfGJagKtQASqoCUAqArgygH3CUFEACCogGKosoKAyK8IqgAcYgEAVCoswlAkISiqBIVVpkFUVeAAqgeIQgHxCqJRZwGuXKKoCUAzgoZqkbgBRZwzhtgAlCt2QjqgHeF5FVCu2A1yZSKqFVykartgOq0yCXIKvCFQABKqiqA8wvuFUVQGJVXMJVyCVfGA1Vc4q1ykaiqtQJVIqq1yCVVvvFftgNVEvCRrdlFXh4gJXiXIRXhFXhAaqLhIqu2KqASXKRu2yNQXJlAdyEc9FBVvEqgNVIrwAq+MVc4CXKgZqgouAD6IOJWFiWXisq07VNQ8YT9dlcqfzThRDLvGO1t6lGtWyqI0y0mRplUqi8aGv1UzFnPkiIZYNpf6Vyituv8AEzlaZ4vyk+sB7ISRRalAA+qGiGod8y9YW9FLJse0GIyFZVGkrQq5MpmrEtJqCimWVWjDSgWYB4w75l85ZbZWqKewAAAAAAAB88XEJDQ7Ta/lZGU21PoVaJU1y0Ivul+upX3jNzPDwgfG8eNNtq21eq5VU8lUarwCzgJSJK6glQCNVEMKAKlwuIlwEQBSK5RqKgEReIlxCoAgz1AFAVbhKFAVAIgNRAIFyDpcIBEaE6cAgILURNUEBGtBVqSFxARziqpISoBHKlQvHxAqXgRXaIk6cAqIBERKgUAiK+hKgqARv2wpW5VGoLlAgInxEV4wIqgEhAREqKSzCUBXrlIqpLLmFnAjfUSkqLnACKizjpeGprS8CKiJakSoqZ0AiJQUL6AKu0Ia5BZQEKoX0yXAoCqm2KueoUUOIBVFULwAS5QqFBKl4AqiBRcIBxiqC5AzgKoq8YZeAWVQCtbvvI3j2xLSmQBX1BVzgqizgLNcCquQZ80VCMxTLCNPnrvUrX+jb1NfHtgey1vEfEzZjDKKiRkWi6tHjK9t/JVMyJSlNtM56dxqy/ePkjYjVPERlUVWdSlNpKURfEB73rmCi7R8ruz2HbLtlImJb7WzqUVt5qqpWt+2vCDUEy3DPYdqIfqw9rX396cDK097xAfQK/aPn7jVlptXcZEM6tlEaRWkaS5KVSqXL4jwdWarLh0w9jH75thnU6tpb2krdVNvhzgfbxqJlFaa1LKK0u0iVUg4cI4h0co9evMvvnjVWr+E2yz5uas+DdQzqzIdjtbKM1d+91XCqbfGRu6k8ZyrMlvetaWHiPo72mb+ja0Hm0y2wqI2y0yq5mkVPvNxWdmmr2oFlWuFVX+Z8T6a3rxw27bhGHzLVUo9vROIdV9FxZObZ9awtRVQkqptUIr4i0lW6olUeciuUBV2rhun7xw/dv3TWoeO2kaZa2lQS1pnIqmcDaGmnT507iXCUdPkqjPzGv1meJfRQ8zH2NEssvmoB8tHcSqahpcjDz9VfEv5K+NNoyLSKy0rLTKoqLRUXMAq8JNlqioedRooG8S3a2qZSHetXobei1RFQqGEiG4Z+w9YVUVFvLKsi0GIuGZXVVWgGVAAAAAAMFMz+2nNnuWbFg3cQ29fssP1eN07W6/WaREyrmpwmo2hM1k2U9Zc2jErDNtVVGW2FrRDerV7sYhkfQbjuhXa1acoqMtNpT9VVurwLl4DU0nmVIxyrqKj3bhpFVlp3GOlRWVzotUVAMA+wgSdDtIkRMEO6r85G9B4LhPkBLlmmE5LzqmSe23IjxaN2zYKMpmaadJ96EWLZweZNfpcTyjkDGrhTweJlmuE5DzqnmuFbB0i/CuE5t51TNpbeDm5Nfpd5xyTS28HCr38lxfrudAGv7K+Dlck1Qy+Te9UEwq4O1yTTDc096psjNt4N1Tv3La+Uck9fcGzN623LaeUcAa1so4P1yTPDc096o9k2QV+U8NzbzqmzJb+DbdyW+ccjSYcG2TX2XOdcgaymEqQlyTNDL9R51SWyPIy/KWG5Dzqmy6/4Ns9uy1zrgev+DVfjyWV8s4A1dcI8iJlmaETxst9UjslSDWmNUF5m+qbVr5g0XLbUsL5WHHrxg0r33lfnYcDV2cIkit/kzPBr4kb6p6Mz5JjS3TFCrxN9U2bXjBumS15Z52HHr1g4T45lpPLQ4GtpPEnrkmCHX6rfVDHWUd3ofkt9U2RLawdZralvn4cklsYPa9+Jb56HA1rHKVKV19h+S31SSTdKzS+9t2G8zWg2PXrB4l2vMt1/fw+kklt4Ps1sy5z7jSBrWNsr17/AELX62gMbJXTLb0L510Gza84P92Zd59xpBbYwfZ7Ylzn4fSBq6zbK2XX6E5S6CKzhKqVrMEHy10G0664PF+NZbXy0PpBLQwdr8Yy0vlYcDUG55k13+XMsCz4210HzN4RpCd3PJts9nxtNaDd+7sHK/t0sL5SGEsTg2auWKldfrwwGibJuDzfjZvLa6obJeD1bscLNX67XVN6R5g2rc+lblQxNHuDnM/ljlQwGhphIkBck32by2tA9kWQ1W6brOXyjWg3vtmDxVp26WeVDB/Z5l7ZLXnhgNF2QpFzTZZy/XXQC4QZFp8LLO5xdBvdcHqZXktp9aHD+z1U/LltfrQ4Gh7IUib7bN5xdAtkGRF+VtmJ5ZdBvnasHipfi2vRwWGwdrldy0vFDgaHsgSJvusvnvYC4QJF332Vz/sN77iwdL+zy0v1YcWt+Dpf2WWl+rDgaLj/ACJT4X2T0hBLhAkTfhZPSUN71swdL+xy1yIcetODv6BLXNw4GhY/yJvwsnpCBj9I1fhhZPSUN81owd7ny1zcOGs2Dvc6W+bhwNDx+kXffZPSEEs+yLX4XWT0hDftZsHle90t83DhrRg9TJZ8uJ5OHA0DHyRt99k9IQWPkj5pusrpCFgpZWD9MkDLieThw1twfp+xy4n1IcCvlnqSFyTbZXSEBZ6knfZZfP8AsLCSz5ATJCy4n1IcaQkhJkcS6niZhwK6WfJIRPhXZnPewgs/yNvrs3ieLoLJ7TIaX6mXU4ocNTIbOVZdTo4FZtYQpET5V2dy2tBFcI0hJlmyz+U11Sy1bwfpcr6W044cisRg8TLEy0n1oYCs1wkyCiXzXA+dvqiXCVIO+qC8zfVLM7twdpd3bLKfXhh934O0y2hLSeUhgKw2SpAzzTB8l51Q2S8H2+mE5LzqlmramDlPjOWE8rDBrvg5p32ljnoYCsVwk4P1W6aoTkvOqLZHkJVumqC49Wn/AJLN18wbItNepXRf38MPXzBxk16lfn4YCsdkSRF+VUB52uqGyFIuaaoDlNaCz9ecHC/G8sL5aGFrrg4X40ljnYYCr1wiSInyqgOU11RbIkib6oDlNdUtJI/By3kj5Ya8pDB3Tg5a/apYX68MBVuyHIi5Jss/lroHsgSMqXTVZqeUXQWjq8HLX97LC8cMLU4Ol/WldeOGAq/H6R1T4V2bz3sDHySV+Vdmc97C0O04Ol/VlheKGDuTB0v9zLC8UMBWGPMlLkmqzV8uGO8m5pos3nizu4MHS/s0srxQw9bsHf0WWvNDgVhjtJ2+ezeeFjrJu+izee9hZ2t2Dn6LLPmhw1vwcV/RpZ80MBV+O0nb6LN54MdpO30Wbz3sLP1vwcfRpY80MJbPwbIlVhpXptqkMBV+O0m76LN54SzvJqJ8J7O572Fn9wYNPo8reaGEsDg0zuJW/wCsBVyz1JaLfNNnJ5X2EcfZIS5Zqs7nV0Fpdx4Mk/upV/6olhcGKfqSoi/ZQKsx+kjfVZvOLoIrP0kb6rO5xdBavacGCZpT88KGowYJnlNOOFAqnH+R8mNVn84ugWyBJG+qz+WugtWmDDwkp+eFD+y/wsp+eFAqlcIEj76bP5a6BbIEjr8qbP5a6C1tVguT++lLlQoleYLq3xEpcqFAqnH6SN9Nn8tdAsfpIv8Axps/lroLW7Zgt8PKXKhRavBav99KfnhQKpx+kla/jTZ/La0CWfZJp8J4DlroLX1WCylVfSlTb1UKR1eCtVuiJSX60KBVGPsl76IDltaBY+yVf+M8BymtBa+rwVeHlHlQokeYK63RMpcqFAqjH2S7/wAZoHlNaAx8ktU+E8Dy2tBbHbsFuaKlPlQwleYLFyxMpr9aFAqdZ7kvfPActdAlnySt88DymtBa+qwV+HlLlQov7Ks7+UuVCgVMs/SVdWZoLlNaCOPslb5oLztaC2VZwU+FlHlQodrwVeElHzwoFS4+SZSiTLBcprQQan6TGK1mSFap83VNL9xbv9ljF6P5SZT/AFQpFu08FkInvrRlRhMtEah19CIoFYWRMtkW8+ac2O9exrbKojSO3TV1cmapuFlPphf2cw9mezXVn2lqmmVYdPNUjxhFow8X5qtIl6LnSt1aH3R2FSQ7LcK6gbUcxFLkdQDlVReC5ET0nkxHxlo1jI2EWDbefkOGm0aaYYpdqlS7VLlVEyVoB6KAKICSLQzlh2k1CRSMNNe8XIYImyqoqZuEC34d8y+dI0yp7Gny5a2qZRw9avTbNvZVGmUVAGAAB8NpWi7gHKKqI09budsNNIyjS7VVuQqOaJRhrftJ7acfCRsDEvUo08gW2nTLXCqUVlpeFby1rTb1D9yytFYbRUVFvRch8zUPCq7qy4YYXbY979wHLUz4K7Wdum4ixbZjoxlL1dN6hHiehKlPR0Ha8HEtuIi0Y108ZWisPGdSqcSnd72xnD9pe2NPWkVcitqqek+RuTLFftap/BMPF222GVX0sgcGVtFU78RPoCtoUvteJ8yHd6yBLbS1Wz2E8TDCf+Q2PJXX4uZ4mWOqBwhSOz2u/wCShNFjk+N3/JZO60wdyyi3QP8AC76g1weSx9BonAy76gHCv9dT43fchBUjb/wu+5DJ3bsfSyiJ/UWVp/8AN11BLg/llf2Fnm3XqwOE0SMy67PeQyPUxiZbVec2yd1bHss5O47v3br1ZHY7liv6HXybn1YHC+pjM1rPObTSLUxm6zfNJpO6djuWM0J/xOPVkGsHEtKtWXKs+Qh1+90Bw1qYzdZvmk0hSOzWu3zSaTuNcGsuL+pk/wAtDeqEuDSXVr73/qQvqQOHdTHbrtc0mkEZtDddeZTSdwLgxlxUvYTocL6kiuDCWlrV2yv2OF9UBxDqbRT44Wv7lNItRaK/G/8Aw+07f2LpYzuWF+xQvqh7F8rZ4V0v2KG9UBxArFo077IvkfaCMWjTvqzzPtO3ti2U6L/U3Kp/sob1YlwWSmq17ic9ChvVgcR6i0d1GOZ9odrtHdRjmfadt7Fco3f1Fxd/k4f1YLgqlD6A46HD9QDiVXVpZVtRjmfaHarR3Td8yuk7Z2KpRya3w/Q3HUBMFMo/QIfobjqAcS9qtLLro75ldIdptPdR3zK6TtvYplDc6G6G46gbFEn57Oh+huOoBxJ2m091HfMrpF2m0699HfMrpO2lwTycvxe5TxQrhP8AwGxNJ1O9zhfsrnqAcS9ptNFvtN3xuV0kkcWknxi55ldJ2zsTydXve46I46gbE8naqutzjojjqAcTo5tFPjF1xOV0kkd2jXvk75ldJ2xsVSfeutzjorjqDTBZKCLdZ7jorj1YHEqu49bltJ3zPtBHcdf+EXfM+07Z2LJSSn9RddFcerJJgvlNGq9wuvEsLD+rA4k7XH5NcXfM+0fa47dJ3zPtO29jGVF/YXXRYf1YLgylSiokG6T7LD+rA4k1EdukxzPtDtcbukxzPtO29jKV7v6qx0WH9UDWDKVmr+5GEXbSGh0//IDiPtcbuizzPtJq4j+1svGYpHjGdUYpedrtYMZWbZVFhUp/t4f1RhrdwSWHH2QsE5hr0VWmIhww6cvnfAqIjLDxnx0VNtQOQEdxnh/QTR3FUr3TRdqhffufHyqtLai0StyNQLPrR+57fbuxHQmfWAUH2qMX9pWoK6i1S+JXzF+J2Pb7d2I6Ez6wadj2+z28/wDH3EnrAKB7TF0p3UvmDtMUv7W15i//AHPb5fj5/wBCT1ge57e7vRHQmfWAc/8AaIv6Y15gVxGV/TGuNEOgPc9vad/4joTPrBL2Pb7Nb7/oKesA5/VzGfS2vMgI5jfpbV/AdAe57fbvRHQU9YL3Pj6vf2Jp/sGfWgc/9rjEX9LaDtcdW+KaUv8AXse3u7sVT/YM+tEvY+Pqd/ItfsDPrQOfW0jkaRO62xo5jqX2pft6j2nUsr4D7IsqIaio1l5aMRSjLce7YR06/wATLllprVtbWrVETaU3J3gvllllEaZaeLtrDQqV8zkDintFo5rX4fzftF2i0N16+T9p20uDKV1SnaKU2oeG9UCYMZX8BWv+XhvVAcTpD2hntZOa9ou0R9F/Cyc17TtnYyletVh68Hc8N6oFwZSqv7L/AMEP6oDibuaP3UZ5r2h3NaG6jPNe07YawXyot3ctPE4h/VEdi6U88NXyEP6oDijuS0F+MmF8j7QSFj0+MnaeS9p2vsWyn9FTo8P6oWxZKf0Rno0P6oDiruW0a98XXNe0Fh7Qp3wdcz7TtRcFcpr+ys+PuaH9ULYqlP6Kyv2aH9UBxX3LaG6Drjde0FhI+v6e55n2naa4KZSp+jp0eH9UGxVKdUXub/rw/qgOK+5I7dB1zPtBYSNr3wdV/c+07V2LJTuTuZKJ/lof1Q0wWymiUSG/68P6oDijuSOp3wdc17RdyRy5bRdcz7TthMF0qVvh6+OHh/VBsXSpT9GXmIf1QHE3ckdui65n2iWDjad8naeR9p2zsXSrf/QNczD+qGmC6VK1SHa5qH9UBxIsFHZrTY5n2h3HH7qscz7TtzYvlT6MvMw/qg2MZVyLDKqfuYf1QHEaQcfuownkfaCQkcq99WOZ9p27sYyp9FXmnHqgTBlKtLoZrm3HqgOIu443PajHNe0O5I2l9qM80mk7c2MZWVfzDzkOfVDZwZysxkcveS59WBxEkJG1prqzzSaR9yRmXXZObTSdvbG8sJ/cPPM59WS2OZZ8C98zr1YHD3ccXWi2rTyaaR9xRS/Gv/Gmk7hTB3LVfzL1fH2vqD2PJap+YfJ4mmOoBw73DE7q5f8A5ppDuGI3VXm2dJ3Gzg/lthVo4fLdS9plf/JNJFl1i5IZvbysdUDhruGIX42a5DOkXcD+/wDCrXIZ0ncmIkvVVe0Pr/8AGz1QxHl76O9p/rTqgcN63v1S61WuQzpFrc/VV/CrfIZO5sSJfr+jvecTQGJUv5EhW+X7AOGNbIil1qN8hketj6vfVvkMnciyVYGVYZ5zijWTbCVE1Lh4z4nnsA4cSynqrfazxPEwyZyyJadRTxlHtrxq35HTLKfyU7GxNsVlbnT3nPYejEr2Y6aRXfb2P9L5pn7qAc/2Ng2hXzDD9zZNpx7bNGkeRTTbTKLt0ojKFgy7C2nZ7h7Bx0Qw+culRHKMtatXW2wrSXbVEqqpwFmLCWe4dfojt4qZ3tXi/wASqatakYj20GXSKiMu2VoiXIl+ZAIJegUQGFQmtNoCA0GqIID6YSIbh37LxhVSmUsmyI9iKh2ffVWhV15m7DtJqEiUYaa96qgWWB4wz9l85ZaZWtUPYD5ouEZimWKrRphaop8L2FadJqnjxllnbVTLnm9cu37CsPGdUigYNq0LJh2f6e1IN1/rfMs/ep8zUzSs7ubmWyWfHGO0/mRtWR7MtNGtUuprmaZqaTH4EbPiVVXTyHSvzmVQDdlm2UEyzVY6fbnXWILOUms5ZssbpzrrFTRmAB+0qq57kb2vfU+9DCRHY/2yir2uDcNp/hes/wAwLxx1k3fbYvT3XWILO8mJ8rbF6e66xQDeAKYarSy2V+uxpPje4ApkT4pr4lZX+YHQ6zzJu+2xunOuseaz3JqL8LbG6c66xze8wETGzX8Cvl8TFT52sB0wp8Tv+ZUDpbHuTt9dj9OddYMe5PX5VWR053pOZ9g6Yl+J4jmVDYLmNcljRHMgdMY9SfvqsjpzrrDx5lBflRZHTnXWOZ0wEzJuNEc0TZwDTGvxM/5oDpbHiUt9Fk9NddYMeJTzTPZPTXXWObEwBTGq9533NoTTABMW5D3koB0jjtKmaZ7J6a66wY6yqvylsnprvrHOTPY+zEqd6W/MzpJp2PkwUvstv+HSB0VjpK1LpksvprvrBjpK+aY7L6a76xzv7nu31+K205OkXue7f3Lb/h0gdFY5yxvjstftjvrBjjLG+Oy+mO+sc4tdj5MFLrLeeZnSQ9z5MVe9bzks6QOkccZZX5RWZX/eO+sPHCWt8NmdMd9Y5s9z5MKL3re8lNI/c+zBXvW95CAdJY4S3X4Q2Z0x31iWN8t74LM6Y76xzZ7nyYNy3nJZ0h7nyYKd63nJQDpTG6W98FmdMd9YMbpc3fs3pjvrHNK9j9MG5b1fqINMAEwZ7KfJ9RAOlcbpc3fszpjrrBjdLle/9mdMd9Y5rTABb+eyn3IQ9E7H+3dynvJQDpBZulytNf7Mr/vHfWFjdLmeYLN6Y76xzmnY+24vxU88zJ6J2Ptt7mN+ZkDohZulvfBZnTHfWFjhLW+CzOmO+sc8+59trctv+HSSTsfbaurZbf8ACB0Gs4S3d+MNmdMd9YWOMtb4LM6Y76xQKdj7bNO9jXnZH7ny2NzF87GkC/Mcpa3w2Z0x31hLOUs74bMT7Y76xQydj1a+5n8TGkn7nm1q97k5bAF6Y6SwiXzFZfTHfWEs6yvvjsvpjvrFHJ2PFrbnM8tgmz2O9qKt9nu0T94wBd2O0r75LL6Y76xFZ5lVEvmSyumO+sUunY62kuWCdc6yTTsdLQ+huedZAuNZ6lPfLZXTHfWDHuUkT4S2V0x3pKfTsc47PCOOdZJe5zjvosPzyAW6s9yjd+M1ldMd6Qx7lGnwnsnpjvSVEvY5x1f0WH51Be51j0T9Dcc6yBbiz5KKfKayumu9IY+SjvnsnpjvSVAvY7Wh9Bcr5VkS9jvaH0B3zrIFw49yjS+Z7J6Y70hj5KO+eyemu9JTS9jzaW57C+UZIr2PFo073M1/eMAXNj5KGRZosnpjvSSx8lBflRZPTXekpNex3tO78HfxsEGux3tPNZ68pjSBd+PUob57J6a70hj1KW+eyemu9JRjXY72rms9rlMaTxa7He2E+Lm+JWdIF849SlvnsrprvSPHmU981ldNd6SgV7Hm2dzXvmZ0i9z1bKfFr3zM6QOgMeJU3y2V0x31hY8SrT4S2V0x3pKA9z1bOezXvmZJp2Pdr57Me+ZkC/Md5V3yWX0x3pBJ3lbfJZfTHekoZOx8tanet7/Ceidj3ae5jzzsgXtjtK6/KSy+mO9IsdpXzTHZafbHeko1Ox8tPctvzsE07Hq0tzGuUwBd6ztK9/4x2Z0x3pI47ytvjsvpjvSUsnY82hnszzvGD0Z7HeOz2anOsgXLjxK+TGKzF+1u9IseJW3x2Z0t3pKfTseIzc1jjesnoz2O8Xuc643zIFuY8ytT4RWZ0t3pI49StviszpbvSVSnY7xO57njfIT9zu/3PcJ5ZALUx6lXfHZnS3ekWPUq1+ElmdLd6SrPc7v9z3HPIL3PD7c9xzyAWos9SrX4SWX0x3pFj3Km+Sy+lu9JVi9jw+zWa54nyEF7HeI3Odc8yBauPkqX/jJZfS3ekWPcp75bL6Y70lUe54iEy2WwvifMnm12PUTmsrzPWQLcx8lLKszWV0x3pBJ8lJaUmayumO9JTzXY+RW5LfE2yea9j/FolNaHvKZAufHqU7vxmsrpjvSGPUpJ8prK44x3pKTXAFGoned//CebWASOr3niKf6UUC71n2UEyzRZXTHekiuECTUyzVZPTHeko9rALHIneiJ5CHmuAeOT4riuaAvJcIUlplmyyOmO9ItkOSU+VtkJ9sY0lErgIjtzIrmTyXATH0us6KTyKgXyuEWSEyzfY6fbGNItkiRt99j9LY0lCLgLtFFWkBE8wotg20a3QMTzKgX0uEmRc84WP0tgS4SpETLONj9LZKH2DrRr+gRPMKLYNtHPAxPMqBey4TJBRaY5WR0pkiuE6QN+VkdKQovYNtH6DE8yoLgMtLNBRPMqBeS4UMH6fLOyOkoRXClg+T5ZWSniiEKQTAbadaLAxPMqTTAbaX0CK5lQLqXCpg9342VxPvYRXCrg+T5X2ZxPV0FOMYDbRRF/B8XX90p9DGBK0Gctmxa+TUC2GsLGD5Mk0wbf+jVr/I828K0ltJ/QWsr9Vydrctr/ACK5cYGY1hUVbHil8bBmYTBdacOidrsN9d85kDY3k+QMYyqQTiIe7StMownpUwzuMfP41uIe0RW7kZRch97mRZgYoiWW9YRMyMn3OZLt1hqq2c+8wHm5fIrOU+pG6ofU7lW22Uprc99B7sy3bSfF730AY6oVUyeLltfQHnoHi7bO573zIBjCbLVFqmUyGL1sfQHvmPV3LlsNrTuJtnhaogGwS5amrZRy8avS6825FRpKoaZZUsxrh8j180jHAim4umFYdoyq1oBMAAAAAAAXIAAREuUAAaEgAAAAAAXMAARUEyAACXKNMgAADAAIjTIAAMS5AABJlBcoAAJlHnAADMIAAEyj2wAATIMAAWcAAAzjAAFnJAAAAAAZwTIAALOMAAM4s4AA8wgABKJMoAALlBcoAADAAAM4AAZgTIAAMWYAAMwJkAAGMAAAzgACzjzgABnDOAAAlygACUSZQACQLlAAAM4AAwAAAAAAAAAAAAAAAAAAAWcNoAAFyICZQAAXKCZQAAXKG0AAGcYAAZwAAP/Z", "cb19logo": "data:image/png;base64,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", "cblist": [["Lenovo Chromebook 100S", "$179", "Fast and lightweight", "11\" HD display", "Up to 9 hours battery life, boots in seconds"], ["ASUS Chromebit CS10", "$85", "Turn any screen into an affordable computer", "", "Works with Bluetooth or USB 2.0 keyboards and mice"], ["ASUS Chromebook C201", "$169", "Up to 13 hours battery life", "11.6\" HD display", "Up to 13 hours battery life, boots in seconds"], ["ASUS Chromebook Flip", "$249", "Flip to tablet, flip to laptop", "10.1\" HD IPS display", "Up to 9 hours battery life, boots in seconds"], ["Haier Chromebook 11", "$149", "Light and portable", "11.6\" HD display", "Up to 10 hours battery life, boots in seconds"], ["Hisense Chromebook", "$149", "Sturdy and easy to grip", "11.6\" HD display", "Up to 8.5 hours battery life, boots in seconds"], ["Acer Chromebook 15", "$249", "See everything at once", "15.6\" HD display (with optional FHD)", "Up to 8.5 hours battery life, boots in seconds"], ["Chromebook Pixel", "$999", "Precision engineered, inside and out", "12.85\" high res (2560x1700) IPS display, multi-touch glass screen", "USB Type C ports for charging, data and display. Machined, full metal enclosure."], ["Dell Chromebook 11", "$249", "Rugged and portable", "11.6\" HD display", "Up to 10 hours battery life, boots in seconds"], ["Samsung Chromebook 2 (11\")", "$249.99", "Fast, Light, Portable", "11.6\" HD display", "Up to 9 hours battery life, boots in seconds"], ["HP Chromebook 11 G3", "$279.99", "Compact and colorful", "11.6\" HD display", "Up to 8 hours of battery life, boots in seconds"], ["HP Chromebook 14 G3", "$299.99", "Sleek and colourful", "14\" HD display (with optional FHD)", "Up to 8 hours of battery life, boots in seconds"], ["Toshiba Chromebook 2", "$249", "Brilliant widescreen display", "13.3\" HD IPS display (with optional FHD)", "Up to 11 hours of battery life, boots in seconds"], ["Dell Chromebox", "$179", "Compact and convenient", "", "Boots in seconds"], ["Acer Chromebook 11", "$249", "Light and portable", "11.6\" HD display", "Up to 8.5 hours battery life, boots in seconds"], ["Acer Chromebox CXI", "$179.99", "Small footprint", "", "Boots in seconds, easily mountable design"], ["Acer Chromebook 13", "$279.99", "Up to 13 hours battery life", "13.3\" HD display (with optional touchscreen)", "Up to 13 hours battery life, boots in seconds"], ["ASUS Chromebook C300", "$249", "All round performance", "13.3\" HD display", "Up to 10 hours battery life, boots in seconds"], ["ASUS Chromebook C200", "$249", "Lightweight and long lasting", "11.6\" HD display", "Up to 11.5 hours battery life, boots in seconds"], ["HP Chromebox", "$179.99", "Chrome in a sleek, compact desktop", "", "Boots in seconds"], ["LG Chromebase", "$349.99", "All-in-one performance", "21.5\" FHD IPS display", "Keyboard, mouse, and cable organizer included - boots in seconds"], ["Samsung Chromebook 2 (13\")", "$319", "Fast, Light, Portable", "13.3\" HD display", "Up to 8.5 hours of battery life, boots in seconds"], ["ASUS Chromebox", "$179", "Chrome in a compact desktop", "", "Boots in seconds"], ["Acer Chromebase", "$349", "See all the details you need", "21.5\" FHD IPS display", "Keyboard, mouse, and cable organizer included - boots in seconds"]]};
@@ -12015,12 +12276,15 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
         try {
             L = ugfSharedLayout(GM_getValue);
         } catch (e) {}
-        // (8.38) the download and thank-you pages are the stored ones of the period, and the terms box looks as that period's did
+        // (8.38) the download and thank-you pages are the stored ones of the period, and the terms box looks as that period's did.
+        // (9.1) Late 2014's download page is October 2014's (k2014n: Windows 8.1, Windows 64-bit, "Privacy and Terms"); its
+        // thank-you page was June's, unchanged
+        const late14 = L === "2014" && ugf2014V() === "2014N";
         const stored = page === "download" || page === "thankyou" ? (/^(retro|199\d|200[0-7])$/.test(L) ? "k2008" : { "2009": "k2009", "2009L": "k2009l",
-            "2010": "k2010", "2010N": "k2010", "2011": "k2011", "2012": "k2011", "2013": "k2012", "2013L": "k2012", "2014": ugf2014V() === "2013N" ? "k2013" : "k2014",
+            "2010": "k2010", "2010N": "k2010", "2011": "k2011", "2012": "k2011", "2013": "k2012", "2013L": "k2012", "2014": ugf2014V() === "2013N" ? "k2013" : late14 && page === "download" ? "k2014n" : "k2014",
             "2015L": "k2014", "2015": "k2015", "2015N": "k2015", "2016": "k2016", "2016C": "k2016", "2016L": "k2016", "2018": "k2018", "2018M": "k2018",
             "2019": "k2019" }[L]) : null;
-        const era = stored ? { k2008: "c08b", k2009: "c08", k2009l: "c10", k2010: "c10", k2011: "c11", k2012: "c12", k2013: "c12", k2014: "c14", k2015: "c15",
+        const era = stored ? { k2008: "c08b", k2009: "c08", k2009l: "c10", k2010: "c10", k2011: "c11", k2012: "c12", k2013: "c12", k2014: "c14", k2014n: "c14", k2015: "c15",
             k2016: "c15", k2018: "c17", k2019: "c19" }[stored]
             : (/^(retro|199\d|200[0-7])$/.test(L) ? "c08b"
             : L === "2009" ? "c08"
@@ -12099,6 +12363,12 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
         const shellOf = function(e) {
             return /^c(08b|08|10|11|12)$/.test(e) ? "c12" : e === "c14" ? "c14" : "c15";
         };
+        // (9.1) the 2014 menu's chevron (chrome.min.css's .submenu-icon): grey, and blue on the page's own item
+        const CHEV14 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAPJJREFUeNpiyc/Pn8XAwDATiM8yEAaMQBwBxHxMQMIdiE8D8Vog1sGjyQGqbhkQK4A0PoKaFATEF4F4MRCrImnQBuJtQLwfiI2hYk9AGl2AuB2I/wAxiB8DxNeAeA4QzwXiS0DsCdXwHIj9gHgqSOFPIK4CYksgvgJVwALEyUCcBDWMAeoSkO2bGZAEQeAM1CmtUNth4BkQ+wJxHBC/hwkyoQXALyCuAWILIL4MxIugAbYFI3iNZ54BR4fNtcXo0QEy9B+ywBGtWMzoAAquBWLk6EDXhBIdLNDokINGRwBQAUiiCYhvI0VHN1LIjpjoAAgwAMoSTlKlzAY4AAAAAElFTkSuQmCC";
+        // (9.1) and its sub-footer's g+ (ssl.gstatic.com/images/icons/gplus-16.png as it was then; today's there is round)
+        // (9.1) and the Google Play badge of the 2014 welcome page (developer.android.com/images/brand/en_generic_rgb_wo_45.png as it was)
+        const PLAY14 = "data:image/png;base64,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";
+        const GPLUS14 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAABs0lEQVQoU5XO3StDcRgH8N8/4h/AXthQ8rLZZgxFQ4kQN0pK5I4oJRPlhlvuuJESEbUikWbn2M4M58zKzHCMzcvYse3Mw6M5Xm6cPp2e7+/7e06HnFbk/QvxmHJTGKOaMqj29dnIZVRLW/S5wJly6daakHVVOPOKgpD8eB63Nv5Y4MpzwEmd7jV0x0+NwezrbIw9hHnrmqcqH1spwpapgd8yAJ/k6g0YA7PTEL1tNRilyLFRBfzDfe8LA90Y2cGeRDTKmjUYocIBkCNDNjipzBcu/REvR5l1u6U5wfXli9F+rPY0CliAN0bi1mchrtEUWll4YujEq+CbHsfD5PcHTohLp0TOEqVdKz9oqhQTiTBD75t1qQqupmbClCjArkZ+NNTHL87x8zORQ0dSFKPBG1dHA7awgAMgTq3cViwLrC2Ftq1MqRoiYNtrX/w+gb/GKEUcxbI9rVKMxz2TIzCnML0d8ccHh1YhPQSELsqkNPKXq0D0Nui2DNnb6mwNFXD73kmdTwxD+wOhCjOAu7n63rYjxmLwu/HnSHhnk+1qweoHYi9I/1KYQetV305+IROytH95AzIRltkbgKkBAAAAAElFTkSuQmCC";
         const shellCss = function(sh) {
             const b = sh === "c12";
             return [
@@ -12125,7 +12395,20 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                 "#c-sub select{font:600 11px 'Open Sans',arial,sans-serif;border:0;background:transparent;color:#333}",
                 ".button{display:inline-block;background:linear-gradient(#008dfd,#0370ea);border:1px solid #076bd2;border-radius:3px;color:#fff !important;font:bold 13px 'Open Sans',arial,sans-serif;padding:8px 25px;text-shadow:1px 1px 1px #076bd2;cursor:pointer}",
                 ".button:hover{background:linear-gradient(#0a95ff,#0a7af0)}",
-                ".button-alt{display:inline-block;background:linear-gradient(#fafafa,#dcdcdc);border:1px solid #d6d6d6;border-radius:3px;color:#666 !important;font:bold 12px/28px 'Open Sans',arial,sans-serif;padding:0 15px;cursor:pointer}"
+                ".button-alt{display:inline-block;background:linear-gradient(#fafafa,#dcdcdc);border:1px solid #d6d6d6;border-radius:3px;color:#666 !important;font:bold 12px/28px 'Open Sans',arial,sans-serif;padding:0 15px;cursor:pointer}",
+                // (9.1) the 2014 frame as Google's pages of June and October-November 2014 had it (chrome.min.css): no rule under the
+                // menu, the menu in 13px with Google's chevrons, a 928px footer and its sub-footer with a rule over it
+                sh !== "c14" ? "" : [
+                    "#c-head{border-bottom:0;max-width:928px;align-items:flex-start}#c-head .logo{margin-top:20px}",
+                    "#c-nav{margin:15px 0 0;height:48px}#c-nav .ni{min-width:110px;text-align:center}#c-nav .nt{font-size:13px;line-height:48px;padding:0 20px;margin:0 6px;border-radius:2px 2px 0 0}",
+                    "#c-nav .dd{display:inline-block;width:14px;height:5px;padding:0 0 0 5px;margin:0 0 2px 5px;vertical-align:middle;opacity:1;background:url(" + CHEV14 + ") 0 0/9px auto no-repeat}",
+                    "#c-nav .nt.on .dd{background-position:0 -5px}",
+                    ".fn{top:63px}",
+                    "#c-foot{padding:40px 0 50px}#c-foot .in{max-width:928px}.fcol h4{line-height:1;margin:0 0 16px}.fcol a{line-height:18px;margin:0 0 2px}",
+                    "#c-sub{max-width:980px;margin:25px auto 0;padding:11px 0;border-top:1px solid #eee;line-height:16px;align-items:center}#c-sub a{margin:0}",
+                    "#c-sub .gl{margin-left:23px}#c-sub .dot{padding:0 3px}#c-sub .rt{display:flex;align-items:center}#c-sub .gp{margin:0 10px}#c-sub .gp img{margin:0 0 -4px;vertical-align:baseline}",
+                    "#c-sub select{font:small-caps 600 12px/1 'Open Sans',arial,sans-serif;border:1px solid #eee;border-radius:0;color:#333;padding:0 0 0 5px;margin:-3px 0 0 1em}"
+                ].join("\n")
             ].join("\n");
         };
         // a panel: picture columns [caption, sprite position, link, new?] and a column of text links
@@ -12142,7 +12425,7 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                 : '<img src="' + AS + 'chrome_logo_2x.png" width="123" height="40" alt="Chrome">');
             const item = function(key, label, href, menu) {
                 return '<div class="ni"><a class="nt' + (key === active ? " on" : "") + '" href="' + href + '">' + label +
-                    (sh === "c12" ? "" : '<img class="dd" src="' + AS + 'content/tab-down-arrow.png" width="9" height="4" alt="">') + "</a>" + (menu || "") + "</div>";
+                    (sh === "c12" ? "" : sh === "c14" ? ' <span class="dd"></span>' : '<img class="dd" src="' + AS + 'content/tab-down-arrow.png" width="9" height="4" alt="">') + "</a>" + (menu || "") + "</div>";
             };
             const nav = sh === "c12"
                 ? item("browser", "Browser", G + "/chrome/") + item("devices", "Devices", CB) + item("store", "Web Store", "https://chromewebstore.google.com/")
@@ -12164,8 +12447,25 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                 }).join("") + "</div>";
             };
             const br = [["Browser", G + "/chrome/"], ["Devices", CB], ["Web Store", "https://chromewebstore.google.com/"]];
+            // (9.1) 2014's footer: Enterprise under Businesses (Google for Work on the device pages of late 2014), Google+ Page, and
+            // the sub-footer of June and November 2014's pages
+            const k14 = sh === "c14";
+            const work = sh === "c15" || (k14 && late14 && (page === "cast" || page === "chromebook"));
+            if (k14) {
+                return '<div id="c-foot"><div class="in">' + col("Products", br) +
+                    col("Businesses", br.concat([work ? ["Google for Work", "https://workspace.google.com/"] : ["Enterprise", "https://chromeenterprise.google/"]])) + col("Education", br) +
+                    col("Dev and Partners", [["Chromium", "https://www.chromium.org/"], ["Chrome OS", "https://www.chromium.org/chromium-os/"],
+                        ["Chrome Web Store", "https://chromewebstore.google.com/"], ["Chrome Experiments", "https://experiments.withgoogle.com/collection/chrome"],
+                        ["Google Code", "https://developers.google.com/"]]) +
+                    col("Latest News", [["Chrome Blog", "https://blog.google/products/chrome/"], ["YouTube Channel", "https://www.youtube.com/user/googlechrome"],
+                        ["Google+ Page", ugfPlusLinkHtml()]]) + "</div>" +
+                    '<div id="c-sub"><div class="gl"><a href="' + G + '/">Google</a><span class="dot">&middot;</span><a href="https://about.google/">About Google</a>' +
+                    '<span class="dot">&middot;</span><a href="' + G + '/chrome/privacy/">Chrome Privacy</a><span class="dot">&middot;</span><a href="https://support.google.com/chrome/">Help</a></div>' +
+                    '<div class="rt"><span class="gp"><a href="' + ugfPlusLinkHtml() + '">Add us on <img src="' + GPLUS14 + '" width="16" height="16" alt=""></a></span>' +
+                    "<select><option>English &ndash; United States</option></select></div></div></div>";
+            }
             return '<div id="c-foot"><div class="in">' + col("Products", br) +
-                col("Businesses", br.concat(sh === "c15" ? [["Google for Work", "https://workspace.google.com/"]] : [])) + col("Education", br) +
+                col("Businesses", br.concat(work ? [["Google for Work", "https://workspace.google.com/"]] : [])) + col("Education", br) +
                 col("Dev and Partners", [["Chromium", "https://www.chromium.org/"], ["Chrome OS", "https://www.chromium.org/chromium-os/"],
                     ["Chrome Web Store", "https://chromewebstore.google.com/"], ["Chrome Experiments", "https://experiments.withgoogle.com/collection/chrome"],
                     ["Google Code", "https://developers.google.com/"]]) +
@@ -12188,7 +12488,8 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
             const frame = function(active, main, logoHtml) {
                 P.fonts.push(OPEN_SANS);
                 css.unshift(shellCss(sh));
-                body = shellHead(sh, sh === "c12" ? (active === "setup" ? "browser" : "devices") : active, logoHtml) + '<div id="c-main">' + main + "</div>" + shellFoot(sh);
+                body = shellHead(sh, sh === "c12" ? (active === "setup" ? "browser" : "devices") : sh === "c14" && active === "setup" ? "download" : active, logoHtml) +
+                    '<div id="c-main">' + main + "</div>" + shellFoot(sh);
             };
             const common = [
                 "#c-main h1{font:300 41.6px/1.2 'Open Sans',arial,sans-serif;color:#000;margin:0 0 12px}#c-main .intro{font-size:15px;color:#777;margin:0 0 28px}",
@@ -12198,7 +12499,14 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                 ".mob a{margin-right:16px;font-size:12px;color:#39c}"
             ];
             const mobile = '<div class="mob"><img src="' + AS + 'content/ty-mobile-promo.png" width="928" height="122" alt=""><div class="t"><h3>Chrome for Mobile</h3>' +
-                "<p>Bring your Chrome experience to your phone or tablet.</p>" + '<a href="' + PLAY + '">Get it on Google Play</a><a href="' + APPSTORE + '">Download on the App Store</a></div></div>';
+                "<p>Bring your Chrome experience to your phone or tablet.</p>" + (era === "c14"
+                    // ((9.1) 2014's badges)
+                    ? '<p class="bdg"><a href="' + PLAY + '"><img src="' + PLAY14 + '" height="45" alt="Get it on Google Play"></a><a href="' + APPSTORE + '"><img src="' + G +
+                        '/intl/ALL_ALL/chrome/assets/common/images/badges/apple_appstore.png" height="42" alt=""></a></p>'
+                    : '<a href="' + PLAY + '">Get it on Google Play</a><a href="' + APPSTORE + '">Download on the App Store</a>') + "</div></div>";
+            if (era === "c14") {
+                common.push(".mob{height:150px}.mob .bdg a{margin:0 12px 0 0;display:inline-block;vertical-align:middle}.mob .bdg img{display:block}");
+            }
             // -- Set up: the "Getting Started" page (google.com/chrome/browser/welcome.html), the browser drawing with its
             //    three markers; the tips under the markers are Gplex's (no capture of them was found)
             if (page === "setup") {
@@ -12216,11 +12524,18 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                     ".help .button-alt{box-shadow:0 0 5px #777;text-shadow:0 1px 0 #fff;vertical-align:middle}"
                 ]));
                 frame("setup", '<div class="page"><h1>Welcome to Chrome</h1><p class="intro">You\'re using a fast new browser. Mouse over the markers below for three quick tips.</p>' +
-                    '<div class="draw"><img src="' + AS + "marquee/" + (os === "mac" ? "browser.png" : os === "linux" ? "browser-linux.png" : "browser-win.png") + '" width="928" height="208" alt="">' +
+                    (era === "c14"
+                        // ((9.1) 2014's drawing (browser-ss/), its markers where chrome.min.css put them for each system, and its tips)
+                        ? '<div class="draw"><img src="' + AS + "browser-ss/browser-" + os + '.png" width="928" height="236" alt="">' +
+                            tip("omnibox", os === "mac" ? 175 : os === "linux" ? 178 : 183, os === "mac" ? 28 : os === "linux" ? 31 : 33, "Search the web right from the address bar.") +
+                            tip("newtab", os === "mac" ? 356 : os === "linux" ? 354 : 279, os === "mac" ? 1 : os === "linux" ? 5 : 4, "Open a new tab to get to your favorite sites quickly.") +
+                            tip("bookmarks", os === "mac" ? 795 : os === "linux" ? 794 : 791, os === "mac" ? 30 : 33, "Bookmark a page to find it easily later.") + "</div>" +
+                            '<p class="help" style="margin-top:-66px"><span>Still need help?</span>'
+                        : '<div class="draw"><img src="' + AS + "marquee/" + (os === "mac" ? "browser.png" : os === "linux" ? "browser-linux.png" : "browser-win.png") + '" width="928" height="208" alt="">' +
                     tip("omnibox", 182, 26, "Search right from the address bar: type a search or a web address and press Enter.") +
                     tip("newtab", 283, 4, "Open a new tab to get to the sites you visit most.") +
                     tip("bookmarks", 787, 44, "Click the star to bookmark the page you're on.") + "</div>" +
-                    '<p class="help"><span>Still need help?</span><a class="button-alt" href="https://support.google.com/chrome/">Learn more</a></p></div>' + mobile);
+                    '<p class="help"><span>Still need help?</span>') + '<a class="button-alt" href="https://support.google.com/chrome/">Learn more</a></p></div>' + mobile);
             }
             // -- Sign in (google.com/chrome/browser/signin.html): Google's own pictures; the words are Chrome's own sign-in line
             if (page === "signin") {
@@ -12380,7 +12695,7 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
             if (page === "cast" && (sh === "c12" || era === "c14")) {
                 P.title = "Chromecast";
                 css.push.apply(css, common.concat([
-                    "#c-head .logo img{width:164px;height:auto}",
+                    era === "c14" ? "" : "#c-head .logo img{width:164px;height:auto}",
                     ".ccl{display:flex;align-items:center;text-align:left;gap:20px}.ccl .t{flex:1}.ccl h1{font-size:52px!important}.ccl .price{font:300 28px 'Open Sans',arial,sans-serif;color:#333;margin:0 0 20px}",
                     ".ccl img{flex:none;mix-blend-mode:multiply}",
                     "#c-main h2{font:300 32px 'Open Sans',arial,sans-serif;color:#000;margin:64px 0 8px}#c-main .sub{color:#777;font-size:15px;margin:0 0 24px}",
@@ -12402,7 +12717,8 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                         "<li>Open YouTube on your phone or tablet, touch the cast button, and play a video</li></ol>" : '<span id="learn"></span>') +
                     '<h2 id="buy">Get Chromecast</h2><p class="sub"><a href="https://store.google.com/">Google Store</a> &middot; <a href="https://www.bestbuy.com/site/searchpage.jsp?st=chromecast">Best Buy</a> &middot; ' +
                     '<a href="https://www.amazon.com/s?k=chromecast">Amazon</a></p></div>',
-                    '<img src="' + AS + 'chromecast/chromecast_logo_2x.png" width="164" height="39" alt="chromecast">');
+                    // ((9.1) in 2014 the Chromecast page had the chrome logo, the frame's own)
+                    era === "c14" ? null : '<img src="' + AS + 'chromecast/chromecast_logo_2x.png" width="164" height="39" alt="chromecast">');
             }
             // -- Chromecast, 2015-2017: google.com/chromecast, its own site (its style sheet and pictures are still on Google's servers)
             if (page === "cast" && sh !== "c12" && era !== "c14") {
@@ -12501,7 +12817,24 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                         ";border-radius:3px;font-weight:bold;font-size:14px;padding:7px 20px") + "}",
             "#c-dlg .no{display:inline-block;cursor:pointer;color:#333;text-decoration:none;font:13px arial,sans-serif;padding:5px 14px;border:1px solid #aaa;border-radius:3px;background:linear-gradient(#fff,#e8e8e8)}",
             "#c-dlg .pkg label{margin:4px 0}",
-            "#c-dlg .plats a{display:block;margin:12px 0;font-size:15px;color:#39c;text-decoration:none}"
+            "#c-dlg .plats a{display:block;margin:12px 0;font-size:15px;color:#39c;text-decoration:none}",
+            // (9.1) 2014's box (June and October 2014 alike, chrome.min.css and as measured): 762px with a 1px #ccc border over the
+            // page dimmed with #666 at half, the heading in Open Sans Light 39px, the terms in a #f2f2f2 frame, the printer-friendly
+            // link and the button on the right, the close box Google's close-icon.png on #ebebeb; 104px from the top, and over the page's
+            // menu (its header stands at z-index 1000)
+            era !== "c14" ? "" : [
+                "#c-dlg{background:rgba(102,102,102,.5);z-index:10000;align-items:flex-start;padding:104px 0 20px;box-sizing:border-box;overflow:auto}",
+                "#c-dlg .box{max-width:762px;padding:40px 80px 60px;border:1px solid #ccc;box-shadow:none;font:13px/18px 'Open Sans',arial,sans-serif}",
+                "#c-dlg h2{font:300 39px/48.75px 'Open Sans',arial,sans-serif;color:#000;margin:8px 0 27px}",
+                "#c-dlg .terms{background:#f2f2f2;border:1px solid #ccc;box-sizing:border-box;width:calc(100% + 2px);height:172px;padding:8px;margin:0;font:13px/15px arial,sans-serif;color:#000}",
+                "#c-dlg .terms b{display:block;font:bold 20px/24px arial,sans-serif;margin:4px 0 14px}",
+                "#c-dlg .pf{margin:4px 0 0;font:600 13px/20.8px 'Open Sans',arial,sans-serif;color:#0370ea}",
+                "#c-dlg label{font:13px/20.8px 'Open Sans',arial,sans-serif;color:#333;margin:10px 0 0}#c-dlg label input{margin:0 4px 2px 0}",
+                "#c-dlg label a{color:#0370ea;font-weight:600}",
+                "#c-dlg .acts{justify-content:flex-end;margin-top:10px}",
+                "#c-dlg .x{right:15px;top:10px;width:20px;height:20px;overflow:hidden;font-size:0;color:transparent;background:#ebebeb url(" + AS + "content/close-icon.png) no-repeat}",
+                "#c-dlg .ok{background:linear-gradient(#008dfd,#0370ea);border:1px solid #076bd2;border-radius:3px;font:bold 13px/16.9px arial,sans-serif;padding:8px 25px}"
+            ].join("\n")
         ].join("\n");
         const termsText = "By downloading Google Chrome you agree to the Google Terms of Service and the Google Chrome and ChromeOS Additional Terms of Service. " +
             "The full terms are on Google's site:";
@@ -12534,12 +12867,13 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
         };
         const openDialog = function() {
             const head = fam === "old" ? "Google Chrome Terms of Service" : fam === "a" ? "A fast, free web browser by Google."
-                : era === "c12" ? "Get a fast, free web browser" : "Download Chrome for " + osName();
+                : era === "c12" || era === "c14" ? "Get a fast, free web browser" : "Download Chrome for " + osName();
             const learnMore = fam === "old" ? "" : ' <a href="https://support.google.com/chrome/answer/96817" target="_blank" rel="noopener">Learn more</a>';
             const d = dialogBox(
                 (fam === "a" ? '<div class="hd"><h2>' + head + '</h2><img src="' + G + '/images/logos/chrome_logo.gif" width="123" height="40" alt="chrome"></div>' : "<h2>" + head + "</h2>") +
-                (fam === "b" && !big ? '<p class="os">' + esc(osLine()) + "</p>" : "") +
-                '<div class="terms">' + (fam === "a" ? "<b>Google Chrome Terms of Service</b><br><br>" : "") + termsText +
+                // ((9.1) 2014's box had no system line, and the terms under their bold heading)
+                (fam === "b" && !big && era !== "c14" ? '<p class="os">' + esc(osLine()) + "</p>" : "") +
+                '<div class="terms">' + (fam === "a" ? "<b>Google Chrome Terms of Service</b><br><br>" : era === "c14" ? "<b>Google Chrome Terms of Service</b>" : "") + termsText +
                 ' <a href="' + G + '/chrome/terms/" target="_blank" rel="noopener">Google Chrome Terms of Service</a>. ' +
                 "The download is today's Google Chrome, from Google's own servers.</div>" +
                 (fam === "old" ? "" : '<a class="pf" href="' + G + '/chrome/terms/" target="_blank" rel="noopener">Printer-friendly version</a>') +
@@ -12571,6 +12905,30 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
         // (8.38) the download page and the thank-you page are the period's own: the download buttons open the terms box above, and
         // the thank-you page starts what was chosen there (or, come to without it, today's Chrome as the box's defaults would have)
         // and starts it again from its "click here"
+        // (9.1) the 2013-2016 menu's "For iOS" (mobile/ios.html, caught by the Android rule when stored) goes to the App Store, and
+        // its SET UP (/chrome/webstore/features.html, stored as today's Web Store) to Gplex's Set up page, as the drawn frame has it
+        const fixMenu = function(body) {
+            body.querySelectorAll("#nav-l2-ios a[href]").forEach(function(a) {
+                a.setAttribute("href", APPSTORE);
+            });
+            body.querySelectorAll('.nav-l1-customize > a.nav-top[data-link*="webstore/features.html"]').forEach(function(a) {
+                a.setAttribute("href", R + "setup");
+            });
+            // ((9.1) and its Chromecast "Support", with the Chromecast page's help links: support.google.com/chromecast in 2013-2016)
+            body.querySelectorAll('a[href$="?gplex-page=chromecast"]').forEach(function(a) {
+                if (/^(Support|Help|Terms apply|Chromecast help center)$/.test(a.textContent.replace(/\s+/g, " ").trim())) {
+                    a.setAttribute("href", "https://support.google.com/chromecast/");
+                }
+            });
+            // ((9.1) and its Chromebooks "Support" (chrome/devices/support.html), with the Chromebooks page's footer "Help"
+            // (support.google.com/chromeos): the generator's Chromebooks rule caught them, and they reloaded the Chromebooks page)
+            body.querySelectorAll('#nav-l2-chromebook a[href="https://www.google.com/chromebook/"], ' +
+                '#chrome-footer-global a[href="https://www.google.com/chromebook/"]').forEach(function(a) {
+                if (/^(Support|Help)$/.test(a.textContent.replace(/\s+/g, " ").trim())) {
+                    a.setAttribute("href", "https://support.google.com/chromebook/");
+                }
+            });
+        };
         if (stored) {
             const chosen = function() {
                 let url = null;
@@ -12585,6 +12943,17 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                 if (/^(win|mac|linux)/.test(root.id)) {
                     root.id = os === "win" ? (/^win/.test(root.id) ? root.id : "win") : os;
                 }
+                // ((9.1) late 2014's "Windows 64-bit" was ./?platform=win64, and installer.min.js gave it the 64-bit line)
+                if (stored === "k2014n") {
+                    body.querySelectorAll(".alt-platform a").forEach(function(a) {
+                        if (/^Windows[- ]64/.test(a.textContent.trim())) {
+                            a.setAttribute("href", G + "/chrome/?platform=win64");
+                        }
+                    });
+                    if ((new URLSearchParams(loc.search).get("platform") || "").toLowerCase() === "win64") {
+                        root.id = "win64-stable-query";
+                    }
+                }
                 // 2019's thank-you page shows the steps for the computer by .show, which its script moved
                 body.querySelectorAll(".chr-thank-you-steps .os-win, .chr-thank-you-steps .os-mac").forEach(function(e) {
                     e.classList.toggle("show", e.classList.contains(os === "mac" ? "os-mac" : "os-win"));
@@ -12592,6 +12961,7 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
                 const st = document.createElement("style");
                 st.textContent = dialogCss;
                 document.head.appendChild(st);
+                fixMenu(body);
                 // the download page: "another platform" (2015-2018, and 2019's Other Platforms) offers the three, 2018's platform buttons
                 // choose one, and every download control opens the terms box. The thank-you page: its "click here" (#resubmit to 2011,
                 // .retry-link to 2016, #js-download-fallback from 2018) downloads again, "another platform" offers the three, and its
@@ -12631,6 +13001,107 @@ const UGF_CHROME_ASSETS = {"cast13": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQA
             if (!shown && page === "thankyou") {
                 window.location.href = chosen();
             }
+            return;
+        }
+        // (9.1) Late 2014's Set up, Sign in, Chromecast and Chromebooks pages are Google's own of the time, stored (k2014n:
+        // welcome.html of May-November 2014, signin.html, devices/chromecast/ and devices/ of November 2014); the drawn page below
+        // where it can't be had just now. Their download controls go to the download page, their carousels turn as Google's did
+        const sub14 = late14 && loc.host === "www.google.com" ? { setup: "setup", signin: "signin", cast: "chromecast", chromebook: "chromebook" }[page] : null;
+        if (sub14 && ugfStoredSite("k2014n", sub14, { mark: "gplex-chrome", ready: function(body) {
+            // ((9.1) stored from a Windows visit: the id, which Google's script set, is this computer's, and on Set up the window
+            // and markers for a Mac or Linux are shown by chrome.min.css's own rules, which the stored CSS left out)
+            if (/^(win|mac|linux)/.test(document.documentElement.id)) {
+                document.documentElement.id = os;
+            }
+            if (sub14 === "setup" && os !== "win") {
+                const pc = document.createElement("style");
+                pc.textContent = "#mac #main .mac,#linux #main .linux{display:block !important}#mac #main .win,#linux #main .win{display:none !important}" +
+                    "#linux .browser-welcome .omnibox{left:178px;top:-217px}#linux .browser-welcome .newtab{left:354px;top:-253px}" +
+                    "#linux .browser-welcome .bookmarks{left:794px;top:-235px}";
+                document.head.appendChild(pc);
+            }
+            fixMenu(body);
+            body.querySelectorAll('a[href="#gplex-download"]').forEach(function(a) {
+                a.setAttribute("href", G + "/chrome/");
+            });
+            // the welcome page's three markers show their tips while the mouse is on them, as its script did
+            body.querySelectorAll(".browser-pin").forEach(function(pin) {
+                const tip = pin.querySelector(".tooltip-content");
+                if (tip) {
+                    pin.addEventListener("mouseenter", function() {
+                        tip.style.display = "block";
+                    });
+                    pin.addEventListener("mouseleave", function() {
+                        tip.style.display = "";
+                    });
+                }
+            });
+            // the carousel (chrm.ui.TimedCarousel): #mdn's dots name the slides, one shows at a time and a dot shows its own; on
+            // Chromebooks it moved on every 7 seconds and stopped at the last ("timerDuration":7E3,"loop":false), on Chromecast only
+            // by its dots. The rows marked anim-on-enter slid in when they came into view
+            const dots = [].slice.call(body.querySelectorAll("#mdn li")).filter(function(li) {
+                const a = li.querySelector("a[href^='#']");
+                return a && a.getAttribute("href").length > 1 && body.querySelector(a.getAttribute("href"));
+            });
+            const slides = dots.map(function(li) {
+                return body.querySelector(li.querySelector("a").getAttribute("href"));
+            });
+            let at = Math.max(0, dots.findIndex(function(li) {
+                return li.classList.contains("tab-on");
+            }));
+            let timer = null;
+            const show = function(n) {
+                at = n;
+                slides.forEach(function(sl, i) {
+                    sl.style.display = i === n ? "" : "none";
+                    sl.style.opacity = i === n ? "1" : "0";
+                });
+                dots.forEach(function(li, i) {
+                    li.classList.toggle("tab-on", i === n);
+                });
+                // ((9.1) "isHistorySet": the slide's id went into the address and the browser scrolled the carousel to it)
+                const box = slides[n].parentNode;
+                box.scrollTop += slides[n].getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientTop;
+            };
+            dots.forEach(function(li, i) {
+                li.querySelector("a").addEventListener("click", function(ev) {
+                    ev.preventDefault();
+                    clearInterval(timer);
+                    show(i);
+                });
+            });
+            if (sub14 === "chromebook" && slides.length > 1) {
+                timer = setInterval(function() {
+                    if (at + 1 >= slides.length) {
+                        clearInterval(timer);
+                    } else {
+                        show(at + 1);
+                    }
+                }, 7000);
+            }
+            // (the generator scrolled through the page, so the class is stored on: it comes off to slide in again)
+            const seen = [].slice.call(body.querySelectorAll(".anim-on-enter"));
+            seen.forEach(function(e) {
+                e.classList.remove("anim-activated");
+            });
+            if (seen.length && window.IntersectionObserver) {
+                const io = new IntersectionObserver(function(es) {
+                    es.forEach(function(e) {
+                        if (e.isIntersecting) {
+                            e.target.classList.add("anim-activated");
+                            io.unobserve(e.target);
+                        }
+                    });
+                });
+                seen.forEach(function(e) {
+                    io.observe(e);
+                });
+            } else {
+                seen.forEach(function(e) {
+                    e.classList.add("anim-activated");
+                });
+            }
+        } })) {
             return;
         }
         // today's page is hidden from the first moment and replaced once it has been read in (stopping it
@@ -16018,7 +16489,10 @@ function ugfIsErrorPage() {
             }).join("");
         };
         const langs = [["", "any language"]].concat(A.langs);
-        const regions = [["", "any region"]].concat(A.regions);
+        // (9.1) A.regions holds HTML ("Antigua &amp; Barbuda"), and opts() escapes: decode it once first
+        const regions = [["", "any region"]].concat(A.regions.map(function(o) {
+            return [o[0], o[1].replace(/&amp;/g, "&")];
+        }));
         const q0 = new URLSearchParams(window.location.search).get("q") || "";
         const fileTypes = [["", "any format"], ["pdf", "Adobe Acrobat PDF (.pdf)"], ["ps", "Adobe Postscript (.ps)"], ["dwf", "Autodesk DWF (.dwf)"],
             ["kml", "Google Earth KML (.kml)"], ["kmz", "Google Earth KMZ (.kmz)"], ["xls", "Microsoft Excel (.xls)"], ["ppt", "Microsoft Powerpoint (.ppt)"],
@@ -16109,6 +16583,9 @@ function ugfIsErrorPage() {
             "2014": ["nav_logo225", 95, 37], "2015": ["nav_logo225", 95, 37], "2015L": ["nav_logo225", 95, 37],
             "2016": ["nav_logo242", 95, 37], "2016L": ["nav_logo242", 95, 37] }[L];
         const dark = ["2012", "2013", "2013L", "2015L", "2016L"].indexOf(L) > -1;
+        // (9.1) Late 2014: the settings and Advanced Search pages of October to December 2014 (Wayback 4 Oct, 28 Oct, 14 Nov
+        // and 15 Dec 2014). One switch, so Early 2014 or 2015 can follow once a capture shows them the same.
+        const g14 = L === "2014" && ugf2014V() === "2014N";
         const head = function(q) {
             if (!strip) {
                 return '<div class="top"><a href="/" class="lg"><img src="' + logo.src + '" width="' + logo.w + '" alt="Google"></a></div>';
@@ -16123,12 +16600,18 @@ function ugfIsErrorPage() {
                         ugfB13Grid(v) + ugfB13Bits(v) + '<a class="' + ugfB13PhotoClass(v) + '" href="https://myaccount.google.com/">' + photo + "</a>"
                     : ugfB13Grid("") + '<a class="ugf-b13-photo" href="https://myaccount.google.com/">' + photo + "</a>";
             }
+            // (9.1) Late 2014: the bar's grey band, the logo from its sprite and the corner, no search box
+            if (g14) {
+                return '<div class="top g14"><a href="/" class="lg14" title="Go to Google Home"></a>' + (corner ? '<div class="corner">' + corner + "</div>" : "") + "</div>";
+            }
             return '<div class="top"><a href="/" class="lg"><img src="https://www.google.com/images/' + strip[0] + '.png" alt="Google"></a>' +
                 '<form action="https://www.google.com/search"><input name="q" value="' + esc(q) + '" autocomplete="off" aria-label="Search">' +
                 '<button type="submit" title="Google Search"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></button></form>' +
                 (corner ? '<div class="corner">' + corner + "</div>" : "") + "</div>";
         };
-        const foot = '<div class="foot">' + (strip ? '<a href="https://support.google.com/websearch/?p=ws_settings">Help</a><a href="https://www.google.com/tools/feedback/survey/html?productId=196">Send feedback</a>' : "") +
+        // (9.1) Late 2014: Help and Privacy & Terms (28 Oct and 14 Nov 2014; split into Privacy and Terms on 15 Dec), no Send feedback
+        const foot = g14 ? '<div class="foot g14"><a href="https://support.google.com/websearch/?p=ws_results_help">Help</a><a href="https://www.google.com/intl/en/policies/">Privacy &amp; Terms</a></div>'
+            : '<div class="foot">' + (strip ? '<a href="https://support.google.com/websearch/?p=ws_settings">Help</a><a href="https://www.google.com/tools/feedback/survey/html?productId=196">Send feedback</a>' : "") +
             '<a href="https://policies.google.com/privacy">Privacy</a><a href="https://policies.google.com/terms">Terms</a></div>';
         // ---- the page
         let body = "";
@@ -16185,7 +16668,51 @@ function ugfIsErrorPage() {
             const hint = function(t) {
                 return '<td class="h">' + t + "</td>";
             };
-            body = head(q0) + '<div class="wrap"><h1>Advanced Search</h1><form id="ugf-adv-form">' +
+            // (9.1) Late 2014 (Wayback 28 Oct and 15 Dec 2014): the title band, the labels 45px in, the fields half the width,
+            // the hints in a third column under "To do this in the search box" with the examples in monospace, the reading
+            // level row (shown, not sent: Google has dropped it), grey menu buttons, Advanced Search at the right of the fields
+            const adv14 = function() {
+                const row = function(label, field, h, fcls) {
+                    return '<div class="r"><div class="l"><div class="y">' + label + '</div></div><div class="f' + (fcls || "") + '">' + field +
+                        '</div><div class="h"><div class="y">' + h + "</div></div></div>";
+                };
+                const c = function(t) {
+                    return '<span class="c">' + t + "</span>";
+                };
+                const sel = function(name, list, v) {
+                    return '<select name="' + name + '">' + opts(list, v || "") + "</select>";
+                };
+                const ss = '<a href="https://support.google.com/websearch/answer/510">SafeSearch</a>';
+                return head(q0) + '<div class="appbar adv"><span>Advanced Search</span></div><div class="appbar_b"></div><div class="vkb"><form id="ugf-adv-form">' +
+                    '<div class="r hd"><div class="l"><div class="y">Find pages with...</div></div><div class="f"></div><div class="h"><div class="y">To do this in the search box</div></div></div>' +
+                    row("all these words:", '<input name="all" value="' + esc(q0) + '">', "Type the important words: " + c(" tricolor rat terrier")) +
+                    row("this exact word or phrase:", '<input name="exact">', "Put exact words in quotes: " + c(" &quot;rat terrier&quot;")) +
+                    row("any of these words:", '<input name="any1">', "Type " + c("OR") + " between all the words you want: " + c(" miniature OR standard")) +
+                    row("none of these words:", '<input name="none">', "Put a minus sign just before words you don't want: " + c(" -rodent, -&quot;Jack Russell&quot;")) +
+                    row("numbers ranging from:", '<input name="nlo"><span>to</span><input name="nhi">', "Put 2 periods between the numbers and add a unit of measure: " + c(" 10..35 lb, $300..$500, 2010..2011"), " nr") +
+                    '<div class="rule"></div><div class="r hd"><div class="l"><div class="y">Then narrow your results by...</div></div></div>' +
+                    row("language:", sel("lr", langs), "Find pages in the language you select.") +
+                    row("region:", sel("cr", regions), "Find pages published in a particular region.") +
+                    row("last update:", sel("qdr", dates), "Find pages updated within the time you specify.") +
+                    row("site or domain:", '<input name="site">', "Search one site (like " + c(" wikipedia.org") + " ) or limit your results to a domain like " + c(".edu") + ", " + c(".org") + " or " + c(".gov")) +
+                    row("terms appearing:", sel("occt", occ), "Search for terms in the whole page, page title, or web address, or links to the page you're looking for.") +
+                    row(ss + ":", sel("safe", [["off", "Show most relevant results"], ["active", "Filter explicit results"]], "off"), "Tell " + ss + " whether to filter sexually explicit content.") +
+                    row("reading level:", sel("rl", [["", "no reading level displayed"], ["rl:1", "annotate results with reading levels"], ["rl:1,rls:0", "show only basic results"],
+                        ["rl:1,rls:1", "show only intermediate results"], ["rl:1,rls:2", "show only advanced results"]]), "Find pages at one reading level or just view the level info.") +
+                    row("file type:", sel("ft", fileTypes), "Find pages in the format you prefer.") +
+                    row('<a href="https://support.google.com/websearch?p=ws_images_usagerights">usage rights</a>:', sel("sur", rights), "Find pages you are free to use yourself.") +
+                    '<div class="r"><div class="l"></div><div class="f go"><input type="submit" value="Advanced Search"></div></div>' +
+                    '<div class="rule"></div></form>' +
+                    '<div class="also14"><div class="t"><div class="y">You can also...</div></div>' +
+                    '<div><a href="#" id="ugf-adv-rel">Find pages that are similar to, or link to, a URL</a></div>' +
+                    '<div><a href="https://support.google.com/accounts/answer/54068">Search pages you\'ve visited</a></div>' +
+                    '<div><a href="https://support.google.com/websearch/answer/2466433">Use operators in the search box</a></div>' +
+                    '<div><a href="https://www.google.com/preferences">Customize your search settings</a></div>' +
+                    '<div class="relbox"><form data-op="related:">Find pages similar to the URL: <input name="u"> <input type="submit" value="Search"></form>' +
+                    '<form data-op="link:">Find pages that link to the URL: <input name="u"> <input type="submit" value="Search"></form></div></div></div>' +
+                    foot;
+            };
+            body = g14 ? adv14() : head(q0) + '<div class="wrap"><h1>Advanced Search</h1><form id="ugf-adv-form">' +
                 '<div class="sec"><span>Find pages with...</span></div><table class="rows">' +
                 '<tr><td class="l">all these words:</td><td class="f"><input name="all" value="' + esc(q0) + '"></td>' + hint("Type the important words: <b>tri-color rat terrier</b>") + "</tr>" +
                 '<tr><td class="l">this exact word or phrase:</td><td class="f"><input name="exact"></td>' + hint("Put exact words in quotes: <b>\"rat terrier\"</b>") + "</tr>" +
@@ -16214,8 +16741,10 @@ function ugfIsErrorPage() {
         // ---- the look
         const S = "#ugf-adv";
         const css = [
-            "html[gplex-adv] body > *:not(#ugf-adv):not(#ugf-gmail-appsmenu):not(#ugf-ma-appsfence) { display: none !important; }",
+            "html[gplex-adv] body > *:not(#ugf-adv):not(#ugf-gmail-appsmenu):not(#ugf-ma-appsfence):not(#ugf-b13n):not(#ugf-b13n-fence):not(#ugf-gmail-accmenu):not(#ugf-ma-accfence) { display: none !important; }",
             "html[gplex-adv], html[gplex-adv] body { background: #fff !important; margin: 0 !important; }",
+            // (9.1) today's Google gives <html> scrollbar-gutter: stable: a short page kept an empty 15px strip down the right
+            "html[gplex-adv] { scrollbar-gutter: auto !important; }",
             S + " { font: 13px Arial, sans-serif; color: #000; }",
             S + " a { color: #00c; }",
             S + " select, " + S + " input { font: 13px Arial, sans-serif; }",
@@ -16302,10 +16831,48 @@ function ugfIsErrorPage() {
                 S + " .top form button:hover { background: " + (L === "2016" ? "#3b78e7" : "linear-gradient(#4d90fe, #357ae8); border-color: #2f5bb7") + "; }",
                 S + " .top form button svg { width: 15px; height: 15px; fill: #fff; }",
                 S + " .top .corner { margin-left: auto; display: flex; align-items: center; gap: 10px; }",
-                S + " .top .corner .plus { color: #666; font-size: 13px; margin-right: 5px; } " + S + " .top .corner .plus.late { color: #404040; margin-right: 14px; }",
+                S + " .top .corner .plus { color: #666; font-size: 13px; margin-right: 5px; } " + S + " .top .corner .plus.late { color: #404040; margin-right: 5px; }",
                 S + " .top .corner .pfp { display: block; object-fit: cover; } " + S + " .top .corner .pfp.letter { display: flex; align-items: center; justify-content: center; background: #c62828; color: #fff; font-size: 15px; text-transform: uppercase; }",
                 S + " .top .corner .signin { height: 29px; padding: 0 12px; border: 1px solid #3079ed; border-radius: 2px; background: linear-gradient(#4d90fe, #4787ed); color: #fff; font: bold 11px/29px Arial, sans-serif; text-decoration: none; }",
                 S + " .top .corner .signin.red { border-color: #b0281a; background: linear-gradient(#dd4b39, #d14836); }");
+        }
+        if (g14) {
+            // (9.1) Late 2014: the bar's grey band (.gb_Sb #f1f1f1, 60px), its logo (.gb_Qa 0 -105px, 92x33, 15px in, 2px down),
+            // the blue Sign in (.gb_W, bold 13px), the title band (.appbar) and the footer (#fbar: 45px in, links 27px apart)
+            css.push(S + " .top.g14 { height: 60px; padding: 0 30px 0 0; background: #f1f1f1; border-bottom: 0; }",
+                S + " .top.g14 .lg14 { display: block; flex: none; width: 92px; height: 33px; margin: 2px 20px 0 15px; background: url('https://ssl.gstatic.com/gb/images/i1_71651352.png') 0 -105px / 356px 144px no-repeat; " +
+                    "background-image: -webkit-image-set(url('https://ssl.gstatic.com/gb/images/i1_71651352.png') 1x, url('https://ssl.gstatic.com/gb/images/i2_9ef0f6fa.png') 2x); " +
+                    "background-image: image-set(url('https://ssl.gstatic.com/gb/images/i1_71651352.png') 1x, url('https://ssl.gstatic.com/gb/images/i2_9ef0f6fa.png') 2x); }",
+                S + " .top.g14 .corner .ugf-b13-grid + .signin { margin-left: 5px; }",
+                S + " .top.g14 .corner .signin { box-sizing: border-box; height: 30px; padding: 0 12px; border-color: #4285f4; background: linear-gradient(#4387fd, #4683ea); font: bold 13px/28px Arial, sans-serif; }",
+                S + " .top.g14 .corner .signin:hover { box-shadow: 0 1px 0 rgba(0,0,0,.15); }",
+                S + " .appbar { border-bottom: 1px solid #dedede; color: #dd4b39; font-size: 20px; height: 57px; line-height: 57px; padding-left: 46px; }",
+                S + " .appbar.adv { border: 0; height: auto; line-height: normal; margin: 25px 35px; padding: 0; } " + S + " .appbar.adv span { margin-left: 10px; } " + S + " .appbar_b { border-bottom: 1px solid #ebebeb; }",
+                S + " .foot.g14 { padding: 0 0 0 45px; line-height: 40px; font-size: 13px; min-width: 980px; } " + S + " .foot.g14 a { color: #777; margin: 0 27px 0 0; } " + S + " .foot.g14 a:hover { color: #333; text-decoration: none; }",
+                // Advanced Search: div._Vkb, the labels 16% (min 167px), the fields 50%, the hints 32% (span._fq in monospace), div._Mib rules
+                S + " .vkb { max-width: 1140px; width: 96%; margin: 40px 2% 0 45px; color: #222; }",
+                S + " .vkb .r::after { content: ''; display: block; clear: both; }",
+                S + " .vkb .l { float: left; width: 16%; min-width: 167px; height: 42px; font-size: 13px; line-height: 16px; color: #222; }",
+                S + " .vkb .f { float: left; box-sizing: border-box; width: 50%; min-width: 167px; min-height: 41px; }",
+                S + " .vkb .h { float: left; box-sizing: border-box; width: 32%; min-width: 160px; margin: 0 0 8px 1%; padding-left: 5px; color: #555; font-size: 11px; }",
+                S + " .vkb .y { display: table-cell; height: 30px; vertical-align: middle; }",
+                S + " .vkb .r.hd .l { font-size: 16px; color: #333; } " + S + " .vkb .r.hd .h { width: 33%; margin: 0; font-size: 13px; font-weight: bold; color: #777; }",
+                S + " .vkb .c { color: #666; font-family: monospace; font-size: 11px; white-space: pre; }",
+                S + " .vkb .rule { clear: both; margin: 18px 0; border-top: 1px solid #ebebeb; }",
+                S + " .vkb .f input:not([type]) { box-sizing: border-box; width: calc(100% + 2px); height: 29px; margin: 0; padding: 1px 8px; border: 1px solid #d9d9d9; border-top-color: #c0c0c0; border-radius: 1px; background: #fff; color: #222; font-size: 13px; }",
+                S + " .vkb .f input:not([type]):focus { border-color: #4d90fe; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,.3); }",
+                S + " .vkb .f.nr { display: flex; align-items: center; width: calc(50% + 2px); margin-right: -2px; min-height: 29px; } " + S + " .vkb .f.nr input { flex: 1; min-width: 0; } " + S + " .vkb .f.nr span { flex: none; width: 50px; text-align: center; font-size: 13px; }",
+                // the grey menu buttons of the time (bold 11px, the small arrow at the right)
+                S + " .vkb .f select { box-sizing: border-box; width: calc(100% + 2px); height: 29px; margin: 0; padding: 0 24px 0 8px; -webkit-appearance: none; appearance: none; border: 1px solid rgba(0,0,0,.1); border-radius: 2px; color: #444; font: bold 11px Arial, sans-serif; cursor: default; " +
+                    "background: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath d='M0 0h8L4 4z' fill='%23777'/%3E%3C/svg%3E\") no-repeat right 5px center, linear-gradient(#f5f5f5, #f1f1f1); }",
+                S + " .vkb .f select:hover { border-color: #c6c6c6; color: #222; box-shadow: 0 1px 1px rgba(0,0,0,.1); } " + S + " .vkb .f select:focus { border-color: #4d90fe; outline: none; }",
+                S + " .vkb .f.go input { float: right; width: 120px; height: 30px; margin: 10px 0; padding: 0 12px; background: linear-gradient(#4d90fe, #4787ed); border: 1px solid #3079ed; border-radius: 2px; color: #fff; font: bold 11px Arial, sans-serif; cursor: default; }",
+                S + " .vkb .f.go input:hover { background: linear-gradient(#4d90fe, #357ae8); border-color: #2f5bb7; }",
+                S + " .also14 { clear: both; font-size: 13px; line-height: 18px; margin-bottom: 49px; } " + S + " .also14 .t { height: 42px; font-size: 16px; line-height: normal; color: #333; }",
+                S + " .also14 .relbox input:not([type]) { width: 280px; }",
+                // (9.1) 28 Oct and 15 Dec 2014 set no a{color}, only a:visited #12c: the browser's blue
+                S + " .vkb a, " + S + " .also14 a { color: #00e; } " + S + " .vkb a:visited, " + S + " .also14 a:visited { color: #12c; }",
+                "@media (max-width: 1056px) { " + S + " .vkb .h { display: none !important; } }");
         }
         // ---- what it searches for
         const build = function(form) {
@@ -16417,8 +16984,116 @@ function ugfIsErrorPage() {
             return [o[0].replace(/^lang_/, ""), o[1]];
         });
         const glList = [["", "Current region"]].concat(A.regions.map(function(o) {
-            return [o[0].replace(/^country/, ""), o[1]];
+            return [o[0].replace(/^country/, ""), o[1].replace(/&amp;/g, "&")];
         }));
+        // (9.1) Late 2014's settings page (Wayback 14 Nov 2014; 4 and 28 Oct the same). The languages carry their own names,
+        // from the page's own table (google.preferences.langMap), in its columns: the product languages 5 to a column and
+        // the rest behind Show more; the search languages 12 to a column.
+        const NATIVE = {"de":"Deutsch","en":"English","es":"español","es-419":"español (Latinoamérica)","fr":"français","hr":"hrvatski","it":"italiano","nl":"Nederlands","pl":"polski","pt-BR":"português (Brasil)","pt-PT":"português (Portugal)","vi":"Tiếng Việt","tr":"Türkçe","ru":"русский","ar":"العربية","th":"ไทย","ko":"한국어","zh-CN":"中文 (简体)","zh-TW":"中文 (繁體)","ja":"日本語","ach":"Acoli","af":"Afrikaans","ak":"Akan","az":"azərbaycan","id":"Bahasa Indonesia","ms":"Bahasa Melayu","ban":"Balinese","bh":"bh","xx-bork":"Bork, bork, bork!","bs":"bosanski","br":"brezhoneg","ca":"català","ceb":"Cebuano","cs":"čeština","sn":"chiShona","co":"Corsican","cy":"Cymraeg","da":"dansk","yo":"Èdè Yorùbá","et":"eesti","xx-elmer":"Elmer Fudd","eo":"esperanto","eu":"euskara","ee":"eʋegbe","tl":"Filipino","fo":"føroyskt","gaa":"Ga","ga":"Gaeilge","gl":"galego","gn":"Guarani","xx-hacker":"Hacker","ht":"Haitian","ha":"Hausa","haw":"ʻŌlelo Hawaiʻi","bem":"Ichibemba","ig":"Igbo","rn":"Ikirundi","ia":"Interlingua","zu":"isiZulu","is":"íslenska","jw":"Javanese","rw":"Kinyarwanda","sw":"Kiswahili","xx-klingon":"Klingon","kg":"Kongo","mfe":"kreol morisien","kri":"Krio (Sierra Leone)","la":"Latin","lv":"latviešu","to":"lea fakatonga","lt":"lietuvių","ln":"lingála","loz":"Lozi","lua":"Luba-Lulua","lg":"Luganda","hu":"magyar","mg":"Malagasy","mt":"Malti","mi":"Maori","pcm":"Nigerian Pidgin","no":"norsk","nso":"Northern Sotho","ny":"Nyanja","nn":"nynorsk","oc":"Occitan","uz":"oʻzbekcha","om":"Oromoo","xx-pirate":"Pirate","pt":"português","qu":"Quechua","ro":"română","rm":"rumantsch","nyn":"Runyankore","gd":"Scottish Gaelic","crs":"Seychellois Creole","sq":"Shqip","sd":"Sindhi","sk":"slovenčina","sl":"slovenščina","so":"Soomaali","ckb":"Sorani Kurdish","st":"Southern Sotho","sr-ME":"Srpski (Crna Gora)","sh":"Srpski (Latinica)","su":"Sundanese","fi":"suomi","sv":"svenska","tg":"Tajik","tt":"Tatar","tn":"Tswana","tum":"Tumbuka","tk":"Turkmen","tw":"Twi","fy":"Western Frisian","wo":"Wolof","xh":"Xhosa","yi":"Yiddish","el":"Ελληνικά","be":"беларуская","bg":"български","ky":"кыргызча","kk":"қазақ тілі","mk":"македонски","mn":"монгол","sr":"Српски","uk":"українська","ka":"ქართული","hy":"հայերեն","iw":"עברית","ug":"ئۇيغۇرچە","ur":"اردو","ps":"پښتو","fa":"فارسی","ti":"ትግርኛ","am":"አማርኛ","ne":"नेपाली","mr":"मराठी","hi":"हिन्दी","bn":"বাংলা","pa":"ਪੰਜਾਬੀ","gu":"ગુજરાતી","or":"ଓଡ଼ିଆ","ta":"தமிழ்","te":"తెలుగు","kn":"ಕನ್ನಡ","ml":"മലയാളം","si":"සිංහල","lo":"ລາວ","my":"ဗမာ","km":"ខ្មែរ","chr":"ᏣᎳᎩ"};
+        const split = function(cols) {
+            return cols.map(function(c) {
+                return c.split(" ");
+            });
+        };
+        const HL_COLS = split(["de en es es-419 fr", "hr it nl pl pt-BR", "pt-PT vi tr ru ar", "th ko zh-CN zh-TW ja"]);
+        const HL_MORE = split(["ach af ak az id ms ban bh xx-bork bs br ca ceb cs sn co cy da yo et xx-elmer eo eu ee tl fo gaa ga gl gn xx-hacker ht ha",
+            "haw bem ig rn ia zu is jw rw sw xx-klingon kg mfe kri la lv to lt ln loz lua lg hu mg mt mi pcm no nso ny nn oc uz",
+            "om xx-pirate qu ro rm nyn gd crs sq sd sk sl so ckb st sr-ME sh su fi sv tg tt tn tum tk tw fy wo xh yi el be bg",
+            "ky kk mk mn sr uk ka hy iw ug ur ps fa ti am ne mr hi bn pa gu or ta te kn ml si lo my km chr"]);
+        const LR_COLS = split(["af id ca cs da de et en es eo tl fr", "hr is it sw lv lt hu nl no pl pt ro", "sk sl fi sv vi tr el be bg ru sr uk", "hy iw ar fa hi th ko zh-CN zh-TW ja"]);
+        const lrText = function(set) {
+            return set.length ? set.map(function(v) {
+                const k = v.replace(/^lang_/, "");
+                return NATIVE[k] || k;
+            }).join(", ") : "any language";
+        };
+        // the region: the country's name in the Location tab, saved as UGF_PREF_GL as before
+        const unAmp = function(t) {
+            return String(t).replace(/&amp;/g, "&");
+        };
+        const glName = function(gl) {
+            const o = gl ? A.regions.filter(function(r) {
+                return r[0] === "country" + gl;
+            })[0] : null;
+            return o ? unAmp(o[1]) : "";
+        };
+        const glFind = function(t) {
+            const k = t.trim().toLowerCase();
+            const o = A.regions.filter(function(r) {
+                return unAmp(r[1]).toLowerCase() === k || r[0].slice(7).toLowerCase() === k;
+            })[0];
+            return o ? o[0].slice(7) : null;
+        };
+        const prefs14 = function() {
+            const w = who();
+            const nums = [10, 20, 30, 40, 50, 100];
+            const stops = [0, 39, 79, 119, 159, 359];
+            const numIdx = Math.max(0, nums.indexOf(parseInt(cur.num, 10)));
+            const instant = PREF("UGF_PREF_INSTANT") || "auto";
+            const tts = PREF("UGF_PREF_TTS") || "1";
+            const shown = [].concat.apply([], HL_COLS.concat(HL_MORE));
+            // English is ticked while the setting is Google's default; left alone, the default is what is saved
+            const hl0 = shown.indexOf(cur.hl) > -1 ? cur.hl : cur.hl ? "" : "en";
+            // (9.1) so is English for the search languages (4 Oct and 14 Nov 2014: "English", lang_en ticked)
+            const lr0 = lrSet.length ? "" : "lang_en";
+            const lrShown = lrSet.length ? lrSet : [lr0];
+            const moreOpen = HL_MORE.some(function(c) {
+                return c.indexOf(hl0) > -1;
+            });
+            const radio = function(name, v, on, label) {
+                return '<label class="rad"><input type="radio" name="' + name + '" value="' + esc(v) + '"' + (on ? " checked" : "") + "> " + label + "</label>";
+            };
+            const cols = function(list, item) {
+                return '<div class="lcw">' + list.map(function(col, i) {
+                    return '<div class="lc c' + (i + 1) + '">' + col.map(item).join("") + "</div>";
+                }).join("") + "</div>";
+            };
+            const hlItem = function(k) {
+                return radio("hl", k, k === hl0, esc(NATIVE[k] || k));
+            };
+            return head("") + '<div class="appbar">Search Settings</div><div class="wrap g14"><div class="cols">' +
+                '<div class="nav"><a href="#" data-pane="results" class="on">Search results</a><a href="#languages" data-pane="langs">Languages</a><a href="#location" data-pane="loc">Location</a>' +
+                '<a href="https://support.google.com/websearch?p=search_help">Help</a></div><form id="ugf-pf-form" class="panes" data-hl0="' + esc(hl0) + '"' + (lr0 ? ' data-lr0="' + lr0 + '"' : "") + ">" +
+                '<div class="pane" data-pane="results">' +
+                '<div class="sect"><h2 class="sectHdr">SafeSearch filters</h2><div class="subsect">Turn on <a href="https://support.google.com/websearch?p=ws_settings_safesearch">SafeSearch</a> to filter sexually explicit content from your search results.</div>' +
+                '<div class="subsect"><label class="ssc"><input type="checkbox" name="safebox" value="active"' + (cur.safe === "active" ? " checked" : "") + "> Filter explicit results.</label>" +
+                '<a href="https://www.google.com/safesearch">Lock SafeSearch</a></div></div>' +
+                '<div class="sect"><h2 class="sectHdr">Google Instant predictions</h2><div class="subsect">When should we show you <a href="https://support.google.com/websearch?p=ws_settings_instant">results as you type</a>?' +
+                '<div class="subsect radios">' + radio("instant", "auto", instant === "auto", "Only when my computer is fast enough.") + radio("instant", "on", instant === "on", "Always show Instant results.") +
+                radio("instant", "off", instant === "off", "Never show Instant results.") + "</div></div></div>" +
+                '<div class="sect"><h2 class="sectHdr">Results per page</h2><div class="slider g14"><div class="ruler">' + stops.map(function() {
+                    return "<i></i>";
+                }).join("") + '</div><input type="range" name="numpx" min="0" max="360" step="1" value="' + stops[numIdx] + '" aria-label="Results per page">' +
+                '<input type="hidden" name="numidx" value="' + numIdx + '">' + nums.map(function(n) {
+                    return "<b>" + n + "</b>";
+                }).join("") + '<span class="sl fast">Faster</span><span class="sl slow">Slower</span></div></div>' +
+                '<div class="sect"><h2 class="sectHdr">Spoken answers</h2><div class="subsect">When you <a href="https://support.google.com/websearch?p=ws_settings_voice">search by voice</a>, should we speak the answers aloud?</div>' +
+                '<div class="subsect radios">' + radio("tts", "1", tts !== "0", "Speak answers for voice search") + radio("tts", "0", tts === "0", "Just show text") + "</div></div>" +
+                '<div class="sect"><h2 class="sectHdr">Where results open</h2><div class="subsect"><label><input type="checkbox" name="newwin" value="1"' + (cur.newwin ? " checked" : "") + "> Open each selected result in a new browser window.</label></div></div>" +
+                '<div class="sect"><h2 class="sectHdr">Search history</h2><div class="subsect">When signed in, you can receive more relevant results and recommendations based on your search activity. ' +
+                'You can turn off or edit your <a href="https://myactivity.google.com/product/search">search history</a> at any time.</div></div></div>' +
+                '<div class="pane" data-pane="langs" hidden>' +
+                '<div class="sect"><h2 class="sectHdr">Which language should Google products use?</h2><div class="subsect">' + cols(HL_COLS, hlItem) +
+                '<div class="hlother"' + (moreOpen ? "" : " hidden") + ">" + cols(HL_MORE, hlItem) + "</div></div>" +
+                '<a href="#" class="more14" id="ugf-hlmore"' + (moreOpen ? " hidden" : "") + '>Show more<span class="gbma"></span></a>' +
+                '<a href="#" class="more14 less" id="ugf-hlless"' + (moreOpen ? "" : " hidden") + '>Show less<span class="gbma"></span></a></div>' +
+                '<div class="sect"><h2 class="sectHdr">Currently showing search results in:<div class="lrsum"><span id="ugf-lrtext">' + esc(lrText(lrShown)) + '</span><a href="#" id="ugf-lredit">Edit</a></div></h2>' +
+                '<div class="subsect lrlang" hidden>' + cols(LR_COLS, function(k) {
+                    return '<label class="lrcb"><input type="checkbox" name="lr" value="lang_' + k + '"' + (lrShown.indexOf("lang_" + k) > -1 ? " checked" : "") + "> " + esc(NATIVE[k] || k) + "</label>";
+                }) + '<div class="lrmax" hidden>The number of language restrictions is limited to 8, so only 8 of the languages selected will be saved.</div></div></div></div>' +
+                '<div class="pane" data-pane="loc" hidden><div class="sect"><h2 class="sectHdr">Where are you?</h2><div class="subsect locerr" hidden></div>' +
+                '<div class="subsect"><input type="text" name="loc" class="loc" value="' + esc(glName(cur.gl)) + '" list="ugf-loclist" autocomplete="off" aria-label="Where are you?"><datalist id="ugf-loclist">' +
+                A.regions.map(function(o) {
+                    return '<option value="' + esc(unAmp(o[1])) + '">';
+                }).join("") + "</datalist></div>" +
+                '<div class="subsect">A location helps Google find more relevant information when you use Search, Maps, and other Google products. ' +
+                'Learn how Google saves <a href="https://support.google.com/websearch?p=ws_settings_location">location information on this computer</a>.</div></div></div>' +
+                '<div class="btns"><input type="submit" class="save" value="Save"><a href="#" class="cancel">Cancel</a>' +
+                (w.name || w.email ? "" : '<p class="signin14"><a href="https://accounts.google.com/ServiceLogin?continue=https://www.google.com/preferences">Sign in</a> to use any previous settings. ' +
+                    '<a href="https://support.google.com/websearch?p=ws_settings_signin">Learn more</a></p>') + "</div>" +
+                '<div id="ugf-pf-note"></div></form></div></div>' +
+                foot;
+        };
         const prefsBody = function() {
             const langBoxes = A.langs.map(function(o) {
                 return '<label><input type="checkbox" name="lr" value="' + esc(o[0]) + '"' + (lrSet.indexOf(o[0]) > -1 ? " checked" : "") + "> " + esc(o[1]) + "</label>";
@@ -16443,6 +17118,9 @@ function ugfIsErrorPage() {
                     '<tr><td class="lbl"><b>Results Window</b></td><td><label><input type="checkbox" name="newwin" value="1"' + (cur.newwin ? " checked" : "") + "> Open search results in a new browser window.</label></td></tr>" +
                     "</table>" + saveRow + '<div id="ugf-pf-note"></div></form>' +
                     '<div class="foot">&copy;' + year + ' Google</div>';
+            }
+            if (g14) {
+                return prefs14();
             }
             // late 2011 on: "Search Settings", the grey menu on the left
             const nums = [10, 20, 30, 40, 50, 100];
@@ -16476,7 +17154,7 @@ function ugfIsErrorPage() {
                     S + " .langs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 10px; margin: 4px 0 0 22px; font-size: 12px; }",
                     S + " #ugf-pf-note { color: #c00; margin: 6px 0; font-weight: bold; }"];
             }
-            return [S + " .cols { display: flex; gap: 30px; }",
+            const out = [S + " .cols { display: flex; gap: 30px; }",
                 S + " .nav { flex: 0 0 170px; display: flex; flex-direction: column; }",
                 S + " .nav a { color: #222; padding: 6px 0 6px 12px; border-left: 3px solid transparent; text-decoration: none; }",
                 S + " .nav a.on { color: #dd4b39; font-weight: bold; border-left-color: #dd4b39; }",
@@ -16506,6 +17184,60 @@ function ugfIsErrorPage() {
                 S + " .panes input[type=checkbox]:hover { border-color: #b2b2b2; box-shadow: inset 0 1px 1px rgba(0,0,0,.1); }",
                 S + " .panes input[type=checkbox]:focus { outline: none; border-color: #4d90fe; }",
                 S + " .panes input[type=checkbox]:checked { background: #fff url(" + A.check + ") no-repeat -4px -3px; }"];
+            // (9.1) Late 2014's own look on top
+            return g14 ? out.concat(prefs14Css()) : out;
+        };
+        // (9.1) Late 2014 (the 14 Nov 2014 page's CSS): .leftPane 28px in, .mitem 13px/29px, .msel red only, the form 212px in,
+        // .rightPane at most 640px, .sect #eee rules, h2 at 84%, .subsect small, jfk radios (15px, a 7px dot), the slider,
+        // #form-bottom at the right, the yellow butterbar for "Your preferences have been saved"
+        const prefs14Css = function() {
+            const G = "#ugf-adv .wrap.g14";
+            return [G + " { max-width: none; padding: 0; } " + G + " [hidden] { display: none !important; }",
+                // (9.1) Google's a{color:#15c} of 14 Nov 2014; before .nav a (#000), which has the same specificity
+                G + " a:not(.cancel) { color: #15c; }",
+                G + " .cols { display: block; position: relative; margin-left: 212px; padding-top: 6px; }",
+                G + " .nav { display: block; position: absolute; left: -184px; top: 22px; width: 175px; }",
+                G + " .nav a { display: block; padding: 0 0 0 18px; border: 0; border-bottom: 1px solid transparent; color: #000; font-size: 13px; line-height: 29px; font-weight: normal; }",
+                G + " .nav a:hover { background: #eee; text-decoration: none; } " + G + " .nav a.on { color: #dd4b39; font-weight: normal; }",
+                G + " .panes { max-width: 640px; margin: 8px 20px 0 0; }",
+                G + " .sect { border-bottom: 1px solid #eee; color: #222; min-width: 400px; padding: 18px 20px 10px 0; } " + G + " .pane > .sect:first-child { padding-top: 4px; }",
+                G + " .sectHdr { font: bold 13.44px Arial, sans-serif; color: #222; margin: 11px 0 16px; }",
+                G + " .subsect { font-size: 13px; margin-bottom: 12px; } " + G + " .subsect.radios { margin: 0; } " + G + " .ssc { margin-right: 20px; }",
+                G + " .rad { display: block; padding: 5px 0; font-size: 13px; line-height: 15px; }",
+                G + " .panes input[type=radio] { -webkit-appearance: none; appearance: none; box-sizing: border-box; width: 15px; height: 15px; margin: 0 7px 0 0; vertical-align: -3px; border: 1px solid #c6c6c6; border-radius: 50%; background: #fff; cursor: default; }",
+                G + " .panes input[type=radio]:hover { border-color: #b6b6b6; box-shadow: inset 0 1px 1px rgba(0,0,0,.1); } " + G + " .panes input[type=radio]:focus { outline: none; border-color: #4d90fe; }",
+                G + " .panes input[type=radio]:checked { background: radial-gradient(circle, #606060 3.5px, #fff 4px); }",
+                // the slider: 360px, the marks at 0, 39, 79, 119, 159 and 359px, the numbers as the floated list of the time
+                // puts them (from 1px before the first mark to 342px), Faster and Slower under the ends
+                G + " .slider.g14 { display: block; position: relative; width: 360px; max-width: none; height: 52px; margin: 0 0 12px; }",
+                G + " .slider.g14 .ruler i { position: absolute; top: 4px; height: 9px; border-left: 1px solid #d0d0d0; }",
+                [0, 39, 79, 119, 159, 359].map(function(x, i) {
+                    return G + " .slider.g14 .ruler i:nth-child(" + (i + 1) + ") { left: " + x + "px; }";
+                }).join(" "),
+                G + " .slider.g14 input[type=range] { position: absolute; left: -6px; top: 0; width: 372px; z-index: 1; }",
+                G + " .slider.g14 b { position: absolute; top: 20px; color: #343434; font: bold 11px/17px Arial, sans-serif; }",
+                [-1, 38, 77, 116, 155, 342].map(function(x, i) {
+                    return G + " .slider.g14 b:nth-of-type(" + (i + 1) + ") { left: " + x + "px; }";
+                }).join(" "),
+                G + " .slider.g14 .sl { position: absolute; top: 36px; color: #666; font-size: 11px; } " + G + " .slider.g14 .fast { left: 0; } " + G + " .slider.g14 .slow { right: 0; }",
+                // the languages: floated columns (167, 137, 146 and 120px), Show more with its little arrow
+                G + " .lcw::after { content: ''; display: block; clear: both; } " + G + " .lc { float: left; margin-right: 2px; font-size: 13px; }",
+                G + " .lc.c1 { min-width: 167px; } " + G + " .lc.c2 { min-width: 137px; } " + G + " .lc.c3 { min-width: 146px; } " + G + " .lc.c4 { min-width: 120px; }",
+                G + " .lc .rad { margin-bottom: -6px; white-space: nowrap; } " + G + " .lc .lrcb { display: block; margin-bottom: 1px; white-space: nowrap; }",
+                G + " .hlother { margin-top: 15px; }",
+                G + " .more14 { font-size: 84%; cursor: pointer; color: #15c; }",
+                G + " .gbma { display: inline-block; position: relative; left: 4px; top: -1px; width: 0; height: 0; border-style: solid dashed dashed; border-color: transparent; border-top-color: #15c; border-width: 3px 3px 0; }",
+                G + " .more14.less .gbma { top: -2px; border-style: dashed dashed solid; border-width: 0 3px 3px; border-color: transparent; border-bottom-color: #15c; }",
+                G + " .lrsum { margin-top: 10px; font-weight: normal; } " + G + " #ugf-lredit { margin-left: 8px; cursor: pointer; }",
+                G + " .lrmax { clear: both; margin-top: 8px; color: #c00; } " + G + " .locerr { color: #c00; }",
+                G + " input.loc { box-sizing: border-box; width: 100%; height: 29px; padding: 1px 8px; border: 1px solid #d9d9d9; border-top-color: #c0c0c0; border-radius: 1px; font: 13px Arial, sans-serif; } " +
+                    G + " input.loc:focus { border-color: #4d90fe; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,.3); }",
+                G + " .btns { display: block; text-align: right; margin: 24px 0 48px; }",
+                G + " .btns .save, " + G + " .btns .cancel { display: inline-block; vertical-align: top; box-sizing: border-box; height: 29px; min-width: 54px; padding: 0 8px; font: bold 11px/27px Arial, sans-serif; text-align: center; }",
+                G + " .btns .save { margin-right: 16px; }",
+                G + " .signin14 { margin: 13px 0 0; color: #666; font-size: 13px; }",
+                G + " #ugf-pf-note { position: fixed; top: 0; left: 50%; transform: translateX(-50%); margin: 0; padding: 6px 16px; background: #f9edbe; border: 1px solid #f0c36d; box-shadow: 0 2px 4px rgba(0,0,0,.2); color: #222; font-weight: normal; z-index: 10; } " +
+                    G + " #ugf-pf-note:empty { display: none; }"];
         };
         const wirePrefs = function(root) {
             const form = root.querySelector("#ugf-pf-form");
@@ -16541,7 +17273,7 @@ function ugfIsErrorPage() {
             });
             // (8.7) the pane the address names: the gear menu's Languages link ends in #languages
             const paneFromHash = function() {
-                const name = { "#languages": "langs", "#langs": "langs", "#results": "results" }[window.location.hash];
+                const name = { "#languages": "langs", "#langs": "langs", "#results": "results", "#location": "loc" }[window.location.hash];
                 const a = name && root.querySelector('.nav a[data-pane="' + name + '"]');
                 if (a) {
                     a.click();
@@ -16549,6 +17281,77 @@ function ugfIsErrorPage() {
             };
             paneFromHash();
             window.addEventListener("hashchange", paneFromHash);
+            // (9.1) Late 2014: the slider stops at its marks (10 to 50 close together, 100 at the end); Show more / Show less for
+            // the product languages; Edit opens the search languages, at most 8 (Google's message), the summary kept up to date
+            const sl14 = root.querySelector(".slider.g14 input[type=range]");
+            if (sl14) {
+                const stops = [0, 39, 79, 119, 159, 359];
+                const idx = form.elements.numidx;
+                const put = function(i) {
+                    i = Math.max(0, Math.min(5, i));
+                    sl14.value = String(stops[i]);
+                    idx.value = String(i);
+                };
+                sl14.addEventListener("input", function() {
+                    const x = parseInt(sl14.value, 10) || 0;
+                    let b = 0;
+                    stops.forEach(function(st, i) {
+                        if (Math.abs(st - x) < Math.abs(stops[b] - x)) {
+                            b = i;
+                        }
+                    });
+                    put(b);
+                });
+                sl14.addEventListener("keydown", function(ev) {
+                    const d = { ArrowLeft: -1, ArrowDown: -1, PageDown: -1, ArrowRight: 1, ArrowUp: 1, PageUp: 1, Home: -9, End: 9 }[ev.key];
+                    if (d) {
+                        ev.preventDefault();
+                        put((parseInt(idx.value, 10) || 0) + d);
+                    }
+                });
+            }
+            const onClick = function(sel, fn) {
+                const a = root.querySelector(sel);
+                if (a) {
+                    a.addEventListener("click", function(ev) {
+                        ev.preventDefault();
+                        fn();
+                    });
+                }
+            };
+            const hlMore = function(open) {
+                root.querySelector(".hlother").hidden = !open;
+                root.querySelector("#ugf-hlmore").hidden = open;
+                root.querySelector("#ugf-hlless").hidden = !open;
+            };
+            onClick("#ugf-hlmore", function() {
+                hlMore(true);
+            });
+            onClick("#ugf-hlless", function() {
+                hlMore(false);
+            });
+            onClick("#ugf-lredit", function() {
+                root.querySelector(".lrlang").hidden = false;
+                root.querySelector("#ugf-lredit").hidden = true;
+            });
+            const lrOn = function() {
+                return [].filter.call(root.querySelectorAll(".lrlang input[name='lr']"), function(o) {
+                    return o.checked;
+                });
+            };
+            root.querySelectorAll(".lrlang input[name='lr']").forEach(function(c) {
+                c.addEventListener("change", function() {
+                    let on = lrOn();
+                    root.querySelector(".lrmax").hidden = on.length <= 8;
+                    if (on.length > 8) {
+                        c.checked = false;
+                        on = lrOn();
+                    }
+                    root.querySelector("#ugf-lrtext").textContent = lrText(on.map(function(o) {
+                        return o.value;
+                    }));
+                });
+            });
             const back = function() {
                 const r = document.referrer || "";
                 window.location.href = /^https:\/\/www\.google\.com\/(search|webhp|\?|$)/.test(r) ? r : "https://www.google.com/";
@@ -16562,29 +17365,92 @@ function ugfIsErrorPage() {
             }
             form.addEventListener("submit", function(ev) {
                 ev.preventDefault();
+                // (9.1) Late 2014: the region is typed on the Location tab; a place Gplex doesn't know gets Google's message
+                // and nothing is saved
+                let gl14 = "";
+                const loc = form.elements.loc;
+                if (loc) {
+                    const t = String(loc.value || "").trim();
+                    gl14 = t ? glFind(t) : "";
+                    if (gl14 === null) {
+                        const err = root.querySelector(".locerr");
+                        err.innerHTML = pol.createHTML("The location <b>" + esc(t) + "</b> was not recognized.");
+                        err.hidden = false;
+                        const a = root.querySelector('.nav a[data-pane="loc"]');
+                        if (a) {
+                            a.click();
+                        }
+                        return;
+                    }
+                }
                 const langs = [].filter.call(form.querySelectorAll("input[name='lr']"), function(c) {
                     return c.checked;
                 }).map(function(c) {
                     return c.value;
                 });
                 const mode = val("lrmode");
-                setPref("UGF_PREF_LR", mode === "any" ? "" : langs.join("|"));
-                setPref("UGF_PREF_HL", val("hl"));
+                // (9.1) Late 2014 ticks English for the default too: left so, the setting stays as it was
+                const lrJoined = langs.join("|");
+                setPref("UGF_PREF_LR", mode === "any" ? "" : form.hasAttribute("data-lr0") && lrJoined === form.getAttribute("data-lr0") ? cur.lr : lrJoined);
+                // (9.1) Late 2014 ticks English for Google's default: left as it was, the setting stays as it was
+                setPref("UGF_PREF_HL", form.hasAttribute("data-hl0") && val("hl") === form.getAttribute("data-hl0") ? cur.hl : val("hl"));
                 if (era === "as12") {
                     setPref("UGF_PREF_SAFE", val("safebox") ? "active" : "");
                     setPref("UGF_PREF_NUM", String([10, 20, 30, 40, 50, 100][parseInt(val("numidx"), 10) || 0]));
-                    setPref("UGF_PREF_GL", val("gl"));
+                    setPref("UGF_PREF_GL", loc ? gl14 : val("gl"));
                 } else {
                     setPref("UGF_PREF_SAFE", val("safe"));
                     setPref("UGF_PREF_NUM", val("num") || "10");
                 }
                 setPref("UGF_PREF_NEWWIN", val("newwin") ? "1" : "");
+                // (9.1) Late 2014's Instant and spoken-answer choices are kept for the page only: today's Google has neither
+                if (form.elements.instant) {
+                    setPref("UGF_PREF_INSTANT", val("instant"));
+                    setPref("UGF_PREF_TTS", val("tts"));
+                }
                 const note = root.querySelector("#ugf-pf-note");
                 if (note) {
                     note.textContent = era === "as12" ? "Your preferences have been saved." : "Your preferences have been saved.";
                 }
                 setTimeout(back, 700);
             });
+        };
+        // (9.1) the One Google card of 2014 (ugfAcc14Html), with the fence the other pages give it
+        const closeAcc14 = function() {
+            document.querySelectorAll("#ugf-gmail-accmenu, #ugf-ma-accfence").forEach(function(el) {
+                el.remove();
+            });
+        };
+        const openAcc14 = function(anchor) {
+            if (document.getElementById("ugf-gmail-accmenu")) {
+                closeAcc14();
+                return;
+            }
+            ugfB13AppsClose();
+            ugfB13NotifsClose();
+            ugfAcc14Css();
+            if (!document.getElementById("ugf-adv-acc14")) {
+                const st = document.createElement("style");
+                st.id = "ugf-adv-acc14";
+                st.textContent = "#ugf-ma-accfence { position: fixed; inset: 0; z-index: 2147483600; } #ugf-gmail-accmenu { position: absolute; z-index: 2147483601; }";
+                (document.head || document.documentElement).appendChild(st);
+                document.addEventListener("keydown", function(ev) {
+                    if (ev.key === "Escape") {
+                        closeAcc14();
+                    }
+                });
+            }
+            const fence = document.createElement("div");
+            fence.id = "ugf-ma-accfence";
+            const menu = document.createElement("div");
+            menu.id = "ugf-gmail-accmenu";
+            menu.className = "acc14";
+            menu.setAttribute("chrome", "m2013");
+            menu.innerHTML = pol.createHTML(ugfAcc14Html(who()));
+            document.body.appendChild(fence);
+            document.body.appendChild(menu);
+            ugfAcc14Place(menu, anchor);
+            fence.addEventListener("click", closeAcc14);
         };
         // (8.7) the grid in the corner opens the launcher, as it does on Gmail, Maps and My Account
         document.addEventListener("click", function(ev) {
@@ -16595,6 +17461,12 @@ function ugfIsErrorPage() {
             if (a) {
                 ev.preventDefault();
                 ugfB13AppsOpen(a, L, "m2013", "");
+            }
+            // (9.1) layout 2014 (Late 2013 to Late 2014): the photo opens the One Google card, as on the search pages and Gmail
+            const ph = L === "2014" ? ev.target.closest("#ugf-adv .top .corner .ugf-b13-photo") : null;
+            if (ph) {
+                ev.preventDefault();
+                openAcc14(ph);
             }
         }, true);
         const PAGE = /^\/preferences/.test(window.location.pathname || "") ? "prefs" : "adv";
@@ -16721,7 +17593,7 @@ function ugfIsErrorPage() {
         }
         // Google's page never shows: hidden from the first moment, then Gplex's is put up
         const veil = document.createElement("style");
-        veil.textContent = "html { background: #fff !important; } body > *:not(#ugf-adv):not(#ugf-gmail-appsmenu):not(#ugf-ma-appsfence) { display: none !important; }";
+        veil.textContent = "html { background: #fff !important; scrollbar-gutter: auto !important; } body > *:not(#ugf-adv):not(#ugf-gmail-appsmenu):not(#ugf-ma-appsfence):not(#ugf-b13n):not(#ugf-b13n-fence):not(#ugf-gmail-accmenu):not(#ugf-ma-accfence) { display: none !important; }";
         const putVeil = function() {
             const at = document.head || document.documentElement;
             if (!at) {
@@ -16760,6 +17632,52 @@ function ugfIsErrorPage() {
         } else {
             document.addEventListener("DOMContentLoaded", go);
         }
+    } catch (e) {}
+})();
+// (9.1) The homepage footer of Late 2014 (Wayback 14 Nov 2014, #fsr): "Privacy & Terms" as one link, and Settings a button
+// whose small menu opens above it (#fsett: white, 1px #999, the shadow, links 44px high, #777): Search settings, Advanced
+// search, History, Search Help, Send feedback
+function ugfHpFoot14() {
+    return "<style>#ugf-hp-fsettw { position: relative; display: inline-block; } " +
+        "#ugf-hp-fsett { position: absolute; bottom: 30px; right: 0; z-index: 100; padding: 10px 0; background: #fff; border: 1px solid #999; box-shadow: 0 2px 4px rgba(0,0,0,.2); text-align: left; } #ugf-hp-fsett[hidden] { display: none; } " +
+        "#ugf-hp-fsett a { display: block; line-height: 44px; padding: 0 20px; color: #777 !important; font-size: 13px; text-decoration: none; white-space: nowrap; } #ugf-hp-fsett a:hover { color: #333 !important; text-decoration: underline; }</style>" +
+        '<a class="ugf-structured-hp-footer-link" href="https://www.google.com/intl/en/policies/">Privacy &amp; Terms</a>' +
+        '<span id="ugf-hp-fsettw"><a class="ugf-structured-hp-footer-link" id="ugf-hp-fsettl" href="https://www.google.com/preferences" role="button" aria-controls="ugf-hp-fsett" aria-expanded="false">Settings</a>' +
+        '<span id="ugf-hp-fsett" hidden><a href="https://www.google.com/preferences">Search settings</a><a href="https://www.google.com/advanced_search">Advanced search</a>' +
+        '<a href="https://myactivity.google.com/product/search">History</a><a href="https://support.google.com/websearch/?p=ws_results_help">Search Help</a>' +
+        '<a href="https://www.google.com/tools/feedback/survey/html?productId=196">Send feedback</a></span></span>';
+}
+(function ugfHpFoot14Wire() {
+    try {
+        if (window.location.host !== "www.google.com" || window.top !== window.self) {
+            return;
+        }
+        const set = function(open) {
+            const m = document.getElementById("ugf-hp-fsett");
+            const l = document.getElementById("ugf-hp-fsettl");
+            if (m && l) {
+                m.hidden = !open;
+                l.setAttribute("aria-expanded", String(open));
+            }
+        };
+        document.addEventListener("click", function(ev) {
+            const m = document.getElementById("ugf-hp-fsett");
+            const t = ev.target && ev.target.closest ? ev.target : null;
+            if (!m || !t) {
+                return;
+            }
+            if (t.closest("#ugf-hp-fsettl") && ev.button === 0 && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey) {
+                ev.preventDefault();
+                set(m.hidden);
+            } else if (!m.hidden && !t.closest("#ugf-hp-fsett")) {
+                set(false);
+            }
+        }, true);
+        document.addEventListener("keydown", function(ev) {
+            if (ev.key === "Escape") {
+                set(false);
+            }
+        }, true);
     } catch (e) {}
 })();
 // (5.10) The Search Settings saved on Gplex's settings page, put into every search: added to
@@ -17191,6 +18109,23 @@ function ugfIsErrorPage() {
                 (document.head || document.documentElement).appendChild(st);
             }
             const w = who();
+            // (9.1) layout 2014 (Late 2013, Early 2014, Late 2014): the One Google card the search pages, Gmail, Calendar,
+            // News and Maps open (ugfAcc14Html), through this site's own node-by-node frag()
+            if (L === "2014" && !GM2) {
+                ugfAcc14Css();
+                const f14 = document.createElement("div");
+                f14.id = "ugf-ma-accfence";
+                const m14 = document.createElement("div");
+                m14.id = "ugf-gmail-accmenu";
+                m14.className = "acc14";
+                m14.setAttribute("chrome", chrome);
+                m14.appendChild(frag(ugfAcc14Html(w)));
+                document.body.appendChild(f14);
+                document.body.appendChild(m14);
+                ugfAcc14Place(m14, anchor);
+                f14.addEventListener("click", closeAcc);
+                return;
+            }
             const photo = w.photo ? '<img src="' + esc(w.photo) + '" alt="">' : '<span class="letter">' + esc((w.first || w.email || "?").charAt(0)) + "</span>";
             const fence = document.createElement("div");
             fence.id = "ugf-ma-accfence";
@@ -28953,6 +29888,238 @@ html[layout="2016C"] .ugf-image-viewer-btn:hover {
   border-color: #222;
   color: #fff;
 }
+/* (9.1) Late 2014 and 2015: the viewer of google.com's screenshots of 19 Dec 2014 and 2 Feb 2015, darker buttons and tabs
+   with a black edge, a shadow under the picture, 80px squares, and fading hairlines */
+html[layout="2014"][gplex2014n] .ugf-image-viewer-btn,
+html[layout="2015"] .ugf-image-viewer-btn {
+  height: 31px;
+  line-height: 29px;
+  padding: 0 8px;
+  margin-right: 10px;
+  background: linear-gradient(to bottom, #3e3e3e, #333);
+  border: 1px solid #141414;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 rgba(255,255,255,.08);
+  color: #bbb;
+}
+html[layout="2014"][gplex2014n] .ugf-image-viewer-btn:hover,
+html[layout="2015"] .ugf-image-viewer-btn:hover {
+  background: linear-gradient(to bottom, #444, #383838);
+  border-color: #111;
+  color: #ddd;
+}
+/* (9.1) the buttons 10px apart (no space between them), and a rule 20px under them, #111 over #2a2a2a, fading at its ends */
+html[layout="2014"][gplex2014n] #ugf-image-viewer-buttons,
+html[layout="2015"] #ugf-image-viewer-buttons {
+  position: relative;
+  font-size: 0;
+  padding-bottom: 20px;
+  margin-right: -26px;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-buttons::after,
+html[layout="2015"] #ugf-image-viewer-buttons::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: linear-gradient(to right, rgba(17,17,17,0), #111 8px, #111 calc(100% - 8px), rgba(17,17,17,0));
+  box-shadow: 0 1px 0 #2a2a2a;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-prev,
+html[layout="2015"] #ugf-image-viewer-prev,
+html[layout="2014"][gplex2014n] #ugf-image-viewer-next,
+html[layout="2015"] #ugf-image-viewer-next {
+  width: 31px;
+  height: 79px;
+  margin-top: -39px;
+  box-sizing: border-box;
+  background: linear-gradient(to bottom, #3f3f3f, #343434);
+  border: 1px solid #131313;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 rgba(255,255,255,.08);
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-next,
+html[layout="2015"] #ugf-image-viewer-next {
+  border-right: 0;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-prev,
+html[layout="2015"] #ugf-image-viewer-prev {
+  border-left: 0;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-prev:hover,
+html[layout="2015"] #ugf-image-viewer-prev:hover,
+html[layout="2014"][gplex2014n] #ugf-image-viewer-next:hover,
+html[layout="2015"] #ugf-image-viewer-next:hover {
+  background: linear-gradient(to bottom, #474747, #3a3a3a);
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-prev::before,
+html[layout="2015"] #ugf-image-viewer-prev::before,
+html[layout="2014"][gplex2014n] #ugf-image-viewer-next::before,
+html[layout="2015"] #ugf-image-viewer-next::before {
+  top: 30px;
+  width: 15px;
+  height: 15px;
+  border-color: #a0a0a0;
+  border-width: 0 2px 2px 0;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-next::before,
+html[layout="2015"] #ugf-image-viewer-next::before {
+  left: 3px;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-prev::before,
+html[layout="2015"] #ugf-image-viewer-prev::before {
+  left: 12px;
+}
+/* (9.1) no Previous tab on the first picture (19 Dec 2014), nor Next on the last */
+html[layout="2014"][gplex2014n] #ugf-image-viewer-prev[ugf-iv-none],
+html[layout="2015"] #ugf-image-viewer-prev[ugf-iv-none],
+html[layout="2014"][gplex2014n] #ugf-image-viewer-next[ugf-iv-none],
+html[layout="2015"] #ugf-image-viewer-next[ugf-iv-none] {
+  display: none;
+}
+/* (9.1) the picture's soft shadow, offset down, with room for it around the picture */
+html[layout="2014"][gplex2014n] #ugf-image-viewer-left,
+html[layout="2015"] #ugf-image-viewer-left {
+  position: relative;
+  overflow: visible;
+  padding: 30px 20px 30px 43px;
+  border-right: 0;
+  box-shadow: none;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-image img,
+html[layout="2015"] #ugf-image-viewer-image img {
+  box-shadow: 0 5px 30px rgba(0,0,0,.55);
+}
+/* (9.1) the divider, #111 with #2a2a2a to its right, fading in and out about 20px from the panel's top and bottom */
+html[layout="2014"][gplex2014n] #ugf-image-viewer-left::after,
+html[layout="2015"] #ugf-image-viewer-left::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 19px;
+  bottom: 18px;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(17,17,17,0), #111 7px, #111 calc(100% - 8px), rgba(17,17,17,0));
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-left::before,
+html[layout="2015"] #ugf-image-viewer-left::before {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 19px;
+  bottom: 18px;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(42,42,42,0), #2a2a2a 7px, #2a2a2a calc(100% - 8px), rgba(42,42,42,0));
+}
+/* (9.1) text: the title lighter, the address the same grey as the size, "Related images:" lighter */
+html[layout="2014"][gplex2014n] #ugf-image-viewer-title,
+html[layout="2015"] #ugf-image-viewer-title {
+  color: #eee;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-domain,
+html[layout="2015"] #ugf-image-viewer-domain {
+  color: inherit;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-related,
+html[layout="2015"] #ugf-image-viewer-related {
+  margin-top: 20px;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-related-title,
+html[layout="2015"] #ugf-image-viewer-related-title {
+  color: #aaa;
+  margin-bottom: 5px;
+}
+/* (9.1) 80px squares without a border, the open picture first with a 2px #bbb outline */
+html[layout="2014"][gplex2014n] #ugf-image-viewer-related-grid,
+html[layout="2015"] #ugf-image-viewer-related-grid {
+  grid-template-columns: repeat(4, 80px);
+  grid-auto-rows: 80px;
+  gap: 10px 11px;
+  padding: 3px 0 0 3px;
+}
+/* (9.1) 2015: the 8th square a darkened "View more" tile (Google Operating System, 2 Feb 2015) */
+html[layout="2015"] #ugf-image-viewer-related-grid a.ugf-iv-more {
+  position: relative;
+}
+html[layout="2015"] #ugf-image-viewer-related-grid a.ugf-iv-more::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,.4);
+}
+html[layout="2015"] #ugf-image-viewer-related-grid a.ugf-iv-more span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 14px;
+  color: #fff;
+  font-size: 16px;
+  line-height: 19px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-related-grid a,
+html[layout="2015"] #ugf-image-viewer-related-grid a {
+  border: 0;
+  outline-offset: 1px;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-related-grid a.ugf-iv-cur,
+html[layout="2015"] #ugf-image-viewer-related-grid a.ugf-iv-cur {
+  outline: 2px solid #bbb;
+  cursor: default;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-related-grid a:not(.ugf-iv-cur):hover,
+html[layout="2015"] #ugf-image-viewer-related-grid a:not(.ugf-iv-cur):hover {
+  outline: 2px solid #999;
+}
+/* (9.1) a panel under 400px, too short for two rows of squares, shows one (Google's 433px panel holds two) */
+html[layout="2014"][gplex2014n] #ugf-image-viewer-inner[ugf-iv-short] #ugf-image-viewer-related-grid a:nth-child(n+5),
+html[layout="2015"] #ugf-image-viewer-inner[ugf-iv-short] #ugf-image-viewer-related-grid a:nth-child(n+5) {
+  display: none;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-copy a,
+html[layout="2015"] #ugf-image-viewer-copy a,
+html[layout="2014"][gplex2014n] #ugf-image-viewer-copy a:visited,
+html[layout="2015"] #ugf-image-viewer-copy a:visited {
+  color: inherit;
+  text-decoration: none;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-copy a:hover,
+html[layout="2015"] #ugf-image-viewer-copy a:hover {
+  text-decoration: underline;
+}
+/* (9.1) the thinner, smaller close X, 20px from the right and 22px from the top */
+html[layout="2014"][gplex2014n] #ugf-image-viewer-close,
+html[layout="2015"] #ugf-image-viewer-close {
+  width: 20px;
+  height: 20px;
+  right: 20px;
+  top: 22px;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-close::before,
+html[layout="2015"] #ugf-image-viewer-close::before,
+html[layout="2014"][gplex2014n] #ugf-image-viewer-close::after,
+html[layout="2015"] #ugf-image-viewer-close::after {
+  left: -4px;
+  top: 9px;
+  width: 28px;
+  background: #666;
+}
+html[layout="2014"][gplex2014n] #ugf-image-viewer-close:hover::before,
+html[layout="2015"] #ugf-image-viewer-close:hover::before,
+html[layout="2014"][gplex2014n] #ugf-image-viewer-close:hover::after,
+html[layout="2015"] #ugf-image-viewer-close:hover::after {
+  background: #ccc;
+}
 /* --- image viewer per-layout theming --- */
 /* classic era: light panel, plain blue links, square edges */
 [layout="retro"] #ugf-image-viewer-inner,
@@ -29881,43 +31048,44 @@ html[layout="2014"] #ugf-fake-share-button::after {
 html[layout="2014"] #ugf-fake-share-button:hover::after {
   border-top-color: rgba(0,0,0,.08);
 }
-html[layout="2014"][gplex2014n] #ugf-fake-share-button {
-  background: none;
-  width: 30px;
-}
-html[layout="2014"][gplex2014n] #ugf-fake-share-button .ugf-plus-button-text {
-  display: none;
-}
-html[layout="2014"][gplex2014n] #ugf-fake-share-button::after {
-  border: none;
-  top: 6px;
-  right: 4px;
-  width: 21px;
-  height: 18px;
-  opacity: .85;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 21 18'%3E%3Cpath d='M1 0h16a1 1 0 0 1 1 1v14l3 3H0V1a1 1 0 0 1 1-1zm1 2v14h14V2zm6 3h2v3h3v2h-3v3H8v-3H5V8h3z' fill-rule='evenodd'/%3E%3C/svg%3E") center / 21px 18px no-repeat;
-}
-html[layout="2014"][gplex2014n] #ugf-fake-share-button:hover::after {
-  opacity: 1;
-}
-/* (8.1) the corner of October-December 2014 as measured off Google's own screenshot: +Name in #404040,
-   the grid of 19px, the bell 19x23, the Share icon 24x21 (all 55% black, as Google drew them) and the
-   photo at 34px, with Google's spacing */
+/* (8.1) the corner of October-December 2014: +Name in #404040; (9.1) the rest as Google's own bar CSS of
+   10 November 2014 has it (the Wayback copy of news.google.com, 20141110134427) and the dated 1x screenshots
+   of 21 October and 15 December 2014 show it: the grid, the bell and Share each a 30x30 cell of Google's icon
+   sheet v1_fd3cfc85.png (v2_81e8ef99.png on 2x screens) at 55% black, 85% under the pointer or with the menu
+   open, 15px between the items and the photo at 32px. 8.1's grid 19, bell 28, Share 24x21 and photo 34 came
+   off an undated screenshot of unknown scale, about 1.18 times Google's size */
 html[layout="2014"][gplex2014n] .ugf-plus-buttons a {
   color: #404040;
-  margin-right: 24px;
+  margin-right: 15px;
 }
 html[layout="2014"][gplex2014n] #waffle {
-  padding: 0 18px 0 0;
+  padding: 0;
+  margin-right: 15px;
+  width: 30px;
+  height: 30px;
+  justify-content: center;
 }
 html[layout="2014"][gplex2014n] #waffle .gp-icon {
-  width: 19px;
-  height: 19px;
+  width: 30px;
+  height: 30px;
   align-self: center;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 19 19'%3E%3Cpath d='M0 0h5v5H0zM7 0h5v5H7zM14 0h5v5h-5zM0 7h5v5H0zM7 7h5v5H7zM14 7h5v5h-5zM0 14h5v5H0zM7 14h5v5H7zM14 14h5v5h-5z'/%3E%3C/svg%3E") center / 19px 19px no-repeat;
+  opacity: .55;
+  background: url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") -69px -467px / 134px 1238px no-repeat;
+  background-image: -webkit-image-set(url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") 1x, url("https://ssl.gstatic.com/gb/images/v2_81e8ef99.png") 2x);
+  background-image: image-set(url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") 1x, url("https://ssl.gstatic.com/gb/images/v2_81e8ef99.png") 2x);
+}
+html[layout="2014"][gplex2014n] #ugf-fake-notifs-button {
+  width: 30px;
+  padding: 0;
+  margin: 0 15px 0 0;
+  justify-content: center;
 }
 html[layout="2014"][gplex2014n] #ugf-fake-notifs-button .ugf-plus-button-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z'/%3E%3C/svg%3E");
+  width: 30px;
+  height: 30px;
+  background: url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") -35px -1151px / 134px 1238px no-repeat;
+  background-image: -webkit-image-set(url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") 1x, url("https://ssl.gstatic.com/gb/images/v2_81e8ef99.png") 2x);
+  background-image: image-set(url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") 1x, url("https://ssl.gstatic.com/gb/images/v2_81e8ef99.png") 2x);
 }
 html[layout="2014"][gplex2014e] #ugf-fake-notifs-button .ugf-plus-button-icon {
   width: 24px;
@@ -29934,30 +31102,45 @@ html[layout="2014"][gplex2014e] #ugf-account-button img {
   height: 32px;
   border-radius: 50%;
 }
+/* (9.1) Share: Google's 21x18 icon (an 18x18 square, 2px outline, an 8x8 plus and a 3px tail) in its 30x30
+   cell at -35px -1116px, in place of 8.1's 24x21 tray */
 html[layout="2014"][gplex2014n] #ugf-fake-share-button {
-  width: 24px;
-  margin-left: 11px;
+  background: none;
+  width: 30px;
+  height: 30px;
+  margin: 0 15px 0 0;
+}
+html[layout="2014"][gplex2014n] #ugf-fake-share-button .ugf-plus-button-text {
+  display: none;
 }
 html[layout="2014"][gplex2014n] #ugf-fake-share-button::after {
-  top: 4px;
+  border: none;
+  top: 0;
   right: 0;
-  width: 24px;
-  height: 21px;
+  width: 30px;
+  height: 30px;
   opacity: .55;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 21'%3E%3Cpath d='M1.5 0h18A1.5 1.5 0 0 1 21 1.5V17l3 4H0V1.5A1.5 1.5 0 0 1 1.5 0zM2 2v15h17V2zm7.25 2.5h2.5v3.75h3.75v2.5h-3.75v3.75h-2.5v-3.75H5.5v-2.5h3.75z' fill-rule='evenodd'/%3E%3C/svg%3E") center / 24px 21px no-repeat;
+  background: url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") -35px -1116px / 134px 1238px no-repeat;
+  background-image: -webkit-image-set(url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") 1x, url("https://ssl.gstatic.com/gb/images/v2_81e8ef99.png") 2x);
+  background-image: image-set(url("https://ssl.gstatic.com/gb/images/v1_fd3cfc85.png") 1x, url("https://ssl.gstatic.com/gb/images/v2_81e8ef99.png") 2x);
 }
+/* (9.1) 85% under the pointer and while the menu is open (.gb_A:hover, .gb_A:focus {opacity: .85}), #262626 on
+   white: still black to the eye, as the tester asked in 8.3, and the shade the 21 October 2014 shot has */
 html[layout="2014"][gplex2014n] #ugf-fake-share-button:hover::after,
 html[layout="2014"][gplex2014n] #ugf-fake-notifs-button:hover .ugf-plus-button-icon,
-html[layout="2014"][gplex2014n] #waffle:hover .gp-icon {
-  opacity: 1;
+html[layout="2014"][gplex2014n][notifs-dd-open] #ugf-fake-notifs-button .ugf-plus-button-icon,
+html[layout="2014"][gplex2014n] #waffle:hover .gp-icon,
+html[layout="2014"][gplex2014n][apps-dd-open] #waffle .gp-icon {
+  opacity: .85;
 }
+/* (9.1) the photo at 32px with Google's -1px margin (.gb_4) */
 html[layout="2014"][gplex2014n] #ugf-account-button,
 html[layout="2014"][gplex2014n] #ugf-account-button img {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
 }
 html[layout="2014"][gplex2014n] #ugf-account-button {
-  margin-left: 3px;
+  margin-left: -1px;
 }
 html[layout="2014"] #ugf-account-button,
 html[layout="2014"] #ugf-account-button img {
@@ -30223,6 +31406,21 @@ html[gplus-notif-status="failed"] #ugf-notifs-opening {
 [layout="2014"] #ugf-account-pfp:hover #ugf-account-pfp-change {
   background: #4d90fe;
 }
+/* (9.1) Late 2013 to Late 2014: Change photo on a translucent blue band all the time, 23px tall (Google's .gb_oa of
+   10 November 2014; the cards of 10 January 2014 and 3 June 2015), not grey turning blue once the pointer is in the card */
+html[layout="2014"] #ugf-account-pfp-change,
+html[layout="2014"] #ugf-account-pfp:hover #ugf-account-pfp-change,
+html[layout="2014"] #ugf-account-dd:hover #ugf-account-pfp-change {
+  background: rgba(78,144,254,.7);
+  opacity: 1;
+}
+html[layout="2014"] #ugf-account-pfp-change span,
+html[layout="2014"] #ugf-account-dd:hover #ugf-account-pfp-change span {
+  background: none;
+  opacity: 1;
+  padding: 7px 0;
+  line-height: 9px;
+}
 #ugf-account-right {
   margin-left: 20px;
   font-size: 13px;
@@ -30323,6 +31521,62 @@ background: linear-gradient(to bottom,#fff,#f8f8f8);
 #ugf-sign-out {
   margin-left: auto;
 }
+/* (9.1) Late 2013 to Late 2014: the card as Google's CSS of 10 November 2014 draws it and the cards of 10 January 2014
+   and 3 June 2015 show it: a 20% black border with a 0 2px 10px shadow and 2px corners (.gb_D), no shadow over the grey
+   footer, 20px round the text (.gb_la; it was 50px on the right), the name pulled up 4px (.gb_pa), the links 6px above
+   and below (.gb_ka), View profile flat #4d90fe 10px under them (.gb_na .gb_V), Add account and Sign out plain 13px
+   grey buttons (.gb_V, no change under the pointer) and the arrow's edge 20% black */
+html[layout="2014"] #ugf-account-dd {
+  border: 1px solid #ccc;
+  border-color: rgba(0,0,0,.2);
+  box-shadow: 0 2px 10px rgba(0,0,0,.2);
+  border-radius: 2px;
+}
+html[layout="2014"] #ugf-account-dd-account {
+  box-shadow: none;
+  border-bottom: 1px solid #ccc;
+  border-bottom-color: rgba(0,0,0,.2);
+  border-radius: 2px 2px 0 0;
+}
+html[layout="2014"] #ugf-account-right {
+  padding-right: 0;
+}
+html[layout="2014"] #ugf-account-username {
+  margin: -4px 0 1px;
+}
+html[layout="2014"] #ugf-account-links {
+  margin: 6px 0;
+}
+html[layout="2014"] #ugf-account-profile {
+  background: #4d90fe;
+  border-color: #3079ed;
+  padding: 0 12px;
+  height: 28px;
+  line-height: 28px;
+  margin-top: 10px;
+}
+html[layout="2014"] #ugf-account-profile:hover,
+html[layout="2014"] #ugf-account-profile:focus {
+  background: #357ae8;
+  border-color: #2f5bb7;
+  box-shadow: none;
+}
+html[layout="2014"] .ugf-account-dd-button,
+html[layout="2014"] .ugf-account-dd-button:hover,
+html[layout="2014"] .ugf-account-dd-button:focus {
+  background: #f8f8f8;
+  border: 1px solid #c6c6c6;
+  color: #666 !important;
+  font-size: 13px;
+  font-weight: normal;
+  padding: 0 12px;
+  height: 28px;
+  line-height: 28px;
+  box-shadow: none;
+}
+html[layout="2014"] #triangle-3 {
+  border-bottom-color: rgba(0,0,0,.2) !important;
+}
 
 [location="structured-home"]::after {
   background: #f4f4f4;
@@ -30421,6 +31675,17 @@ background: linear-gradient(to bottom,#fff,#f8f8f8);
   color: #666 !important;
   font-size: 13px;
 }
+/* (9.1) Late 2014, as Google's home page of 14 November 2014: #fsl margin-left 30px with its first link unpadded, then
+   ._Gs padding-left 27px plus the space Google's inline links had between them (.2778em of 13px Arial), #fsr margin-right 30px */
+html[layout="2014"][gplex2014n] .ugf-structured-hp-footer-link {
+  padding-left: calc(27px + .2778em);
+}
+html[layout="2014"][gplex2014n] #ugf-structured-hp-footer-left {
+  margin-left: 30px;
+}
+html[layout="2014"][gplex2014n] #ugf-structured-hp-footer-left > .ugf-structured-hp-footer-link:first-child {
+  padding-left: 0;
+}
 @media only screen and (min-height: 850px) {
   #ugf-structured-hp-footer {
     position: fixed;
@@ -30496,6 +31761,17 @@ html:not([location="home"]) #ugf-homepage-links {
 .ugf-homepage-link:hover {
   opacity: .85;
   text-decoration: underline;
+}
+/* (9.1) Late 2014: Google's bar links, #404040, black and underlined under the pointer (home page of Nov 2014) */
+html[layout="2014"][gplex2014n] #ugf-homepage-links .ugf-homepage-link {
+  color: #404040 !important;
+}
+/* (9.1) and on keyboard focus too: Google's a.gb_d:hover, a.gb_d:focus (10 Nov 2014) */
+html[layout="2014"][gplex2014n] #ugf-homepage-links .ugf-homepage-link:hover,
+html[layout="2014"][gplex2014n] #ugf-homepage-links .ugf-homepage-link:focus {
+  text-decoration: underline;
+  color: #000 !important;
+  opacity: 1;
 }
 #ugf-hp {
   width: 584px;
@@ -36253,10 +37529,10 @@ html[shopping-results] #ugf-center {
                         <a class="ugf-structured-hp-footer-link" href="https://www.google.com/services/">Business</a>
                         <a class="ugf-structured-hp-footer-link" href="https://www.google.com/intl/en/about/">About</a>
                     </div>
-                    <div id="ugf-structured-hp-footer-right" class="flex-bar">
+                    <div id="ugf-structured-hp-footer-right" class="flex-bar">${layout === "2014" && ugf2014V() === "2014N" ? ugfHpFoot14() : `
                         <a class="ugf-structured-hp-footer-link" href="https://www.google.com/intl/en/policies/privacy/">Privacy</a>
                         <a class="ugf-structured-hp-footer-link" href="https://www.google.com/intl/en/policies/terms/">Terms</a>
-                        <a class="ugf-structured-hp-footer-link" href="https://www.google.com/preferences">Settings</a>
+                        <a class="ugf-structured-hp-footer-link" href="https://www.google.com/preferences">Settings</a>`}
                     </div>`}
                 </div>
             </div>
@@ -36946,7 +38222,7 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                                     </div>
                                     <a id="ugf-sign-in" class="ugf-logged-in-out ugf-hide-on-legacy" href="https://accounts.google.com">Sign in</a>
                                     <div id="ugf-account-button" class="ugf-logged-in-out ugf-hide-on-legacy">
-                                        <img src="${pfp}"></img>
+                                        <img${pfp ? ` src="${pfp}"` : ""}></img>
                                     </div>
                                     <div id="ugf-account-dd" class="ugf-hide-on-legacy">
                                         <div id="triangle-3"></div>
@@ -36955,13 +38231,13 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                                             <div id="ugf-account-dd-account" class="flex">
                                                 <div id="ugf-account-left">
                                                     <a id="ugf-account-pfp" href="https://myaccount.google.com">
-                                                        <img src="${pfp96}"></img>
+                                                        <img${pfp96 ? ` src="${pfp96}"` : ""}></img>
                                                         <div id="ugf-account-pfp-change">
                                                             <span>Change photo</span>
                                                         </div>
                                                     </a>
                                                     <div id="ugf-account-normal-pfp">
-                                                        <img src="${pfp96}"></img>
+                                                        <img${pfp96 ? ` src="${pfp96}"` : ""}></img>
                                                     </div>
                                                 </div>
                                                 <div id="ugf-account-right">
@@ -41972,7 +43248,8 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
             ["Languages", "https://www.google.com/preferences#languages"],
             [safeOn ? "Turn off SafeSearch" : "Turn on SafeSearch", here.toString()],
             ["Advanced search", "https://www.google.com/advanced_search" + (q ? "?q=" + q : "")],
-            [lay === "2016" ? "History" : "Web history", "https://myactivity.google.com/product/search"],
+            // (9.1) "History" from Late 2014 too (the gear menu of 22 Dec 2014, the homepage menu of 14 Nov 2014)
+            [lay === "2016" || (lay === "2014" && ugf2014V() === "2014N") ? "History" : "Web history", "https://myactivity.google.com/product/search"],
             ["Search help", "https://support.google.com/websearch"]
         ];
         const dd = document.createElement("div");
@@ -42096,12 +43373,6 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
     let ugfActiveImageViewerCard = null;
 
     function ugfCloseImageViewer() {
-        if (typeof ugfPanel2016 !== "undefined" && ugfPanel2016.on() && ugfPanel2016.close(ugfCloseImageViewerNow)) {
-            return;
-        }
-        ugfCloseImageViewerNow();
-    }
-    function ugfCloseImageViewerNow() {
         let container = document.querySelector("#ugf-image-viewer");
         if (container) container.innerHTML = ugfTT("");
         ugfPlaceImageViewer(null);
@@ -42161,39 +43432,17 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         }
     }
 
+    // (9.1) the viewer of google.com's screenshots of 19 Dec 2014 and 2 Feb 2015: Late 2014 and 2015
+    function ugfIvLate14() {
+        return ugf14() === "2014N" || String(layout) === "2015";
+    }
     // (7.2.16) "View original image" until the 2014 viewer shortened it
     function ugfViewerImageLabel() {
         return ["2012", "2013", "2013L"].indexOf(String(layout)) > -1 ? "View original image" : "View image";
     }
     // (7.2.16) the viewer goes in the results under the clicked picture's row: that row moves its
     // margin down to make room, and the notch points at the picture
-    // (gplex-patched) the picture at its own size, as far as the panel allows, from the first moment:
-    // Google's small thumbnail is stretched to that size until the full picture has loaded (and stays
-    // so if it can't load); a small picture is never made bigger than it really is
-    function ugfFitImageViewerImg(img, panelH) {
-        const left = document.querySelector("#ugf-image-viewer-left");
-        let fw = parseInt(img.getAttribute("ugf-full-w"), 10) || 0;
-        let fh = parseInt(img.getAttribute("ugf-full-h"), 10) || 0;
-        if (img.naturalWidth > fw || !fh) {
-            fw = img.naturalWidth;
-            fh = img.naturalHeight;
-        }
-        if (!left || !fw || !fh) {
-            return;
-        }
-        const cs = getComputedStyle(left);
-        const k = Math.min(1, (left.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / fw, (panelH - 40) / fh);
-        img.style.width = Math.round(fw * k) + "px";
-        img.style.height = Math.round(fh * k) + "px";
-        img.style.maxWidth = "none";
-        img.style.maxHeight = "none";
-    }
     function ugfPlaceImageViewer(item) {
-        // (gplex-patched) 2014-2016: the panel as measured on recordings of it (search/images2016.js)
-        if (typeof ugfPanel2016 !== "undefined" && ugfPanel2016.on()) {
-            ugfPanel2016.place(item, ugfFitImageViewerImg, ugfPlaceImageViewer);
-            return;
-        }
         document.querySelectorAll(".ugf-image-result[ugf-iv-row]").forEach(function(e) {
             e.removeAttribute("ugf-iv-row");
             e.style.removeProperty("margin-bottom");
@@ -42204,14 +43453,19 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         if (!item || !inner || !host || !item.isConnected) {
             return;
         }
-        // (gplex-patched) the panel as tall as Google's was, window allowing: 483 in January 2013, then 46% of its width
-        const ugfIvLayout = document.documentElement.getAttribute("layout") || "";
-        const h = Math.max(260, Math.min(ugfIvLayout === "2013" ? 483 : /^20(1[3-9]|2)/.test(ugfIvLayout) ? Math.round(host.clientWidth * 0.461) : 380, window.innerHeight - 190));
+        // (9.1) Late 2014 and 2015: Google's panel was 433px tall (19 Dec 2014, a window about 924x828), its picture about .65 of
+        // that with room around it for the shadow; a panel under 400px, too short for two rows of related pictures, shows one
+        const iv14 = ugfIvLate14();
+        const h = Math.max(iv14 ? 300 : 260, Math.min(iv14 ? 433 : 380, window.innerHeight - 190));
         inner.style.height = h + "px";
+        if (iv14 && h < 400) {
+            inner.setAttribute("ugf-iv-short", "");
+        } else {
+            inner.removeAttribute("ugf-iv-short");
+        }
         const img = inner.querySelector("#ugf-image-viewer-image img");
         if (img) {
-            img.style.maxHeight = (h - 40) + "px";
-            ugfFitImageViewerImg(img, h);
+            img.style.maxHeight = (iv14 ? Math.round(h * .65) : h - 40) + "px";
         }
         const top = item.offsetTop;
         const row = [].filter.call(item.parentElement.querySelectorAll(".ugf-image-result"), function(e) {
@@ -42247,17 +43501,6 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         }
     }
     function doImageViewer(item) {
-        const ugfP16 = typeof ugfPanel2016 !== "undefined" && ugfPanel2016.on();
-        if (ugfP16 && item === ugfActiveImageViewerCard && !ugfPanel2016.isClosing() && document.querySelector("#ugf-image-viewer-inner")) {
-            ugfCloseImageViewer();
-            return;
-        }
-        ugfDoImageViewerGplex(item);
-        if (ugfP16) {
-            ugfPanel2016.dress(item);
-        }
-    }
-    function ugfDoImageViewerGplex(item) {
         ugfActiveImageViewerCard = item;
         window.removeEventListener("keydown", ugfOnImageViewerKeyDown);
         window.addEventListener("keydown", ugfOnImageViewerKeyDown);
@@ -42315,20 +43558,11 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                                                             <a class="ugf-image-viewer-btn ugf-image-viewer-btn-2" href="${viewImageHref}" target="_blank" referrerpolicy="no-referrer">${ugfViewerImageLabel()}</a>
                                                         </div>
                                                         <div id="ugf-image-viewer-related"></div>
-                                                        <div id="ugf-image-viewer-copy">Image may be subject to copyright.</div>
+                                                        <div id="ugf-image-viewer-copy">${ugfIvLate14() ? 'Images may be subject to copyright. - <a href="https://www.google.com/tools/feedback/survey/html?productId=196" target="_blank">Send feedback</a>' : "Image may be subject to copyright."}</div>
                                                     </div>
                                                 </div>
         `);
         container.insertBefore(newElem, container.children[0]);
-        // (gplex-patched) its real size, for the fit, and fitted again when each version of it loads
-        const ivImg = newElem.querySelector("#ugf-image-viewer-image img");
-        if (ivImg) {
-            ivImg.setAttribute("ugf-full-w", origW || w);
-            ivImg.setAttribute("ugf-full-h", origH || h);
-            ivImg.addEventListener("load", function() {
-                ugfFitImageViewerImg(ivImg, parseInt(newElem.style.height, 10) || 380);
-            });
-        }
         ugfPlaceImageViewer(item);
 
         // Progressive loader for large original image: strictly on-demand upon click
@@ -42371,6 +43605,14 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         };
         [["#ugf-image-viewer-prev", -1], ["#ugf-image-viewer-next", 1]].forEach(function(p) {
             const b = newElem.querySelector(p[0]);
+            // (9.1) marked when there is no picture that way; Late 2014 and 2015 then hide the tab (19 Dec 2014)
+            let nb = p[1] > 0 ? item.nextElementSibling : item.previousElementSibling;
+            while (nb && !nb.classList.contains("ugf-image-result")) {
+                nb = p[1] > 0 ? nb.nextElementSibling : nb.previousElementSibling;
+            }
+            if (b && !nb) {
+                b.setAttribute("ugf-iv-none", "");
+            }
             if (b) {
                 b.addEventListener("click", function(ev) {
                     ev.preventDefault();
@@ -42389,7 +43631,9 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
         }
         const rel = newElem.querySelector("#ugf-image-viewer-related");
         if (rel) {
-            const more = [];
+            // (9.1) Late 2014 and 2015: the open picture first (outlined, 19 Dec 2014), then 7 more
+            const ivCur = ugfIvLate14();
+            const more = ivCur ? [item] : [];
             let n = item.nextElementSibling;
             while (n && more.length < 8) {
                 if (n.classList.contains("ugf-image-result")) {
@@ -42404,13 +43648,15 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                 }
                 n = n.previousElementSibling;
             }
-            if (more.length) {
+            if (more.length > (ivCur ? 1 : 0)) {
                 const head = document.createElement("div");
                 head.id = "ugf-image-viewer-related-title";
                 head.textContent = ["2012", "2013"].indexOf(document.documentElement.getAttribute("layout") || "") > -1 ? "Try these too:" : "Related images:";
                 const grid = document.createElement("div");
                 grid.id = "ugf-image-viewer-related-grid";
-                more.forEach(function(it) {
+                // (9.1) 2015: Google Operating System, 2 Feb 2015: "now there are 7 related images and a 'view more' option"
+                const ivMoreHref = String(layout) === "2015" && more.length === 8 && sbi && sbi.parentNode.style.display !== "none" && /^https?:/.test(sbi.href) ? sbi.href : "";
+                more.forEach(function(it, i) {
                     const s = it.getAttribute("img-src") || (it.querySelector("img") ? it.querySelector("img").getAttribute("src") : "");
                     if (!s) {
                         return;
@@ -42421,6 +43667,25 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                     im.src = s;
                     im.referrerPolicy = "no-referrer";
                     a.appendChild(im);
+                    if (it === item) {
+                        // (9.1) the open picture: outlined, and a click does nothing
+                        a.className = "ugf-iv-cur";
+                        a.addEventListener("click", function(ev) {
+                            ev.preventDefault();
+                        });
+                        grid.appendChild(a);
+                        return;
+                    }
+                    if (ivMoreHref && i === 7) {
+                        a.className = "ugf-iv-more";
+                        a.href = ivMoreHref;
+                        a.target = "_blank";
+                        const t = document.createElement("span");
+                        t.textContent = "View more";
+                        a.appendChild(t);
+                        grid.appendChild(a);
+                        return;
+                    }
                     a.addEventListener("click", function(ev) {
                         ev.preventDefault();
                         doImageViewer(it);
@@ -42694,10 +43959,28 @@ html:not([layout="2010"]):not([layout="2011"]):not([layout="2012"]):not([layout=
                 document.querySelector("#ugf-fake-notifs-button").addEventListener("click", function() {
                     document.querySelector("html").setAttribute("notifs-dd-open","");
                     document.querySelector("html").setAttribute("gplus-notif-status","none");
+                    // (9.1) Late 2014: the callout's arrow under the bell's glyph, 11.5px into its 30px cell (where
+                    // Google's arrow sat, left 3px and 17px wide), now the bell is Google's cell
+                    if (document.documentElement.hasAttribute("gplex2014n")) {
+                        const bell = document.querySelector("#ugf-fake-notifs-button");
+                        const ndd = document.querySelector("#ugf-notifs-dd");
+                        const tri = document.querySelector("#triangle-5");
+                        if (bell && ndd && tri) {
+                            tri.style.right = Math.round(ndd.getBoundingClientRect().right - (bell.getBoundingClientRect().left + 11.5) - 12) + "px";
+                        }
+                    }
                     setTimeout(function() {
                         document.querySelector("#ugf-mr-jingles img").setAttribute("src","https://ssl.gstatic.com/s2/oz/images/notifications/jingles_gif_2x_f3cc6d214824b9711a0e8c1a75d285ff.gif");
                     }, 250);
                 });
+                // (9.1) Share opens Gplex+'s share box, as Google's opened the Google+ one, with the results
+                // page it is on (the home page opens an empty box); a new tab, as Gplex+ may not be framed
+                const ugfShareBtn = document.querySelector("#ugf-fake-share-button");
+                if (ugfShareBtn) {
+                    ugfShareBtn.addEventListener("click", function() {
+                        ugfPlusShareOpen(/^\/search/.test(window.location.pathname) ? window.location.href : "");
+                    });
+                }
                 document.querySelector("#ugf-notifs-dd-prev").addEventListener("click", function() {
                     document.querySelector("html").setAttribute("gplus-notif-status","loading");
                     setTimeout(function() {
@@ -46493,16 +47776,22 @@ html[layout="2014"] #ugf-gmail-account .plusname {
   color: #404040;
   margin-right: 9px;
 }
-#ugf-gmail[chrome="m2013"] .ugf-b13-share:not(.e14) {
+/* (9.1) +Name #404040 on Gmail too (the corner's links rule, #444, won); Late 2013's white Share bubble only, not
+   Late 2014's Share icon, which Google drew straight on the bar (21 October 2014) */
+html[layout="2014"] #ugf-gmail[chrome="m2013"] #ugf-gmail-account .plusname {
+  color: #404040;
+}
+/* (9.1) the white bubble is Late 2013's; plain 2014 (Gmail of 2 August 2014) keeps the shared corner's grey block */
+html[layout="2014"][gplex2013n] #ugf-gmail[chrome="m2013"] .ugf-b13-share:not(.e14):not(.icon) {
   background: #fff !important;
 }
-#ugf-gmail[chrome="m2013"] .ugf-b13-share:not(.e14)::after {
+html[layout="2014"][gplex2013n] #ugf-gmail[chrome="m2013"] .ugf-b13-share:not(.e14):not(.icon)::after {
   border-top-color: #fff;
 }
-#ugf-gmail[chrome="m2013"] .ugf-b13-share:not(.e14):hover {
+html[layout="2014"][gplex2013n] #ugf-gmail[chrome="m2013"] .ugf-b13-share:not(.e14):not(.icon):hover {
   background: #f8f8f8 !important;
 }
-#ugf-gmail[chrome="m2013"] .ugf-b13-share:not(.e14):hover::after {
+html[layout="2014"][gplex2013n] #ugf-gmail[chrome="m2013"] .ugf-b13-share:not(.e14):not(.icon):hover::after {
   border-top-color: #f8f8f8;
 }
 #ugf-gmail-account .nbox {
@@ -46887,6 +48176,220 @@ html[layout="2014"] #ugf-gmail-account .plusname {
   padding: 8px 0;
 }
 #ugf-gmail-movemenu[chrome="m2018"] a { padding: 7px 18px; }
+/* (9.1) Gplex's own drop-downs for the 2013 look's carets: Google's menus of the time (white, a faint frame and
+   shadow, 13px items with room for a tick, thin rules between groups) */
+#ugf-gmail-movemenu.g91 {
+  min-width: 120px;
+  max-height: none;
+  overflow: visible;
+  padding: 6px 0;
+  border: 1px solid rgba(0,0,0,.2);
+  box-shadow: 0 2px 4px rgba(0,0,0,.2);
+}
+#ugf-gmail-movemenu.g91 a {
+  position: relative;
+  padding: 6px 44px 6px 30px;
+  color: #222;
+  cursor: pointer;
+}
+#ugf-gmail-movemenu.g91 a:hover { background: #eee; }
+#ugf-gmail-movemenu.g91 a.on::before {
+  content: "✓";
+  position: absolute;
+  left: 11px;
+}
+#ugf-gmail-movemenu.g91 .sep { border-top: 1px solid #ebebeb; margin: 6px 0; }
+#ugf-gmail-movemenu.g91 .note { padding: 6px 44px 6px 30px; color: #777; white-space: nowrap; }
+#ugf-gmail-movemenu.g91 a .ic { position: absolute; left: 8px; top: 5px; line-height: 0; }
+#ugf-gmail-movemenu.g91 a .ic svg { fill: #666; }
+#ugf-gmail-movemenu.g91[data-kind="searchopts"] { padding: 14px 18px 16px; box-sizing: border-box; }
+#ugf-gmail-movemenu.g91 .so label { display: flex; align-items: center; margin: 0 0 10px; color: #222; }
+#ugf-gmail-movemenu.g91 .so label > span { flex: 0 0 110px; }
+#ugf-gmail-movemenu.g91 .so input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 27px;
+  box-sizing: border-box;
+  border: 1px solid #d9d9d9;
+  border-top-color: #c0c0c0;
+  padding: 0 8px;
+  font: 13px arial, sans-serif;
+}
+#ugf-gmail-movemenu.g91 .so input[type="text"]:focus { outline: none; border-color: #4d90fe; }
+#ugf-gmail-movemenu.g91 .so label.ck { margin-left: 110px; gap: 6px; }
+#ugf-gmail-movemenu.g91 .so .go button {
+  width: 70px;
+  height: 29px;
+  background: linear-gradient(#4d90fe, #4787ed);
+  border: 1px solid #3079ed;
+  border-radius: 2px;
+  cursor: pointer;
+  line-height: 0;
+}
+#ugf-gmail-movemenu.g91 .so .go button svg { fill: #fff; }
+#ugf-gmail[chrome="m2013"] #ugf-gmail-gmark,
+#ugf-gmail[chrome="m2013"] .ugf-gmail-searchfield .opts,
+#ugf-gmail[chrome="m2013"] #ugf-gmail-hangouts .hg-name {
+  cursor: pointer;
+}
+/* (9.1) the box sits on the window's bottom edge (it floated 12px above it: the page form's margin) */
+#ugf-gmail[chrome="m2013"] #ugf-gmail-compose-form,
+#ugf-gmail[chrome="m2018"] #ugf-gmail-compose-form {
+  margin-bottom: 0;
+}
+/* (9.1) Late 2014's compose box (Wikipedia, 23 Oct 2014; Google OS, 16 Dec 2014): square, a faint frame and shadow,
+   a 36px head with drawn icons, 41px fields, a body that makes the box about 470px tall, no resize grip */
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form {
+  border-radius: 0;
+  border: 1px solid rgba(0,0,0,.2);
+  border-bottom: 0;
+  box-shadow: 0 0 8px rgba(0,0,0,.2);
+}
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-head {
+  border-radius: 0;
+  height: 36px;
+  line-height: 36px;
+  padding: 0 10px 0 12px;
+}
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-head .ic { height: 36px; align-items: center; gap: 10px; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-head .ic span { line-height: 0; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-head .ic svg { fill: #ccc; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-head .ic span:hover svg { fill: #fff; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form .field { padding: 9px 12px; gap: 4px; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form .field label { width: auto; font-size: 13px; color: #777; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form .field.subj label { display: none; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form input::placeholder { color: #777; opacity: 1; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form .field.to:focus-within input::placeholder,
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form.ccopen .field.to input::placeholder { color: transparent; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form:not(.ccopen) .field.to:not(:focus-within):has(input:placeholder-shown) > label,
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form:not(.ccopen) .field.to:not(:focus-within):has(input:placeholder-shown) > .ccbcc {
+  display: none;
+}
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form .ccbcc { margin-left: auto; display: flex; gap: 10px; font-size: 13px; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form .ccbcc a { color: #777; cursor: pointer; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-form .ccbcc a:hover { color: #222; text-decoration: underline; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-msgbody {
+  resize: none;
+  height: 300px;
+  min-height: 100px;
+  max-height: calc(100vh - 250px);
+}
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-actions { border-top: 0; padding: 10px 12px 12px; gap: 0; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-actions .tools.g91 { gap: 15px; margin-left: 16px; color: #777; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-actions .tools.g91 .t { cursor: pointer; line-height: 0; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-actions .tools.g91 svg { fill: #777; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-actions .tools.g91 .t:hover svg { fill: #222; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-actions .tools.g91 .fmt {
+  font: italic 17px/18px Georgia, "Times New Roman", serif;
+  text-decoration: underline;
+  color: #777;
+  width: 14px;
+  text-align: center;
+}
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-actions i.sep { width: 1px; height: 20px; background: #ddd; margin: 0 2px; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-status { margin-left: auto; padding-right: 8px; }
+#ugf-gmail[g91~="n14"][chrome="m2013"] #ugf-gmail-compose-actions button.bin { margin-left: 0; margin-right: 6px; cursor: pointer; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-compose-actions button.opts {
+  border: 0;
+  background: none;
+  color: #777;
+  font-size: 11px;
+  width: 22px;
+  padding: 0;
+  margin-left: 6px;
+  cursor: pointer;
+}
+/* (9.1) Late 2014's empty roster (Wikipedia, 23 Oct 2014): a big grey bubble over centred words, the link underlined,
+   and the lit tab on a light square */
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-empty { text-align: center; padding: 34px 8px 30px; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-empty .big { display: block; line-height: 0; margin: 0 0 14px; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-empty .big svg { fill: #e8e8e8; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-empty a { text-decoration: underline; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-tabs { gap: 24px; padding: 6px 0; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-tabs a { padding: 5px; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-tabs a svg { fill: #777; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-tabs a.on { background: #f1f1f1; }
+#ugf-gmail[g91~="n14"] #ugf-gmail-nav #ugf-gmail-hangouts .hg-tabs a.on svg { fill: #222; }
+/* (9.1) Aug-Dec 2014's rows (Google OS, Sep, Nov and Dec 2014): square 13px checkboxes with a light grey #c0c0c0
+   frame, the hollow star, and the importance tag (hollow #d0d0d0, or #ffd76e edged #e1ba53 when important) */
+#ugf-gmail[g91~="y14"] #ugf-gmail-list .ugf-gmail-check input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  margin: 3px 3px 3px 4px;
+  border: 1px solid #c0c0c0;
+  border-radius: 0;
+  background: transparent center / 13px 13px no-repeat;
+  vertical-align: middle;
+  cursor: pointer;
+}
+#ugf-gmail[g91~="y14"] #ugf-gmail-list .ugf-gmail-check input:hover { border-color: #999; }
+#ugf-gmail[g91~="y14"] #ugf-gmail-list .ugf-gmail-check input:checked {
+  border-color: #999;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'%3E%3Cpath d='M2.5 6.5l3 3 5.5-7' fill='none' stroke='%23222' stroke-width='2'/%3E%3C/svg%3E");
+}
+#ugf-gmail[g91~="y14"] #ugf-gmail-list .ugf-gmail-star { width: 26px; }
+#ugf-gmail[g91~="y14"] #ugf-gmail-list .ugf-gmail-imp { width: 24px; }
+#ugf-gmail[g91~="y14"] .ugf-gmail-star svg { display: block; margin: 0 auto; }
+#ugf-gmail[g91~="y14"] .ugf-gmail-star .s-off { fill: #c8c8c8; }
+#ugf-gmail[g91~="y14"] .ugf-gmail-star .s-on { fill: #f4b400; display: none; }
+#ugf-gmail[g91~="y14"] .ugf-gmail-star.on .s-off { display: none; }
+#ugf-gmail[g91~="y14"] .ugf-gmail-star.on .s-on { display: block; }
+#ugf-gmail[g91~="y14"] .ugf-gmail-imp svg { display: block; margin: 0 auto; }
+#ugf-gmail[g91~="y14"] .ugf-gmail-imp svg path { fill: none; stroke: #d0d0d0; }
+#ugf-gmail[g91~="y14"] .ugf-gmail-imp.on svg path { fill: #ffd76e; stroke: #e1ba53; }
+/* (9.1) the gear menu's display density (Comfortable is the rows as drawn) */
+#ugf-gmail[density="cozy"] #ugf-gmail-list td { padding-top: 1px; padding-bottom: 1px; }
+#ugf-gmail[density="compact"] #ugf-gmail-list td { padding-top: 0; padding-bottom: 0; line-height: 18px; }
+/* (9.1) the Settings title's gear ▾ (Google OS, Aug 2014) */
+#ugf-gmail #ugf-gmail-settings-gear {
+  float: right;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 29px;
+  padding: 0 10px;
+  background: linear-gradient(#f5f5f5, #f1f1f1);
+  border: 1px solid rgba(0,0,0,.1);
+  border-radius: 2px;
+  color: #666;
+  cursor: pointer;
+}
+#ugf-gmail #ugf-gmail-settings-gear:hover { border-color: #c6c6c6; box-shadow: 0 1px 1px rgba(0,0,0,.1); }
+#ugf-gmail #ugf-gmail-settings-gear svg { fill: #666; }
+#ugf-gmail #ugf-gmail-settings-gear .dd { font-style: normal; font-size: 9px; }
+/* (9.1) Aug 2014 to Jul 2015 (Google OS): the Settings tabs as bold blue links, wrapping, the open one black on light
+   grey; the setting names at the left with their notes under them */
+#ugf-gmail[g91~="s15"][chrome="m2013"] #ugf-gmail-settings-tabs { border-bottom: 0; margin: 0 0 14px; gap: 0; }
+#ugf-gmail[g91~="s15"][chrome="m2013"] #ugf-gmail-settings-tabs a {
+  color: #15c;
+  font: bold 13px/14px arial, sans-serif;
+  padding: 4px 8px;
+  border: 0;
+  margin: 0;
+}
+#ugf-gmail[g91~="s15"][chrome="m2013"] #ugf-gmail-settings-tabs a.active {
+  color: #222;
+  background: #f5f5f5;
+  border-radius: 0;
+}
+#ugf-gmail[g91~="s15"][chrome="m2013"] .ugf-gmail-setting .name { text-align: left; color: #222; }
+#ugf-gmail[g91~="s15"][chrome="m2013"] .ugf-gmail-setting .name .note { font-weight: normal; }
+/* (9.1) Google OS 2 Aug 2014 and 2 Jul 2015: the open tab runs into a #f5f5f5 panel, rows split by #e5e5e5 */
+#ugf-gmail[g91~="s15"][chrome="m2013"] #ugf-gmail-settings-tabs { margin-bottom: 0; }
+#ugf-gmail[g91~="s15"][chrome="m2013"] #ugf-gmail-settings-body { background: #f5f5f5; }
+#ugf-gmail[g91~="s15"][chrome="m2013"] #ugf-gmail-settings-body .ugf-gmail-setting { border-bottom-color: #e5e5e5; }
+/* (9.1) the conversation's importance tag after the subject (Google OS 7 Aug 2014, 17 Feb 2015): 24px after the text and
+   22px before the chip with the header's 10px gap */
+#ugf-gmail[g91~="y14"] #ugf-gmail-subject .ugf-gmail-imp { display: inline-block; width: 14px; margin: 0 12px 0 14px; cursor: pointer; }
+/* (9.1) the search options' close x (Google OS 19 Feb and 27 Nov 2014): 7x7, #999, 12px in from the top and right */
+#ugf-gmail-movemenu.g91[data-kind="searchopts"] > .x { position: absolute; top: 7px; right: 7px; padding: 4px; line-height: 0; color: #999; cursor: pointer; }
+#ugf-gmail-movemenu.g91[data-kind="searchopts"] > .x:hover { color: #666; }
+#ugf-gmail-movemenu.g91[data-kind="searchopts"] > .x svg { display: block; }
+#ugf-gmail-movemenu.g91[data-kind="searchopts"] > .x + .so { margin-top: 10px; }
 /* late 2012-2013: no name on the bar, text centred, and selection is just the
    highlight - the red rule over the current product belongs to the 2011 bar */
 #ugf-gmail #ugf-gmail-gbar.dark.late a {
@@ -46957,7 +48460,7 @@ html[gplex-gmail-loading] body {
 }
 
 /* ---------- take over the page ---------- */
-html[gplex-gmail] body > *:not(#ugf-gmail):not(#ugf-gmail-notice-scrim):not(#ugf-gmail-accmenu):not(#ugf-gmail-appsmenu):not(#ugf-gmail-accfence):not(#ugf-gmail-movemenu):not(#ugf-gmail-styles):not(script):not(style) {
+html[gplex-gmail] body > *:not(#ugf-gmail):not(#ugf-gmail-notice-scrim):not(#ugf-gmail-accmenu):not(#ugf-gmail-appsmenu):not(#ugf-ma-appsfence):not(#ugf-gmail-accfence):not(#ugf-b13n):not(#ugf-b13n-fence):not(#ugf-gmail-movemenu):not(#ugf-gmail-styles):not(script):not(style) {
   visibility: hidden !important;
   position: absolute !important;
   top: 0 !important;
@@ -49136,7 +50639,11 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 snippet: snip ? (snip.textContent || "").replace(/^\s*-\s*/, "").trim() : "",
                 date: date ? (date.textContent || "").trim() : "",
                 unread: tr.classList.contains("zE"),
-                starred: !!(star && star.classList.contains("T-KT-Jp"))
+                starred: !!(star && star.classList.contains("T-KT-Jp")),
+                // (9.1) Gmail's importance marker (.pG): on when it says so, for 2014's yellow tag
+                important: (function(m) {
+                    return !!(m && (m.getAttribute("aria-checked") === "true" || m.classList.contains("pH-A7") || m.querySelector(".pH-A7")));
+                })(tr.querySelector(".pG"))
             });
         });
         const live = out.filter(function(it) {
@@ -50232,19 +51739,49 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         const buttons = '<button class="send" data-c="send">' + (chrome === "kennedy" ? "SEND" : "Send") + "</button>" +
             (feat.saveLabel ? '<button data-c="save">' + esc(feat.saveLabel) + "</button>" : "") +
             (chrome === "m2013" ? "" : '<button data-c="discard">Discard</button>');
+        // (9.1) Late 2014's box (Wikipedia's Gmail picture of 23 Oct 2014, Google OS 16 Dec 2014): drawn minimise,
+        // full-screen and close icons; "Cc Bcc" at the end of the To line, which reads "Recipients" until it is used;
+        // Subject as the field's own grey words; Send, the formatting A, paperclip, Drive, photo, link and emoji, then the
+        // bin and a ▾. The tools Gplex's plain box can't do open Gmail's own compose window, as the full-screen icon does.
+        const late91 = chrome === "m2013" && ugfGmail91("n14");
+        const svg91 = function(d, w) {
+            return '<svg viewBox="0 0 24 24" width="' + (w || 18) + '" height="' + (w || 18) + '" aria-hidden="true"><path d="' + d + '"/></svg>';
+        };
+        const tool91 = function(d, t) {
+            return '<span class="t" data-c="pop" title="' + t + ' (in Gmail\'s own compose window)">' + svg91(d) + "</span>";
+        };
+        const clip91 = "M16.5 6v11.5a4 4 0 01-8 0V5a2.5 2.5 0 015 0v10.5a1 1 0 01-2 0V6H10v9.5a2.5 2.5 0 005 0V5a4 4 0 00-8 0v12.5a5.5 5.5 0 0011 0V6h-1.5z";
         box.innerHTML = trusted_policy.createHTML(
             '<div id="ugf-gmail-compose-head">New Message<span class="ic">' +
-                (chrome === "m2013" ? '<span data-c="min" title="Minimise">_</span><span data-c="pop" title="Pop-out">&#8599;</span>' : "") +
-                '<span data-c="discard" title="Close">&times;</span></span></div>' +
+                (late91
+                    ? '<span data-c="min" title="Minimise"><svg viewBox="0 0 12 12" width="12" height="12"><path d="M1 9h10v2H1z"/></svg></span>' +
+                      '<span data-c="pop" title="Full-screen (Gmail\'s own compose window)"><svg viewBox="0 0 12 12" width="12" height="12"><path d="M7 1h4v4L9.6 3.6 7.7 5.5 6.5 4.3l1.9-1.9zM5 11H1V7l1.4 1.4 1.9-1.9 1.2 1.2-1.9 1.9z"/></svg></span>' +
+                      '<span data-c="discard" title="Close"><svg viewBox="0 0 12 12" width="12" height="12"><path d="M1.8 1 6 5.2 10.2 1l.8.8L6.8 6l4.2 4.2-.8.8L6 6.8 1.8 11l-.8-.8L5.2 6 1 1.8z"/></svg></span>'
+                    : (chrome === "m2013" ? '<span data-c="min" title="Minimise">_</span><span data-c="pop" title="Pop-out">&#8599;</span>' : "") +
+                      '<span data-c="discard" title="Close">&times;</span>') + "</span></div>" +
             (page ? '<div class="ugf-gmail-compose-row">' + buttons + "</div>" : "") +
-            '<div class="field"><label>To</label><input type="text" id="ugf-gmail-to" value="' + esc(prefill.to || "") + '"></div>' +
-            '<div class="field"><label>Subject</label><input type="text" id="ugf-gmail-subj" value="' + esc(prefill.subject || "") + '"></div>' +
+            '<div class="field to"><label>To</label><input type="text" id="ugf-gmail-to" value="' + esc(prefill.to || "") + '"' +
+                (late91 ? ' placeholder="Recipients"><span class="ccbcc"><a data-c="cc">Cc</a><a data-c="bcc">Bcc</a></span></div>' +
+                    '<div class="field cc" style="display:none"><label>Cc</label><input type="text" id="ugf-gmail-cc"></div>' +
+                    '<div class="field bcc" style="display:none"><label>Bcc</label><input type="text" id="ugf-gmail-bcc"></div>'
+                    : "></div>") +
+            '<div class="field subj"><label>Subject</label><input type="text" id="ugf-gmail-subj" value="' + esc(prefill.subject || "") + '"' +
+                (late91 ? ' placeholder="Subject"' : "") + "></div>" +
             '<textarea id="ugf-gmail-msgbody">' + esc(prefill.body || "") + "</textarea>" +
             '<div id="ugf-gmail-compose-actions">' + buttons +
-                (chrome === "m2013" ? '<span class="tools"><b>A</b>' + '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M16.5 6v11.5a4 4 0 01-8 0V5a2.5 2.5 0 015 0v10.5a1 1 0 01-2 0V6H10v9.5a2.5 2.5 0 005 0V5a4 4 0 00-8 0v12.5a5.5 5.5 0 0011 0V6h-1.5z"/></svg>' +
-                    "<b>+</b></span>" : "") +
+                (late91
+                    ? '<span class="tools g91"><span class="t fmt" data-c="pop" title="Formatting options (in Gmail\'s own compose window)">A</span><i class="sep"></i>' +
+                      tool91(clip91, "Attach files") +
+                      tool91("M7.7 3.5L1.2 15l3.4 6 6.6-11.5zM9.7 15l-3.4 6h13.1l3.4-6zM22.3 13.5L15.4 1.5H8.6l6.8 12z", "Insert files using Drive") +
+                      tool91("M21 19V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z", "Insert photo") +
+                      tool91("M3.9 12A3.1 3.1 0 017 8.9h4V7H7a5 5 0 000 10h4v-1.9H7A3.1 3.1 0 013.9 12zM8 13h8v-2H8v2zm9-6h-4v1.9h4a3.1 3.1 0 010 6.2h-4V17h4a5 5 0 000-10z", "Insert link") +
+                      tool91("M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8zm3.5-9A1.5 1.5 0 1014 9.5a1.5 1.5 0 001.5 1.5zm-7 0A1.5 1.5 0 107 9.5 1.5 1.5 0 008.5 11zm3.5 6.5a5.5 5.5 0 005.1-3.5H6.9a5.5 5.5 0 005.1 3.5z", "Insert emoticon") +
+                      "</span>"
+                    : (chrome === "m2013" ? '<span class="tools"><b>A</b>' + '<svg viewBox="0 0 24 24" width="16" height="16"><path d="' + clip91 + '"/></svg>' +
+                      "<b>+</b></span>" : "")) +
                 '<span id="ugf-gmail-compose-status"></span>' +
                 (chrome === "m2013" ? '<button class="bin" data-c="discard" title="Discard draft">' + ugfGmailIcon("trash", 16) + "</button>" : "") +
+                (late91 ? '<i class="sep"></i><button class="opts" data-c="opts" title="More options">&#9662;</button>' : "") +
             "</div>");
         if (page) {
             const main = shell.querySelector("#ugf-gmail-main");
@@ -50267,13 +51804,50 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         const fields = function() {
             return {
                 to: box.querySelector("#ugf-gmail-to").value,
+                // (9.1) Late 2014's Cc and Bcc lines, when opened
+                cc: (box.querySelector("#ugf-gmail-cc") || {}).value || "",
+                bcc: (box.querySelector("#ugf-gmail-bcc") || {}).value || "",
                 subject: box.querySelector("#ugf-gmail-subj").value,
                 body: box.querySelector("#ugf-gmail-msgbody").value
             };
         };
+        // (9.1) Cc or Bcc opens its line under To, and the word goes from the To line
+        const reveal91 = function(kind) {
+            const row = box.querySelector(".field." + kind);
+            const link = box.querySelector('.ccbcc [data-c="' + kind + '"]');
+            if (row) {
+                row.style.display = "";
+                box.classList.add("ccopen");
+                row.querySelector("input").focus();
+            }
+            if (link) {
+                link.style.display = "none";
+            }
+        };
         const acts = {
             send: function() {
-                ugfGmailSend(fields(), status);
+                const f = fields();
+                // (9.1) Gplex fills only Gmail's To, Subject and message: with Cc or Bcc it hands the message to Gmail's own
+                // compose window, filled in, rather than send it without them
+                if (String(f.cc + f.bcc).trim()) {
+                    status("Cc and Bcc go through Gmail's own compose window.");
+                    acts.pop();
+                    return;
+                }
+                ugfGmailSend(f, status);
+            },
+            cc: function() {
+                reveal91("cc");
+            },
+            bcc: function() {
+                reveal91("bcc");
+            },
+            // (9.1) the ▾ at the end of Late 2014's box: this box is plain text; the rest is in Gmail's own window
+            opts: function(ev) {
+                ugfGmail91Menu(ev.currentTarget, "composeopts", [{ t: "Plain text mode", on: true, fn: function() {} },
+                    { sep: true }, { t: "Open in Gmail's own compose window", fn: function() {
+                        acts.pop();
+                    } }], { up: true });
             },
             save: function() {
                 status("Draft saved at " + new Date().toLocaleTimeString() + ".");
@@ -50287,6 +51861,7 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             pop: function() {
                 const f = fields();
                 const url = ugfGmailMailUrl("?view=cm&fs=1&to=" + encodeURIComponent(f.to) +
+                    (f.cc ? "&cc=" + encodeURIComponent(f.cc) : "") + (f.bcc ? "&bcc=" + encodeURIComponent(f.bcc) : "") +
                     "&su=" + encodeURIComponent(f.subject) + "&body=" + encodeURIComponent(f.body));
                 if (url.length > 8000) {
                     status("Too long to pop out. Send it from here.");
@@ -50301,6 +51876,12 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         };
         box.querySelectorAll("[data-c]").forEach(function(b) {
             b.addEventListener("click", acts[b.getAttribute("data-c")]);
+        });
+        // (9.1) pressing Cc / Bcc must not take the focus out of To: the links show only while To has it
+        box.querySelectorAll(".ccbcc a").forEach(function(a) {
+            a.addEventListener("mousedown", function(e) {
+                e.preventDefault();
+            });
         });
         box.querySelector("#ugf-gmail-to").focus();
     }
@@ -50402,7 +51983,7 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         if (!t.msgs.length && ugfGmailPrintFetch.cache) {
             const got = ugfGmailPrintFetch.cache[ugfGmailPrintTid()];
             if (got && got.msgs && got.msgs.length) {
-                return { subject: got.subject || t.subject, msgs: got.msgs, chips: t.chips, counter: t.counter, danger: t.danger, from: "print" };
+                return { subject: got.subject || t.subject, msgs: got.msgs, chips: t.chips, counter: t.counter, danger: t.danger, important: t.important, from: "print" };
             }
         }
         t.from = "page";
@@ -50484,6 +52065,8 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 email: sender ? (sender.getAttribute("email") || "") : "",
                 to: to ? (to.textContent || "").trim() : ugfT("to me"),
                 date: when ? (when.getAttribute("title") || when.textContent || "").trim() : "",
+                // (9.1) what Gmail writes on the page ("10:02 AM (5 hours ago)"); the title above is the full date
+                dateText: when ? (when.textContent || "").trim() : "",
                 html: body ? body.innerHTML : ""
             });
         });
@@ -50502,7 +52085,11 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             msgs: msgs,
             chips: chips,
             counter: counter ? (counter.textContent || "").replace(/\s+/g, " ").trim() : "",
-            danger: danger ? (danger.textContent || "").replace(/\s+/g, " ").trim().slice(0, 240) : ""
+            danger: danger ? (danger.textContent || "").replace(/\s+/g, " ").trim().slice(0, 240) : "",
+            // (9.1) Gmail's importance marker beside the subject, read as the row's is
+            important: (function(m) {
+                return !!(m && (m.getAttribute("aria-checked") === "true" || m.classList.contains("pH-A7") || m.querySelector(".pH-A7")));
+            })(document.querySelector(".ha .pG, h2.hP ~ .pG, h2.hP ~ div .pG"))
         };
     }
     // The list a conversation was opened from: its address minus the conversation id
@@ -50666,6 +52253,9 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         let html = '<div id="ugf-gmail-thread"' + (classic ? ' class="cl"' : "") + ">" +
             '<div id="ugf-gmail-thread-bar">' + bar + nav + "</div>" + (classic ? '<div class="cl-in"><div class="cl-msgs">' : "") +
             '<h1 id="ugf-gmail-subject">' + esc(t.subject || ugfT("(no subject)")) +
+                (chrome === "m2013" && ugfGmail91("y14") && (feat.tabs || feat.priority)
+                    ? '<span class="ugf-gmail-imp g91 subj' + (t.important ? " on" : "") + '" title="' + (t.important ? "Important" : "Not important") +
+                      '">' + ugfGmailImp91() + "</span>" : "") +
                 (classic ? '<a href="#" class="lab" data-back="1" data-ugf-raw>' + esc(label) + "</a>"
                     : '<span class="labelchip">' + esc(label) + ' <span class="x">&times;</span></span>') +
                 (classic || chrome === "kennedy" ? "" : '<span class="subject-icons">' +
@@ -50683,7 +52273,10 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 '<span class="ugf-gmail-msg-who"><span class="ugf-gmail-msg-from">' + esc(m.from || m.email) + "</span>" +
                 (m.email ? ' <span class="ugf-gmail-msg-addr">&lt;' + esc(m.email) + "&gt;</span>" : "") +
                 '<span class="ugf-gmail-msg-to">' + esc(m.to || ugfT("to me")) + " &#9662;</span></span>" +
-                '<span class="ugf-gmail-msg-right"><span>' + esc(classic ? ugfGmailClassicWhen(m.date) : m.date) + "</span>" +
+                // (9.1) 2014-2015 wrote "8:51 PM (3 hours ago)" (Google OS, Feb 2015), the full date only as the tooltip
+                (chrome === "m2013" && ugfGmail91("s15")
+                    ? '<span class="ugf-gmail-msg-right"><span title="' + esc(m.date) + '">' + esc(ugfGmail91When(m.date, m.dateText)) + "</span>"
+                    : '<span class="ugf-gmail-msg-right"><span>' + esc(classic ? ugfGmailClassicWhen(m.date) : m.date) + "</span>") +
                 (chrome === "kennedy" || chrome === "m2013"
                     ? '<span class="starout">&#9734;</span><span class="grp">' +
                       '<button data-msg="reply" class="sq" title="Reply">' + ugfGmailIcon("reply", 16) + "</button>" +
@@ -50732,6 +52325,17 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         main.querySelectorAll("#ugf-gmail-back, [data-back]").forEach(function(a) {
             a.addEventListener("click", goBack);
         });
+        // (9.1) the header's importance tag is clicked like the row's: Gmail's own marker is pressed
+        const imp91s = main.querySelector("#ugf-gmail-subject .ugf-gmail-imp.g91");
+        if (imp91s) {
+            imp91s.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                const on = imp91s.classList.toggle("on");
+                imp91s.title = on ? "Important" : "Not important";
+                ugfGmailRender.imp91At = Date.now();
+                ugfGmailRealClick(document.querySelector(".ha .pG, h2.hP ~ .pG, h2.hP ~ div .pG"));
+            });
+        }
         // (8.39) the classic "More Actions" drop-down acts on this conversation through Gmail's own controls
         main.querySelectorAll("#ugf-gmail-thread select[data-acts]").forEach(function(sel) {
             sel.addEventListener("change", function() {
@@ -50796,6 +52400,11 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 ev.preventDefault();
                 const act = b.getAttribute("data-act");
                 if (act === "settings") {
+                    // (9.1) 2014: the gear opens its menu (Gmail Help, Dec 2014)
+                    if (chrome === "m2013" && ugfGmail91("y14")) {
+                        ugfGmail91Gear(b);
+                        return;
+                    }
                     ugfGmailState().settings = true;
                     ugfGmailRender();
                     return;
@@ -50869,9 +52478,14 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 '<label><input type="radio" name="ugfvr"> Vacation responder on</label>'],
             ["Signature", '<label><input type="radio" name="ugfsg" checked> No signature</label>']
         ];
+        const l91 = String(layout || "");
         if (era === "g2009" || era === "g2010" || era === "g2011" || era === "g2013" || era === "g2018") {
-            rows.splice(3, 0, ["Browser connection", '<label><input type="radio" name="ugfbc" checked> Always use https</label>' +
-                '<label><input type="radio" name="ugfbc"> Don\'t always use https</label>']);
+            // (9.1) only while there was a choice: Gmail made HTTPS permanent on 20 March 2014 (Gmail blog), so the
+            // 2009-2013 looks, Late 2013 and Early 2014 keep it, and 2014 on (2018's look too) do not
+            if (era !== "g2018" && (era !== "g2013" || l91 === "2013" || l91 === "2013L" || ugf14() === "2013N" || ugf14() === "2014E")) {
+                rows.splice(3, 0, ["Browser connection", '<label><input type="radio" name="ugfbc" checked> Always use https</label>' +
+                    '<label><input type="radio" name="ugfbc"> Don\'t always use https</label>']);
+            }
             rows.push(["My picture", "Select a picture that everyone will see when you email them."]);
         }
         if (era === "g2011" || era === "g2013" || era === "g2018") {
@@ -50879,9 +52493,18 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 '<label><input type="radio" name="ugfbl"> Text</label>']);
         }
         if (era === "g2013" || era === "g2018") {
-            rows.splice(2, 0, ["Hover actions", '<label><input type="radio" name="ugfha" checked> Enable hover actions</label>' +
-                '<label><input type="radio" name="ugfha"> Disable hover actions</label>']);
+            // (9.1) hover actions came with the redesign of April 2018: not on the 2013-2017 layouts
+            if (era === "g2018" || l91 === "2018" || l91 === "2018M") {
+                rows.splice(2, 0, ["Hover actions", '<label><input type="radio" name="ugfha" checked> Enable hover actions</label>' +
+                    '<label><input type="radio" name="ugfha"> Disable hover actions</label>']);
+            }
             rows.push(["Stars", "1 star &nbsp; 4 stars &nbsp; all stars"]);
+            // (9.1) Aug 2014 (Google OS): Conversation View, with its grey note under the name
+            if (era === "g2013" && ugfGmail91("s15")) {
+                rows.splice(2, 0, ["Conversation View", '<label><input type="radio" name="ugfcv" checked> Conversation view on</label>' +
+                    '<label><input type="radio" name="ugfcv"> Conversation view off</label>',
+                    "(sets whether emails of the same topic are grouped together)"]);
+            }
         }
         if (era === "g2018") {
             rows.splice(2, 0, ["Nudges", '<label><input type="checkbox" checked> Suggest emails to reply to</label>' +
@@ -51084,13 +52707,19 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
     function ugfGmailRenderSettings(shell, era, feat) {
         const esc = ugfEscapeHtml;
         let tabs = "";
-        feat.settings.forEach(function(name) {
+        // (9.1) "Filters" until Gmail could block senders (Sept 2015): Aug 2014 and Jul 2015 (Google OS) both say "Filters"
+        const l91 = String(layout || "");
+        const pre91 = l91 === "2013" || l91 === "2013L" || l91 === "2014" || l91 === "2015L" || (l91 === "2015" && !UGF_LATE2015);
+        feat.settings.map(function(name) {
+            return pre91 && name === "Filters and Blocked Addresses" ? "Filters" : name;
+        }).forEach(function(name) {
             tabs += '<a href="#" data-tab="' + esc(name) + '"' + (name === ugfGmailState().tab ? ' class="active"' : "") + ">" + esc(name) + "</a>";
         });
         let body = "";
         if (ugfGmailState().tab === "General") {
             ugfGmailGeneralRows(era).forEach(function(r) {
-                body += '<div class="ugf-gmail-setting"><div class="name">' + esc(r[0]) + ':</div><div class="value">' + r[1] + "</div></div>";
+                body += '<div class="ugf-gmail-setting"><div class="name">' + esc(r[0]) + ":" +
+                    (r[2] ? '<span class="note">' + esc(r[2]) + "</span>" : "") + '</div><div class="value">' + r[1] + "</div></div>";
             });
             body += '<div class="ugf-gmail-setting"><div class="name">Categories:</div><div class="value">' +
                 '<label><input type="radio" name="ugfcats" value="false"' + (ugfGmailCategoriesOn() ? "" : " checked") +
@@ -51114,7 +52743,9 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         const main = shell.querySelector("#ugf-gmail-main");
         // (8.39) one block, so the classic layouts can sit it on Gmail's yellow settings band
         main.innerHTML = trusted_policy.createHTML('<div id="ugf-gmail-settings">' +
-            '<h1 id="ugf-gmail-subject">Settings</h1>' +
+            // (9.1) 2014: the gear ▾ sits on the Settings title row too (Google OS, Aug 2014)
+            '<h1 id="ugf-gmail-subject">Settings' + (ugfGmailChrome(era) === "m2013" && ugfGmail91("y14")
+                ? '<button id="ugf-gmail-settings-gear" title="Settings">' + ugfGmailIcon("gear", 16) + '<i class="dd">&#9662;</i></button>' : "") + "</h1>" +
             '<div id="ugf-gmail-settings-tabs">' + tabs + "</div>" +
             '<div id="ugf-gmail-settings-body">' + body + "</div>" +
             '<div id="ugf-gmail-settings-actions"><button id="ugf-gmail-settings-save">Save Changes</button>' +
@@ -51126,6 +52757,13 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 ugfGmailRender();
             });
         });
+        const gear91 = main.querySelector("#ugf-gmail-settings-gear");
+        if (gear91) {
+            gear91.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                ugfGmail91Gear(gear91);
+            });
+        }
         // (gplex-patched) a theme from the grid takes at once
         main.querySelectorAll(".ugf-gmail-themes .theme[data-theme]").forEach(function(t) {
             t.addEventListener("click", function(ev) {
@@ -51830,9 +53468,32 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             el.remove();
         });
     }
+    // (9.1) Late 2013 to Late 2014: the One Google card the search pages draw, as Google's CSS of 10 November 2014 has it
+    // (.gb_D, .gb_6 with .gb_oa, .gb_pa, .gb_qa, .gb_ka, .gb_na .gb_V, .gb_ra .gb_V) and the 2014 popup of the 21 October
+    // 2014 post and the cards of 10 January 2014 and 3 June 2015 show it: a 96px square photo with Change photo on a blue
+    // band, the name, the address, Account - Privacy, View profile, then Add account and Sign out on a grey band, and the
+    // arrow under the photo. Same ids as the generic card, so every page's closing code still finds it
+    function ugfGmailAccountMenu14(anchor, chrome) {
+        ugfAcc14Css();
+        const fence = document.createElement("div");
+        fence.id = "ugf-gmail-accfence";
+        const menu = document.createElement("div");
+        menu.id = "ugf-gmail-accmenu";
+        menu.className = "acc14";
+        menu.setAttribute("chrome", chrome);
+        menu.innerHTML = trusted_policy.createHTML(ugfAcc14Html(ugfGmailIdentity()));
+        document.body.appendChild(fence);
+        document.body.appendChild(menu);
+        ugfAcc14Place(menu, anchor);
+        fence.addEventListener("click", ugfGmailCloseMenus);
+    }
     function ugfGmailAccountMenu(anchor, chrome) {
         if (document.querySelector("#ugf-gmail-accmenu")) {
             ugfGmailCloseMenus();
+            return;
+        }
+        if (chrome === "m2013" && String(layout || "") === "2014") {
+            ugfGmailAccountMenu14(anchor, chrome);
             return;
         }
         const esc = ugfEscapeHtml;
@@ -51950,6 +53611,173 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         });
         bar.classList.toggle("has-sel", n > 0);
     }
+    // (9.1) Which of the dated fixes of 9.1 apply to the 2013 look: "n14" Late 2014 (Oct-Dec 2014, the Wikipedia picture of
+    // 23 Oct and Google OS of Nov-Dec 2014), "y14" all of 2014 but Late 2013 (2014E Jan-Feb, plain 2014 Mar-Aug,
+    // 2014N Sep-Dec: Google OS of Aug and Sep 2014; the row icons and empty search box already in Google OS of 30 May 2013),
+    // "s15" Aug 2014 to Jul 2015 (the Settings tabs, which Google OS photographed in Aug 2014 and Jul 2015 alike)
+    function ugfGmail91Tags() {
+        const v = ugf14();
+        const out = [];
+        if (v === "2014N") {
+            out.push("n14");
+        }
+        if (String(layout || "") === "2014" && v !== "2013N") {
+            out.push("y14");
+        }
+        if (out.length || (String(layout || "") === "2015" && !UGF_LATE2015)) {
+            out.push("s15");
+        }
+        return out;
+    }
+    // (9.1) 2014's importance tag (the list rows and the conversation header)
+    function ugfGmailImp91() {
+        return '<svg viewBox="0 0 14 11" width="14" height="11" aria-hidden="true"><path d="M.5.5h9.5l3.4 5-3.4 5H.5z"/></svg>';
+    }
+    function ugfGmail91(tag) {
+        return ugfGmail91Tags().indexOf(tag) > -1;
+    }
+    // (9.1) Gplex's own drop-down for the 2013 look's carets, which drew a menu and opened nothing (Google's menus are in the
+    // layer Gplex hides). In the move menu's place (#ugf-gmail-movemenu), so closing it, the repaint guard and the hiding
+    // rules already know it. items: { t: words, fn, on: ticked, ic: icon, g: a name, sep: a rule, note: grey words,
+    // html: markup of its own }; at: { x, y } (a right-click), { right: true } (under the anchor's right end), { up: true }
+    function ugfGmail91Menu(anchor, kind, items, at) {
+        const old = document.querySelector("#ugf-gmail-movemenu");
+        const same = old && old.getAttribute("data-kind") === kind;
+        ugfGmailCloseMenus();
+        if (same || (!anchor && !(at && at.x !== undefined))) {
+            return null;
+        }
+        const esc = ugfEscapeHtml;
+        const menu = document.createElement("div");
+        menu.id = "ugf-gmail-movemenu";
+        menu.className = "g91";
+        menu.setAttribute("chrome", "m2013");
+        menu.setAttribute("data-kind", kind);
+        let h = "";
+        items.forEach(function(it, i) {
+            if (it.sep) {
+                h += '<div class="sep"></div>';
+            } else if (it.note) {
+                h += '<div class="note">' + esc(it.note) + "</div>";
+            } else if (it.html) {
+                h += it.html;
+            } else {
+                h += '<a href="#" data-k="' + i + '"' + (it.g ? ' data-g="' + esc(it.g) + '"' : "") + (it.on ? ' class="on"' : "") + ">" +
+                    (it.ic ? '<i class="ic">' + it.ic + "</i>" : "") + esc(it.t) + "</a>";
+            }
+        });
+        menu.innerHTML = trusted_policy.createHTML(h);
+        document.body.appendChild(menu);
+        const r = anchor ? anchor.getBoundingClientRect() : null;
+        const box = menu.getBoundingClientRect();
+        let left = at && at.x !== undefined ? at.x : (at && at.right ? r.right - box.width : r.left);
+        let top = at && at.y !== undefined ? at.y : (at && at.up ? r.top - box.height - 2 : r.bottom + 2);
+        left = Math.max(8, Math.min(left, window.innerWidth - box.width - 8));
+        if (top + box.height > window.innerHeight - 4) {
+            top = Math.max(4, (at && at.y !== undefined ? at.y : r.top) - box.height);
+        }
+        menu.style.left = Math.round(left) + "px";
+        menu.style.top = Math.round(top) + "px";
+        menu.querySelectorAll("a[data-k]").forEach(function(a) {
+            a.addEventListener("click", function(ev) {
+                ev.preventDefault();
+                const it = items[parseInt(a.getAttribute("data-k"), 10)];
+                ugfGmailCloseMenus();
+                if (it && it.fn) {
+                    it.fn();
+                }
+            });
+        });
+        const done = function() {
+            document.removeEventListener("mousedown", away, true);
+            document.removeEventListener("keydown", key, true);
+        };
+        const away = function(ev) {
+            if (!menu.isConnected) {
+                done();
+            } else if (!menu.contains(ev.target) && !(anchor && anchor.contains(ev.target))) {
+                ugfGmailCloseMenus();
+                done();
+            }
+        };
+        const key = function(ev) {
+            if (ev.key === "Escape") {
+                ugfGmailCloseMenus();
+                done();
+            }
+        };
+        setTimeout(function() {
+            document.addEventListener("mousedown", away, true);
+            document.addEventListener("keydown", key, true);
+        }, 0);
+        return menu;
+    }
+    // (9.1) the gear's menu of 2014 (Gmail Help, Dec 2014: "Click the gear... Select Settings"). Its other items are as
+    // remembered, not yet seen in a dated picture of the open menu: Display density, Configure inbox, Themes, Help.
+    function ugfGmail91Gear(anchor) {
+        const d = ugfGmailPref("UGF_GMAIL_DENSITY") || "comfortable";
+        const open = function(tab) {
+            return function() {
+                ugfGmailState().settings = true;
+                ugfGmailState().tab = tab;
+                ugfGmailRender();
+            };
+        };
+        const dens = function(v) {
+            return function() {
+                ugfGmailSetPref("UGF_GMAIL_DENSITY", v);
+                ugfGmailRender();
+            };
+        };
+        return ugfGmail91Menu(anchor, "gear", [
+            { note: "Display density:" },
+            { t: "Comfortable", on: d === "comfortable", fn: dens("comfortable") },
+            { t: "Cozy", on: d === "cozy", fn: dens("cozy") },
+            { t: "Compact", on: d === "compact", fn: dens("compact") },
+            { sep: true },
+            { t: "Configure inbox", fn: open("Inbox") },
+            { t: "Settings", g: "settings", fn: open("General") },
+            { t: "Themes", fn: open("Themes") },
+            { sep: true },
+            { t: "Help", fn: function() {
+                window.open("https://support.google.com/mail/", "_blank");
+            } }
+        ], { right: true });
+    }
+    // (9.1) a message's date as 2014-2015 wrote it: today "8:51 PM (3 hours ago)" (Google OS, 17 Feb 2015), this year
+    // "Nov 7 (8 days ago)", an older year "11/7/13"; from the full date (Gmail's tooltip, or the print view's), else
+    // Gmail's own words
+    function ugfGmail91When(full, text) {
+        const t = String(text || "").trim();
+        const m = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?,?\s+(?:at\s+)?(\d{1,2}):(\d{2})(?:\s*([AP])\.?M\.?)?/i.exec(String(full || ""));
+        if (!m) {
+            return t || String(full || "");
+        }
+        const mon = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(m[1].toLowerCase());
+        const now = new Date();
+        let hr = parseInt(m[4], 10);
+        if (m[6]) {
+            hr = hr % 12 + (m[6].toUpperCase() === "P" ? 12 : 0);
+        }
+        const d = new Date(m[3] ? parseInt(m[3], 10) : now.getFullYear(), mon, parseInt(m[2], 10), hr, parseInt(m[5], 10));
+        const h12 = (d.getHours() % 12 || 12) + ":" + ("0" + d.getMinutes()).slice(-2) + " " + (d.getHours() < 12 ? "AM" : "PM");
+        const day0 = function(x) {
+            return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+        };
+        const days = Math.round((day0(now) - day0(d)) / 86400000);
+        if (days <= 0) {
+            if (/\(.+\)\s*$/.test(t)) {
+                return t;
+            }
+            const mins = Math.max(0, Math.round((now - d) / 60000));
+            return h12 + (mins >= 60 ? " (" + Math.floor(mins / 60) + (mins < 120 ? " hour" : " hours") + " ago)"
+                : (mins > 0 ? " (" + mins + (mins === 1 ? " minute" : " minutes") + " ago)" : ""));
+        }
+        if (d.getFullYear() === now.getFullYear() || days < 60) {
+            return m[1].charAt(0).toUpperCase() + m[1].slice(1, 3).toLowerCase() + " " + d.getDate() + " (" + days + (days === 1 ? " day" : " days") + " ago)";
+        }
+        return (d.getMonth() + 1) + "/" + d.getDate() + "/" + String(d.getFullYear()).slice(-2);
+    }
     function ugfGmailRender() {
         const era = ugfGmailEra();
         const feat = ugfGmailFeatures(era);
@@ -52037,6 +53865,19 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         shell.setAttribute("data-view", hereHash);
         shell.setAttribute("skin", era);
         shell.setAttribute("chrome", chrome);
+        // (9.1) which dated fixes apply (ugfGmail91Tags), for the stylesheet; and 2014's display density from the gear's menu
+        const tags91 = chrome === "m2013" ? ugfGmail91Tags() : [];
+        if (tags91.length) {
+            shell.setAttribute("g91", tags91.join(" "));
+        } else {
+            shell.removeAttribute("g91");
+        }
+        const dens91 = tags91.indexOf("y14") > -1 ? ugfGmailPref("UGF_GMAIL_DENSITY") : "";
+        if (dens91 === "cozy" || dens91 === "compact") {
+            shell.setAttribute("density", dens91);
+        } else {
+            shell.removeAttribute("density");
+        }
         // (gplex-patched) the patch's themes are put on by ugfGmailApplyTheme (Gplex 8.x's own would draw over them)
         const theme = "";
         if (/^https?:/.test(theme)) {
@@ -52058,12 +53899,19 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         }).length;
         const logoHTML = ugfGmailLogoHTML(era, feat);
         let listHTML = "";
+        // (9.1) Aug-Dec 2014 (Google OS, Sep, Nov and Dec 2014): the hollow outline star (filled when starred), and the
+        // importance marker as a tag, hollow, or yellow when important; the » in it only came with personal indicators,
+        // which Gplex's settings leave off
+        const rowIc91 = tags91.indexOf("y14") > -1;
+        const star91 = ugfGmailIcon("starout", 20).replace("<svg ", '<svg class="s-off" ') + ugfGmailIcon("star", 20).replace("<svg ", '<svg class="s-on" ');
+        const imp91 = ugfGmailImp91();
         rows.forEach(function(r, i) {
             listHTML += '<tr data-i="' + i + '" class="' + (r.unread ? "unread" : "") + '">' +
                 '<td class="ugf-gmail-check"><input type="checkbox"></td>' +
-                '<td class="ugf-gmail-star' + (r.starred ? " on" : "") + '">&#9733;</td>' +
+                '<td class="ugf-gmail-star' + (r.starred ? " on" : "") + '">' + (rowIc91 ? star91 : "&#9733;") + "</td>" +
                 // (8.39) the importance markers came with Priority Inbox (Aug 2010) and stayed in the Nov 2011 look
-                (feat.tabs || feat.priority ? '<td class="ugf-gmail-imp">&raquo;</td>' : "") +
+                (feat.tabs || feat.priority ? (rowIc91 ? '<td class="ugf-gmail-imp g91' + (r.important ? " on" : "") + '" title="' +
+                    (r.important ? "Important" : "Not important") + '">' + imp91 + "</td>" : '<td class="ugf-gmail-imp">&raquo;</td>') : "") +
                 '<td class="ugf-gmail-from">' + esc(r.from) + "</td>" +
                 '<td class="ugf-gmail-subject">' + esc(r.subject) +
                 (r.snippet ? ' <span class="snippet">- ' + esc(r.snippet) + "</span>" : "") + "</td>" +
@@ -52132,7 +53980,9 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
         // (8.0) from the new look of November 2011 the rest of the list folded under "More"; (8.39) in 2018 All Mail,
         // Spam, Trash and Categories did (April 2018 tour); 2009-2010 folded them under "N more", below the labels
         // and above Contacts and Tasks (Gmail blog, July 2009; Google OS, Aug 2010)
-        const foldNames = chrome === "m2013" || chrome === "kennedy" ? ["Chats", "All Mail", "Spam", "Trash"]
+        // (9.1) Aug-Dec 2014: Important under More too, first of it (Google OS, 6 Sep and 27 Nov 2014; Wikipedia, 23 Oct 2014)
+        const foldNames = chrome === "m2013" && tags91.indexOf("y14") > -1 ? ["Important", "Chats", "All Mail", "Spam", "Trash"]
+            : chrome === "m2013" || chrome === "kennedy" ? ["Chats", "All Mail", "Spam", "Trash"]
             : (chrome === "m2018" ? ["Categories", "All Mail", "Spam", "Trash"]
                 : ({ g2009: ["Chats", "All Mail", "Spam", "Trash"], g2010: ["Important", "Chats", "All Mail", "Spam", "Trash"] }[era] || []));
         // (8.39) No period had a "Labels" heading. 2004-2006 kept the person's labels in a green box, late 2007-2008 in a
@@ -52204,9 +54054,12 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             navHTML += '<div id="ugf-gmail-hangouts"><div class="hg-top"><span class="hg-me">' + ugfGmailAvatar() + '<i class="hg-dot"></i></span>' +
                 '<span class="hg-name">' + esc(me.first || me.name || me.email || "Me") + ' <span class="hg-caret">&#9662;</span></span>' +
                 '<a class="hg-search" href="https://hangouts.google.com/" target="_blank" title="New conversation">' + ugfGmailIcon("search", 16) + "</a></div>" +
-                '<div class="hg-empty">No recent chats<br><a href="https://hangouts.google.com/" target="_blank">Start a new one</a></div>' +
-                '<div class="hg-tabs"><a class="on" href="https://hangouts.google.com/" target="_blank" title="Contacts">' + person + "</a>" +
-                '<a href="https://hangouts.google.com/" target="_blank" title="Hangouts">' + bubble + "</a></div></div>";
+                // (9.1) Late 2014 (Wikipedia, 23 Oct 2014): the big grey Hangouts bubble over the centred words
+                '<div class="hg-empty">' + (tags91.indexOf("n14") > -1 ? '<span class="big">' + bubble.replace('width="20" height="20"', 'width="56" height="56"') + "</span>" : "") +
+                'No recent chats<br><a href="https://hangouts.google.com/" target="_blank">Start a new one</a></div>' +
+                // (9.1) the Hangouts tab is the lit one while the conversations are listed; Contacts only when people are
+                '<div class="hg-tabs"><a href="https://hangouts.google.com/" target="_blank" title="Contacts">' + person + "</a>" +
+                '<a class="on" href="https://hangouts.google.com/" target="_blank" title="Hangouts">' + bubble + "</a></div></div>";
         } else if (chrome === "m2018") {
             // (8.39) 2019: Hangouts as three icons at the foot of the list (Google's 2019 product picture)
             if (String(layout || "") === "2019") {
@@ -52327,7 +54180,8 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
               '<button id="ugf-gmail-searchweb">Search the Web</button></div>' +
               (feat.searchLinks ? '<span class="ugf-gmail-searchlinks"><a href="#" id="ugf-gmail-opts">Show search options</a><a href="#" id="ugf-gmail-filter">Create a filter</a></span>' : "")
             : '<div class="ugf-gmail-searchfield"><span class="box"><input type="text" id="ugf-gmail-q"' +
-              (chrome === "kennedy" ? "" : ' placeholder="Search mail"') + ">" +
+              // (9.1) 2014's box was empty but for its ▾ (Google OS, Aug and Sep 2014; Wikipedia, 23 Oct 2014)
+              (chrome === "kennedy" || tags91.indexOf("y14") > -1 ? "" : ' placeholder="Search mail"') + ">" +
               '<span class="opts" title="Show search options">&#9662;</span></span>' +
               '<button id="ugf-gmail-search" title="Search mail">' + ugfGmailIcon("search", 20) + "</button></div>";
         const who = ugfGmailDisplayName();
@@ -52512,6 +54366,16 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 }
                 const item = rows[parseInt(tr.getAttribute("data-i"), 10)];
                 if (!item) {
+                    return;
+                }
+                // (9.1) 2014's importance tag is clicked like the star: Gmail's own marker is pressed
+                const imp91c = ev.target && ev.target.closest ? ev.target.closest(".ugf-gmail-imp.g91") : null;
+                if (imp91c) {
+                    const live = ugfGmailLiveRow(item);
+                    imp91c.classList.toggle("on");
+                    if (live) {
+                        ugfGmailRealClick(live.querySelector(".pG"));
+                    }
                     return;
                 }
                 if (ev.target && ev.target.closest(".ugf-gmail-star")) {
@@ -52775,6 +54639,186 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                 }
             });
         });
+        // (9.1) The 2013 look's carets that drew a menu and opened nothing (a click test on 9.0) open Gplex's menus.
+        // Asking Gmail for an action goes as the toolbar's buttons do: its own button, else the item in its More menu.
+        const plans91 = function(word) {
+            return [{ buttons: [word] }, { buttons: ["More", "More options", "More actions"], menuItem: ugfGmailAlt([word]) }];
+        };
+        const delPlans91 = function() {
+            const p = [{ buttons: /^#trash|^#spam/.test(window.location.hash || "") ? ["Delete forever", "Delete"]
+                : ["Delete", "Delete forever", "Move to Trash", "Trash"] }];
+            if (!/^#trash/.test(window.location.hash || "")) {
+                p.push({ buttons: ["Move to"], menuItem: ugfGmailBoxNames("Trash") });
+            }
+            return p;
+        };
+        const run91 = function(picked, word, plans) {
+            return function() {
+                ugfGmailSay(word + "…");
+                ugfGmailRunAction(picked, plans || plans91(word));
+            };
+        };
+        // More ▾: with nothing ticked 2014 offered "Mark all as read"; with mail ticked, its own actions
+        const more91 = function(b) {
+            if (b.closest(".idle-only")) {
+                ugfGmail91Menu(b, "idlemore", [{ t: "Mark all as read", fn: function() {
+                    if (rows.length) {
+                        run91(rows.slice(), "Mark as read")();
+                    }
+                } }, { sep: true }, { note: "Select messages to see more actions" }]);
+                return;
+            }
+            const picked = pickedRows();
+            if (!picked) {
+                return;
+            }
+            const items = [];
+            const some = function(f) {
+                return picked.some(f);
+            };
+            if (some(function(r) { return r.unread; })) {
+                items.push({ t: "Mark as read", fn: run91(picked, "Mark as read") });
+            }
+            if (some(function(r) { return !r.unread; })) {
+                items.push({ t: "Mark as unread", fn: run91(picked, "Mark as unread") });
+            }
+            items.push({ t: "Mark as important", fn: run91(picked, "Mark as important") },
+                { t: "Mark as not important", fn: run91(picked, "Mark as not important") });
+            if (some(function(r) { return !r.starred; })) {
+                items.push({ t: "Add star", fn: run91(picked, "Add star") });
+            }
+            if (some(function(r) { return r.starred; })) {
+                items.push({ t: "Remove star", fn: run91(picked, "Remove star") });
+            }
+            items.push({ sep: true }, { t: "Mute", fn: run91(picked, "Mute") });
+            ugfGmail91Menu(b, "selmore", items);
+        };
+        if (chrome === "m2013") {
+            // Gmail ▾: Gmail, Contacts and Tasks
+            const gmark91 = shell.querySelector("#ugf-gmail-gmark");
+            if (gmark91) {
+                gmark91.addEventListener("click", function(ev) {
+                    ev.preventDefault();
+                    ugfGmail91Menu(gmark91, "gmark", [
+                        { t: "Gmail", fn: function() {
+                            if ((window.location.hash || "#inbox").split("/")[0] !== "#inbox") {
+                                window.location.hash = "#inbox";
+                            }
+                        } },
+                        { t: "Contacts", fn: function() {
+                            window.location.href = "https://contacts.google.com/";
+                        } },
+                        { t: "Tasks", fn: function() {
+                            window.open("https://tasks.google.com/", "_blank");
+                        } }]);
+                });
+            }
+            // the select-all ▾: All, None, Read, Unread, Starred, Unstarred (the box itself still ticks them all)
+            const caret91 = shell.querySelector("#ugf-gmail-toolbar .ugf-gmail-selectall .caret");
+            if (caret91) {
+                const pick91 = function(how) {
+                    return function() {
+                        shell.querySelectorAll("#ugf-gmail-list tr").forEach(function(tr) {
+                            const r = rows[parseInt(tr.getAttribute("data-i"), 10)];
+                            const box = tr.querySelector("input");
+                            if (!r || !box) {
+                                return;
+                            }
+                            const on = how === "all" || (how === "read" && !r.unread) || (how === "unread" && r.unread) ||
+                                (how === "starred" && r.starred) || (how === "unstarred" && !r.starred);
+                            box.checked = on;
+                            tr.classList.toggle("checked", on);
+                        });
+                        const all = shell.querySelector("#ugf-gmail-selall");
+                        if (all) {
+                            all.checked = how === "all" && rows.length > 0;
+                        }
+                        ugfGmailSyncSel(shell);
+                    };
+                };
+                caret91.addEventListener("click", function(ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    ugfGmail91Menu(caret91.closest(".ugf-gmail-selectall"), "selall", [{ t: "All", fn: pick91("all") },
+                        { t: "None", fn: pick91("none") }, { t: "Read", fn: pick91("read") }, { t: "Unread", fn: pick91("unread") },
+                        { t: "Starred", fn: pick91("starred") }, { t: "Unstarred", fn: pick91("unstarred") }]);
+                });
+            }
+            // the search box's ▾: the search options, put together as a Gmail search
+            const opts91 = shell.querySelector(".ugf-gmail-searchfield .opts");
+            if (opts91) {
+                opts91.addEventListener("click", function(ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const field = opts91.closest(".ugf-gmail-searchfield");
+                    const line = function(k, w) {
+                        return '<label><span>' + w + '</span><input type="text" data-o="' + k + '"></label>';
+                    };
+                    const panel = ugfGmail91Menu(field, "searchopts", [{ html: '<div class="x" data-o="x" title="Close"><svg viewBox="0 0 7 7" width="7" height="7" aria-hidden="true">' +
+                        '<path d="M.5.5l6 6m0-6l-6 6" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></div>' + '<div class="so">' + line("from", "From") + line("to", "To") +
+                        line("subject", "Subject") + line("has", "Has the words") + line("not", "Doesn't have") +
+                        '<label class="ck"><input type="checkbox" data-o="att"> Has attachment</label>' +
+                        '<div class="go"><button type="button" data-o="go" title="Search Mail">' + ugfGmailIcon("search", 20) + "</button></div></div>" }]);
+                    if (!panel) {
+                        return;
+                    }
+                    panel.style.width = Math.round(field.getBoundingClientRect().width) + "px";
+                    const val = function(k) {
+                        const el = panel.querySelector('[data-o="' + k + '"]');
+                        return el ? (el.type === "checkbox" ? el.checked : String(el.value || "").trim()) : "";
+                    };
+                    const go = function() {
+                        const q = [val("from") ? "from:(" + val("from") + ")" : "", val("to") ? "to:(" + val("to") + ")" : "",
+                            val("subject") ? "subject:(" + val("subject") + ")" : "", val("has"),
+                            val("not") ? "-{" + val("not") + "}" : "", val("att") ? "has:attachment" : ""].filter(Boolean).join(" ");
+                        if (q) {
+                            ugfGmailCloseMenus();
+                            ugfGmailSearchGo(q);
+                        }
+                    };
+                    panel.querySelector('[data-o="go"]').addEventListener("click", go);
+                    panel.querySelector('[data-o="x"]').addEventListener("click", function(e) {
+                        e.preventDefault();
+                        ugfGmailCloseMenus();
+                    });
+                    panel.querySelectorAll('input[type="text"]').forEach(function(inp) {
+                        inp.addEventListener("keydown", function(e) {
+                            if (e.key === "Enter") {
+                                go();
+                            }
+                        });
+                    });
+                    panel.querySelector('input[type="text"]').focus();
+                });
+            }
+            // the roster's name ▾
+            shell.querySelectorAll("#ugf-gmail-hangouts .hg-name").forEach(function(n) {
+                n.addEventListener("click", function(ev) {
+                    ev.preventDefault();
+                    ugfGmail91Menu(n, "hgmenu", [{ t: "Open Hangouts", fn: function() {
+                        window.open("https://hangouts.google.com/", "_blank");
+                    } }]);
+                });
+            });
+            // (9.1) Late 2014's right-click on a conversation: Archive, Mark as read, Delete (Google OS, Dec 2014)
+            if (tags91.indexOf("n14") > -1) {
+                shell.querySelectorAll("#ugf-gmail-list tr[data-i]").forEach(function(tr) {
+                    tr.addEventListener("contextmenu", function(ev) {
+                        const item = rows[parseInt(tr.getAttribute("data-i"), 10)];
+                        if (!item || ev.ctrlKey || ev.shiftKey) {
+                            return;
+                        }
+                        ev.preventDefault();
+                        const box = tr.querySelector("input");
+                        const picked = box && box.checked ? (pickedRows() || [item]) : [item];
+                        const word = item.unread ? "Mark as read" : "Mark as unread";
+                        ugfGmail91Menu(null, "ctx", [{ t: "Archive", ic: ugfGmailIcon("archive", 16), fn: run91(picked, "Archive", [{ buttons: ["Archive"] }]) },
+                            { t: word, ic: " ", fn: run91(picked, word) }, { sep: true },
+                            { t: "Delete", ic: ugfGmailIcon("delete", 16), fn: run91(picked, "Delete", delPlans91()) }], { x: ev.clientX, y: ev.clientY });
+                    });
+                });
+            }
+        }
         shell.querySelectorAll("#ugf-gmail-toolbar button[data-act], #ugf-gmail-toolbar2 button[data-act]").forEach(function(b) {
             b.addEventListener("click", function() {
                 const act = b.getAttribute("data-act");
@@ -52787,8 +54831,18 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
                     return;
                 }
                 if (act === "settings") {
+                    // (9.1) 2014: the gear opens its menu, Settings one of its items (Gmail Help, Dec 2014)
+                    if (tags91.indexOf("y14") > -1) {
+                        ugfGmail91Gear(b);
+                        return;
+                    }
                     ugfGmailState().settings = true;
                     ugfGmailRender();
+                    return;
+                }
+                // (9.1) the 2013 look's More ▾ opens Gplex's menu (Gmail's own is in the layer Gplex hides)
+                if (act === "more" && chrome === "m2013") {
+                    more91(b);
                     return;
                 }
                 const picked = pickedRows();
@@ -53081,7 +55135,15 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             if (ugfGmailWholeInbox()) {
                 return;
             }
-            const msgs = ugfGmailThreadOpen() ? ugfGmailThread().msgs.length : 0;
+            const thr = ugfGmailThreadOpen() ? ugfGmailThread() : null;
+            const msgs = thr ? thr.msgs.length : 0;
+            // (9.1) the header's importance tag follows Gmail's marker when it changes outside the tag (the +/- keys,
+            // another device); the conversation is not redrawn for it
+            const tag91 = thr && document.querySelector("#ugf-gmail-subject .ugf-gmail-imp.g91");
+            if (tag91 && Date.now() - (ugfGmailRender.imp91At || 0) > 2500 && tag91.classList.contains("on") !== !!thr.important) {
+                tag91.classList.toggle("on", !!thr.important);
+                tag91.title = thr.important ? "Important" : "Not important";
+            }
             const list = ugfGmailRows();
             const cnt = ugfGmailCount();
             // fingerprint the contents, not just how many there are
@@ -55817,10 +57879,12 @@ html[layout="2019"] #ugf-gmail[chrome="m2018"] #ugf-gmail-tabs .tab.active svg {
             } else if (era === "d2014") {
                 const newLogo = ["2016", "2016C", "2016L"].indexOf(l) > -1;
                 const plusRow = l === "2014";
+                // (9.1) Late 2014: the shared sprite grid at .55, as the other Late 2014 corners (GOS, 19 Dec 2014)
+                const g14 = plusRow && signedIn && ugf14() === "2014N" ? ugfB13GridClass("2014N") : "";
                 h = '<div class="gtop"><a class="glogo" href="' + esc(base + "/") + '"><img src="' + (newLogo ? ugfNtArt().glogo92 : ugfGmailAssets().google2013) + '" alt="Google"' + (newLogo ? ' class="n"' : "") + "></a>" +
                     searchBox("gsrch", "") + '<button type="submit" class="gbtn">' + ugfNtIcon("search", 20) + "</button></form>" +
                     '<span class="corner">' + (plusRow && signedIn ? '<a class="plusname" href="' + esc(ugfPlusProfileLink()) + '">+' + esc(ugfGmailPlusName()) + "</a>" : "") +
-                    '<a href="#" class="ib apps" title="Google apps">' + ugfNtIcon("apps", 24) + "</a>" +
+                    '<a href="#" class="ib apps' + g14 + '" title="Google apps">' + (g14 ? "" : ugfNtIcon("apps", 24)) + "</a>" +
                     (plusRow && signedIn ? ugfB13Bits(ugf14()) : "") +
                     (signedIn ? '<a href="#" class="me' + (plusRow ? " " + ugfB13PhotoClass(ugf14()) : "") + '">' + ugfGmailAvatar() + "</a>" : '<a class="ksignin" href="https://accounts.google.com/ServiceLogin">Sign in</a>') + "</span></div>" +
                     '<div class="appbar"><span class="ib ham">' + ugfNtIcon("menu", 24) + '</span><span class="name">' + W.app + '</span><span class="sp"></span>' +
@@ -76481,7 +78545,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
     // common frame rules: Google's own page hidden underneath ours
     function ugfNtBaseCss(id) {
         return [
-            'html[gplex-nt] body > *:not(#' + id + '):not(#ugf-nt-styles):not(#ugf-gmail-accmenu):not(#ugf-gmail-appsmenu):not(#ugf-gmail-accfence):not(script):not(style) { visibility: hidden !important; pointer-events: none !important; }',
+            'html[gplex-nt] body > *:not(#' + id + '):not(#ugf-nt-styles):not(#ugf-gmail-accmenu):not(#ugf-gmail-appsmenu):not(#ugf-ma-appsfence):not(#ugf-gmail-accfence):not(#ugf-b13n):not(#ugf-b13n-fence):not(script):not(style) { visibility: hidden !important; pointer-events: none !important; }',
             'html[gplex-nt], html[gplex-nt] body { overflow: hidden !important; background: #fff !important; }',
             'html[gplex-nt] #ugf-gmail-accfence { z-index: 2147483600 !important; }',
             'html[gplex-nt] #ugf-gmail-accmenu, html[gplex-nt] #ugf-gmail-appsmenu { z-index: 2147483601 !important; text-align: left; }',
@@ -80357,6 +82421,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             left: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z",
             right: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
             drop: "M7 10l5 5 5-5z",
+            chev: "M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z",
             star: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
         };
         const s = size || 24;
@@ -80382,7 +82447,8 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         }
         m = p.match(/^\/store\/(apps|games)(\/top)?$/);
         if (m) {
-            return { page: "home", games: m[1] === "games" };
+            // (9.1) with Gplex's views of it: ?gplex-tab=top, new or ec (Top Charts, New Releases, Editors' Choice)
+            return { page: "home", games: m[1] === "games", tab: /^(top|new|ec)$/.test(q.get("gplex-tab") || "") ? q.get("gplex-tab") : "" };
         }
         return null;
     }
@@ -80458,6 +82524,40 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         });
         return out;
     }
+    // (9.1) every app's developer and category in Google's data: an app is an array whose first item is [id, 7], with its
+    // name at 3, its category at 5 and its developer at 14 (the cards' links today give the category, or nothing, where
+    // the card store showed the developer)
+    function ugfPlayDevMap() {
+        const m = {};
+        const walk = function(o, d) {
+            if (!Array.isArray(o) || d > 40) {
+                return;
+            }
+            if (Array.isArray(o[0]) && o[0].length === 2 && typeof o[0][0] === "string" && o[0][1] === 7) {
+                const dev = typeof o[14] === "string" ? o[14].trim() : "";
+                const cat = typeof o[5] === "string" ? o[5].trim() : "";
+                if (!m[o[0][0]] || (dev && !m[o[0][0]].dev)) {
+                    m[o[0][0]] = { dev: dev, cat: cat };
+                }
+            }
+            o.forEach(function(x) {
+                walk(x, d + 1);
+            });
+        };
+        ugfPlayBlocks().forEach(function(b) {
+            walk(b, 0);
+        });
+        return m;
+    }
+    function ugfPlayDevFix(app, dm) {
+        const k = app && dm[app.id];
+        if (k && k.dev) {
+            app.dev = k.dev;
+        } else if (k && k.cat && app.dev === k.cat) {
+            app.dev = "";
+        }
+        return app;
+    }
     // Google's pictures come in any size: "=s128" (square), "=h310" (height), "=w1024" (width)
     function ugfPlayImg(src, spec) {
         src = String(src || "");
@@ -80497,8 +82597,42 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                 alt = al;
             }
         });
+        // (9.1) the big first result of a search is an empty link laid over a block that holds the icon, the name, the
+        // developer, the rating and the buy button: read those from the largest block around the link (five levels at
+        // most) that links to no other app, starting at the name, and leaving the buttons' words out
+        let from = a;
+        if (!icon && !(a.textContent || "").trim()) {
+            let e = a.parentElement;
+            for (let i = 0; e && e !== document.body && i < 5; i++, e = e.parentElement) {
+                const other = Array.prototype.some.call(e.querySelectorAll('a[href*="details?id="]'), function(x) {
+                    const mm = (x.getAttribute("href") || "").match(/[?&]id=([^&#]+)/);
+                    return !mm || mm[1] !== m[1];
+                });
+                if (other) {
+                    break;
+                }
+                from = e;
+            }
+            if (from !== a) {
+                const im = from.querySelector('img[alt="Icon image"]') || Array.prototype.filter.call(from.querySelectorAll("img[src]"), function(x) {
+                    return !/^(Screenshot|Content rating)/i.test(x.getAttribute("alt") || "") && /googleusercontent/.test(x.getAttribute("src") || "");
+                })[0];
+                if (im) {
+                    icon = im.getAttribute("src") || "";
+                }
+            }
+        }
+        const label = (a.getAttribute("aria-label") || "").trim();
+        let atName = from === a || !label || (from.textContent || "").indexOf(label) < 0;
         const texts = [];
-        const walk = document.createTreeWalker(a, NodeFilter.SHOW_TEXT);
+        const walk = document.createTreeWalker(from, NodeFilter.SHOW_TEXT, from === a ? null : { acceptNode: function(x) {
+            const pe = x.parentElement;
+            if (pe && pe.closest("button, [role=button]")) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            atName = atName || (x.nodeValue || "").trim() === label;
+            return atName ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        } });
         let n;
         while ((n = walk.nextNode())) {
             const t = (n.nodeValue || "").trim();
@@ -80512,8 +82646,12 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         let name = "";
         let dev = "";
         let rating = null;
+        let price = "";
         texts.forEach(function(t) {
-            if (/^\d(?:[.,]\d)?$/.test(t)) {
+            // (9.1) a price ("$2.99", "2,99 €") is neither the name nor the developer: the card store showed it on the card
+            if (/^(?:[$£€¥₹]\s?\d[\d.,]*|\d[\d.,]*\s?(?:[$£€¥₹]|[A-Z]{3}))$/.test(t)) {
+                price = price || t;
+            } else if (/^\d(?:[.,]\d)?$/.test(t)) {
                 if (rating === null) {
                     rating = parseFloat(t.replace(",", "."));
                 }
@@ -80523,6 +82661,14 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                 dev = t;
             }
         });
+        if (from !== a && !price) {
+            from.querySelectorAll("button, [role=button]").forEach(function(el) {
+                const pm = !price && (el.textContent || "").trim().match(/^([$£€¥₹]\s?\d[\d.,]*|\d[\d.,]*\s?(?:[$£€¥₹]|[A-Z]{3}))(?:\s|$)/);
+                if (pm) {
+                    price = pm[1];
+                }
+            });
+        }
         if (!name) {
             name = alt.replace(/^(Icon|Thumbnail) image\s*/i, "") || a.getAttribute("aria-label") || a.getAttribute("title") || "";
         }
@@ -80530,12 +82676,13 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         try {
             id = decodeURIComponent(id);
         } catch (e) {}
-        return name ? { id: id, name: name, dev: dev, rating: rating, icon: icon } : null;
+        return name ? { id: id, name: name, dev: dev, rating: rating, icon: icon, cardPrice: price } : null;
     }
     // the clusters Google draws ("Popular apps", "More by...", "Similar apps"): its <section>s,
     // each a header (title, a line under it, a link to all of it) and its app links
     function ugfPlaySections(root) {
         const out = [];
+        const dm = ugfPlayDevMap();
         (root || document).querySelectorAll("section").forEach(function(sec) {
             const head = sec.querySelector("header");
             const words = [];
@@ -80561,7 +82708,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                 if (a.closest("section") !== sec) {
                     return;
                 }
-                const app = ugfPlayLinkApp(a);
+                const app = ugfPlayDevFix(ugfPlayLinkApp(a), dm);
                 if (app && !seen[app.id]) {
                     seen[app.id] = true;
                     apps.push(app);
@@ -80576,12 +82723,13 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
     // every app linked from the page, in order (a search's results)
     function ugfPlayAllApps() {
         const apps = [];
+        const dm = ugfPlayDevMap();
         const seen = {};
         document.querySelectorAll('a[href*="/store/apps/details?id="]').forEach(function(a) {
             if (a.closest("#ugf-play")) {
                 return;
             }
-            const app = ugfPlayLinkApp(a);
+            const app = ugfPlayDevFix(ugfPlayLinkApp(a), dm);
             if (app && !seen[app.id]) {
                 seen[app.id] = true;
                 apps.push(app);
@@ -80593,6 +82741,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                 had.dev = had.dev || app.dev;
                 had.rating = had.rating === null ? app.rating : had.rating;
                 had.icon = had.icon || app.icon;
+                had.cardPrice = had.cardPrice || app.cardPrice;
             }
         });
         return apps;
@@ -80754,10 +82903,19 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                     ["Tools", "TOOLS"], ["Transportation", "MAPS_AND_NAVIGATION"], ["Travel & Local", "TRAVEL_AND_LOCAL"], ["Weather", "WEATHER"], ["Widgets", "PERSONALIZATION"]]
             };
         }
-        const games = [["Action", "GAME_ACTION"], ["Adventure", "GAME_ADVENTURE"], ["Arcade", "GAME_ARCADE"], ["Board", "GAME_BOARD"], ["Card", "GAME_CARD"],
+        let games = [["Action", "GAME_ACTION"], ["Adventure", "GAME_ADVENTURE"], ["Arcade", "GAME_ARCADE"], ["Board", "GAME_BOARD"], ["Card", "GAME_CARD"],
             ["Casino", "GAME_CASINO"], ["Casual", "GAME_CASUAL"], ["Educational", "GAME_EDUCATIONAL"], ["Music", "GAME_MUSIC"], ["Puzzle", "GAME_PUZZLE"],
             ["Racing", "GAME_RACING"], ["Role Playing", "GAME_ROLE_PLAYING"], ["Simulation", "GAME_SIMULATION"], ["Sports", "GAME_SPORTS"],
             ["Strategy", "GAME_STRATEGY"], ["Trivia", "GAME_TRIVIA"], ["Word", "GAME_WORD"]];
+        // (9.1) the card store's games: on 1 January 2014 still the old eight (their ids today's), and from late 2014 (7 December
+        // 2014, 7 April 2015) with Family after Educational - its GAME_FAMILY is gone, so it opens today's Family (FAMILY)
+        const l = String(layout || "");
+        if (era === "p13" && (l === "2013" || l === "2013L" || ugf14() === "2013N")) {
+            games = [["Arcade & Action", "GAME_ARCADE"], ["Brain & Puzzle", "GAME_PUZZLE"], ["Cards & Casino", "GAME_CARD"], ["Casual", "GAME_CASUAL"],
+                ["Live Wallpaper", "PERSONALIZATION"], ["Racing", "GAME_RACING"], ["Sports Games", "GAME_SPORTS"], ["Widgets", "PERSONALIZATION"]];
+        } else if (era === "p13" && (ugf14() === "2014N" || l === "2015" || l === "2015L")) {
+            games = games.slice(0, 8).concat([["Family", "FAMILY"]], games.slice(8));
+        }
         if (era === "p13" || era === "p15") {
             return {
                 games: games,
@@ -80791,6 +82949,8 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         const esc = ugfEsc;
         const icon = ugfPlayIcon;
         const material = era === "p17" || era === "p19";
+        // (9.1) the card store from late 2014 (Late 2014, 2015): Permissions, Report, Offered By, Family, About Google
+        const p13late = era === "p13" && (ugf14() === "2014N" || String(layout || "") === "2015" || String(layout || "") === "2015L");
         console.log("[Gplex] Play: layout " + layout + " (" + era + ", " + route.page + ")" + (UGF_VERSION ? " - Gplex " + UGF_VERSION : ""));
         const style = document.createElement("style");
         style.id = "ugf-nt-styles";
@@ -80799,7 +82959,8 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         if (era !== "p11") {
             const font = document.createElement("link");
             font.rel = "stylesheet";
-            font.href = "https://fonts.googleapis.com/css?family=Roboto:300,300italic,400,500,700";
+            // (9.1) the card store's headings were Roboto Thin (100)
+            font.href = "https://fonts.googleapis.com/css?family=Roboto:" + (era === "p13" ? "100," : "") + "300,300italic,400,500,700";
             (document.head || document.documentElement).appendChild(font);
         }
         document.documentElement.setAttribute("gplex-nt", era);
@@ -80852,12 +83013,34 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             return href ? withKeep(href) : "";
         };
         const homeUrl = withKeep(route.games ? "/store/games" : "/store/apps");
+        // (9.1) Top Charts, New Releases and Editors' Choice have no page of their own today (/store/apps/top goes to the
+        // front, /store/apps/new is gone, the editors' collection is empty): Gplex's views of the front page's lists
+        const tabUrl = function(k, apps) {
+            return withKeep((route.games && !apps ? "/store/games" : "/store/apps") + "?gplex-tab=" + k);
+        };
         const appsHome = withKeep("/store/apps");
         const searchUrl = function(q) {
             return "/store/search?q=" + encodeURIComponent(q) + "&c=apps" + keep;
         };
         const fmt = function(n) {
             return Number(n || 0).toLocaleString("en-US");
+        };
+        // (9.1) the card store wrote dates out ("December 10, 2014"), named categories its own way (Media & Video) and had
+        // the ratings before IARC (YouTube: Medium Maturity); the ratings map only roughly, and only English pages are changed
+        const english = /^en/i.test(new URLSearchParams(window.location.search).get("hl") || "en");
+        const longDate = function(t) {
+            const d = new Date(t);
+            return english && /\d{4}/.test(t || "") && !isNaN(d.getTime()) ? d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : t;
+        };
+        const oldCat = function(id, name) {
+            const c = cats.apps.concat(cats.games).filter(function(x) {
+                return x[1] === id && x[0] !== "Live Wallpaper" && x[0] !== "Widgets";
+            })[0];
+            return c ? c[0] : name;
+        };
+        const oldRated = function(r) {
+            const m = { "Everyone 10+": "Low Maturity", "Teen": "Medium Maturity", "Mature 17+": "High Maturity" };
+            return english && m[r] ? m[r] : r;
         };
         // stars: grey ones with the rating's share of coloured ones over them
         const stars = function(r, cls) {
@@ -80892,6 +83075,16 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                 title = c ? c[0] : (document.title || "").split(" - ")[0];
             } else if (route.kind === "dev") {
                 title = ((document.title || "").match(/by (.+?) on Google Play/) || [])[1] || (secs[0].title || "").replace(/^More by /, "");
+            } else if (route.page === "home" && route.tab && era !== "p11") {
+                // (9.1) Gplex's views: the front page's lists whose titles say so ("Popular apps", "Just added", "Editors'
+                // Choice apps", "Big ideas from up-and-coming companies"), or the whole front where none does
+                const want = { top: /popular|\btop\b|best|trending|chart|hits|grossing/i,
+                    new: /just added|\bnew (?:releases?|\+|and|&|apps|games|this|arrivals?)|\bnewly\b|latest|recently|\bupdated\b|coming soon|pre-?regist|up-and-coming/i,
+                    ec: /editor|premium selection|\bfeatured\b|staff pick|our picks?/i }[route.tab];
+                const some = secs.filter(function(s) {
+                    return want.test(s.title + " - " + s.sub);
+                });
+                return { secs: some.length ? some : secs, title: { top: "Top Charts", new: "New Releases", ec: "Editors' Choice" }[route.tab] };
             }
             return { secs: secs, title: title };
         };
@@ -80909,7 +83102,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                 ["Photos", "https://photos.google.com/"], ["Reader", "https://www.google.com/reader/"], ["Web", "https://www.google.com/"]].map(function(a) {
                 return '<a href="' + esc(a[1]) + '">' + esc(a[0]) + "</a>";
             }).join("") + '<a href="https://www.google.com/intl/en/options/" class="more">more <small>&#9660;</small></a>';
-            const right = signed ? '<b class="who">' + esc(who.email || who.name) + '</b> | <a href="' + esc(withKeep("/store/myapps")) + '">My Market Account</a> | ' +
+            const right = signed ? '<b class="who">' + esc(who.email || who.name) + '</b> | <a href="' + esc(withKeep("/apps")) + '">My Market Account</a> | ' +
                 '<a href="https://myaccount.google.com/">My Account</a> | <a href="https://accounts.google.com/Logout">Sign out</a>'
                 : '<a href="https://accounts.google.com/ServiceLogin?service=googleplay&amp;continue=' + encodeURIComponent(window.location.href) + '">Sign in</a>';
             return '<div class="ugf-nt-gbar classic am"><div class="left">' + left + '</div><div class="right">' + right + "</div></div>";
@@ -81016,9 +83209,9 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                     : '<a class="ksignin" href="https://accounts.google.com/ServiceLogin?service=googleplay&amp;continue=' + encodeURIComponent(window.location.href) + '">Sign in</a>') + "</div>";
         };
         const gpCard = function(app) {
-            return '<a class="gp-card" href="' + esc(appUrl(app.id)) + '"><span class="ci"><img src="' + esc(ugfPlayImg(app.icon, "s340")) + '" alt="" loading="lazy"></span>' +
+            return '<a class="gp-card" href="' + esc(appUrl(app.id)) + '"><span class="ci"><img' + (app.icon ? ' src="' + esc(ugfPlayImg(app.icon, "s340")) + '"' : "") + ' alt="" loading="lazy"></span>' +
                 '<span class="cd"><span class="ct" title="' + esc(app.name) + '">' + esc(app.name) + '</span><span class="cs">' + esc(app.dev || "") + "</span>" +
-                '<span class="cr">' + (app.rating ? stars(app.rating) : "") + "</span></span></a>";
+                '<span class="cr">' + (app.rating ? stars(app.rating) : "") + (era === "p13" ? '<span class="cp">' + esc(app.cardPrice || "Free") + "</span>" : "") + "</span></span></a>";
         };
         const seeMore = function(href) {
             return href ? '<a class="gp-more" href="' + esc(withKeep(href)) + '">See more</a>' : "";
@@ -81027,12 +83220,23 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             return '<div class="gp-cluster"><div class="gp-ch"><h2>' + esc(s.title) + "</h2>" + seeMore(s.more) + "</div>" +
                 (s.sub ? '<div class="gp-csub">' + esc(s.sub) + "</div>" : "") + '<div class="gp-cards">' + s.apps.slice(0, max || 100).map(gpCard).join("") + "</div></div>";
         };
+        // (9.1) the card store's footer (16 November 2013, 14 March 2014, 12 December 2014, 7 April 2015; About Google from late 2014)
+        const gpFoot = function() {
+            const l = String(layout || "");
+            const year = l === "2015" || l === "2015L" ? 2015 : l === "2013" || l === "2013L" || ugf14() === "2013N" ? 2013 : 2014;
+            return '<div class="gp-foot"><div class="fl"><span class="copyright">&copy;' + year + " Google</span>" + [["Site Terms of Service", "https://play.google.com/intl/en_us/about/play-terms.html"],
+                ["Devices Terms of Sale", "https://play.google.com/intl/en_us/about/device-terms.html"], ["Privacy Policy", "https://www.google.com/intl/en_us/policies/privacy/"],
+                ["Developers", "https://developer.android.com/index.html"], ["Artists", "https://play.google.com/artists"]]
+                .concat(p13late ? [["About Google", "https://support.google.com/googleplay/?p=about_play"]] : []).map(function(x) {
+                    return '<a href="' + esc(x[1]) + '" target="_blank" rel="noopener">' + esc(x[0]) + "</a>";
+                }).join("") + "</div></div>";
+        };
         const gpFrame = function(body) {
             const sub = function(on) {
                 const t = material ? ["Home", "Top charts", "New releases"] : ["Home", "Top Charts", "New Releases"];
-                return '<div class="gp-sub"><a href="#" class="cats">' + (route.kind === "category" && data && data.title ? esc(data.title) : "Categories") + " " + icon("drop", 20) + "</a>" +
+                return '<div class="gp-sub"><a href="#" class="cats">' + (route.kind === "category" && data && data.title ? esc(data.title) : "Categories") + " " + icon(p13late ? "chev" : "drop", 20) + "</a>" +
                     '<span class="sep"></span>' + t.map(function(x, i) {
-                        return '<a class="tab' + (i === on ? " on" : "") + '" href="' + esc(i === 0 ? homeUrl : withKeep(route.games ? "/store/games" : "/store/apps/top")) + '">' + x + "</a>";
+                        return '<a class="tab' + (i === on ? " on" : "") + '" href="' + esc(i === 0 ? homeUrl : tabUrl(i === 1 ? "top" : "new")) + '">' + x + "</a>";
                     }).join("") + '<span class="gp-subr"><a class="sq" href="https://support.google.com/googleplay/" title="Help">' + icon("help", 18) + "</a>" +
                     '<a class="sq" href="https://www.google.com/gplex" title="Settings">' + icon("settings", 18) + "</a></span>" +
                     '<div class="gp-catmenu" hidden><div class="col"><h4>Apps</h4>' + cats.apps.map(function(c) {
@@ -81048,10 +83252,11 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                     return '<a href="' + esc(/^\//.test(x[1]) ? withKeep(x[1]) : x[1]) + '">' + esc(x[0]) + "</a>";
                 }).join("") + "</div>" : "";
             const nav = '<div class="gp-nav"><a class="gp-navhead" href="' + esc(appsHome) + '">' + (material ? icon("apps", 24) : icon("android", 26)) + "<span>Apps</span></a>" +
-                '<div class="gp-navlist"><a href="' + esc(withKeep("/store/myapps")) + '">My apps</a><a' + (route.games ? "" : ' class="on"') + ' href="' + esc(appsHome) + '">Shop</a></div>' +
+                // (9.1) My apps at the store's own address (/apps, 7 December 2014): /store/myapps is a 400 page today
+                '<div class="gp-navlist"><a href="' + esc(withKeep("/apps")) + '">My apps</a><a' + (route.games || route.tab === "ec" ? "" : ' class="on"') + ' href="' + esc(appsHome) + '">Shop</a></div>' +
                 '<div class="gp-navsep"></div><div class="gp-navsub"><a' + (route.games ? ' class="on"' : "") + ' href="' + esc(withKeep("/store/games")) + '">Games</a>' +
                 (era === "p13" ? "" : '<a href="' + esc(catUrl("FAMILY")) + '">' + (era === "p19" ? "Kids" : "Family") + "</a>") +
-                '<a href="' + esc(appsHome) + '">Editors\' Choice</a></div>' + acct + "</div>";
+                '<a' + (route.tab === "ec" && !route.games ? ' class="on"' : "") + ' href="' + esc(tabUrl("ec", true)) + '">Editors\' Choice</a></div>' + acct + "</div>";
             // the 2010 Google logo until the flat one of September 2013, its flat "Google play" to
             // August 2015, the "Google Play" of September 2015, and the 2016 triangle from 2017
             const logo = era === "p15" ? A.logoP15 : era === "p13" && (String(layout) === "2013" || String(layout) === "2013L") ? A.logoP12
@@ -81060,12 +83265,14 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                 '<div class="gp-head"><a class="logo" href="' + esc(appsHome) + '"><img src="' + esc(logo) + '" width="' + (logo === A.logoP12 ? 182 : 183) + '" height="39" alt="Google Play"></a>' +
                 '<form class="gp-search ugf-play-search"><input type="text" name="q" value="' + esc(q0) + '" placeholder="Search" autocomplete="off">' +
                 '<button type="submit" title="Search">' + icon("search", 22) + "</button></form>" + gpCorner() + "</div>" +
-                '<div class="gp-body">' + nav + '<div class="gp-main">' + sub(route.page === "home" ? 0 : -1) + '<div class="gp-content">' + body + "</div></div></div>";
+                '<div class="gp-body">' + nav + '<div class="gp-main">' + sub(route.page !== "home" ? -1 : route.tab === "top" ? 1 : route.tab === "new" ? 2 : route.tab ? -1 : 0) +
+                '<div class="gp-content">' + body + "</div></div></div>" + (era === "p13" ? gpFoot() : "");
         };
         const gpHome = function(d) {
             const lead = route.kind === "dev" ? '<div class="gp-ptitle">' + esc(d.title) + "</div>" : "";
             return lead + d.secs.map(function(s) {
-                return gpCluster(s, route.page === "home" ? 10 : 0);
+                // (9.1) the card store's front had one row of six per list; Gplex's views show all of each
+                return gpCluster(s, route.page !== "home" || route.tab ? 0 : era === "p13" ? 6 : 10);
             }).join("");
         };
         const gpSearch = function(d) {
@@ -81074,20 +83281,41 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         const gpReviews = function(app) {
             const max = Math.max.apply(null, app.hist.concat([1]));
             const cols = { 5: "#57bb8a", 4: "#9ace6a", 3: "#ffcf02", 2: "#ff9f02", 1: "#ff6f31" };
+            if (era === "p13") {
+                // (9.1) the card store's five and four (.rating-bar-container.five/.four .bar, 2013-2015)
+                cols[5] = "#88b131";
+                cols[4] = "#99cc00";
+            }
             const bars = [5, 4, 3, 2, 1].map(function(i) {
                 return '<div class="hb"><span class="hn">' + icon("star", 12) + " " + i + '</span><span class="hbar" style="width:' + Math.max(1, Math.round(app.hist[i - 1] / max * 100)) +
                     "%;background:" + cols[i] + '"><span>' + fmt(app.hist[i - 1]) + "</span></span></div>";
             }).join("");
-            const list = app.reviews.map(function(r) {
+            const list = app.reviews.slice(0, era === "p13" ? 4 : 100).map(function(r) {
                 return '<div class="gp-rev">' + (r.photo ? '<img src="' + esc(r.photo) + '" width="48" height="48" alt="">' : '<span class="nophoto"></span>') +
-                    '<div class="rbody"><div class="rhead"><b>' + esc(r.name) + "</b> " + stars(r.stars, "sm") + ' <span class="rdate">' + esc(r.date) + "</span></div>" +
+                    '<div class="rbody"><div class="rhead"><b>' + esc(r.name) + "</b> " + stars(r.stars, "sm") + (era === "p13" ? "</div>" : ' <span class="rdate">' + esc(r.date) + "</span></div>") +
                     '<div class="rtext">' + esc(r.text) + "</div></div></div>";
             }).join("");
             return '<div class="gp-revs"><div class="gp-score"><div class="big">' + (app.rating ? app.rating.toFixed(1) : "&ndash;") + "</div>" + stars(app.rating) +
                 '<div class="tot">' + icon("person", 14) + " " + fmt(app.ratings) + " total</div></div>" + '<div class="gp-hist">' + bars + "</div>" +
-                '<div class="gp-revlist">' + (list || '<div class="gp-norev">No reviews to show yet.</div>') + "</div></div>";
+                '<div class="gp-revlist">' + (list || '<div class="gp-norev">No reviews to show yet.</div>') + "</div>" +
+                (era === "p13" && list ? '<span class="gp-revnx" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 44" width="24" height="44"><path d="M3 2l18 20L3 42" fill="none" stroke="#333" stroke-width="2.5"/></svg></span>' : "") + "</div>";
         };
         const gpMeta = function(app) {
+            if (era === "p13") {
+                // (9.1) the card store's: Size, and from late 2014 Permissions, Report, Offered By and Developer; before that
+                // "Contact Developer" (16 November 2013, 14 March 2014, 12 December 2014, 7 April 2015)
+                const links = [app.website ? '<a href="' + esc(app.website) + '" target="_blank" rel="noopener">' + (p13late ? "Visit Website" : "Visit Developer's Website") + "</a>" : "",
+                    app.email ? '<a href="mailto:' + esc(app.email) + '">Email ' + esc(app.email) + "</a>" : "",
+                    app.privacy ? '<a href="' + esc(app.privacy) + '" target="_blank" rel="noopener">Privacy Policy</a>' : ""].filter(Boolean).join("<br>");
+                return '<div class="gp-meta">' + [["Updated", esc(app.updated)], ["Size", "Varies with device"], ["Installs", esc(app.installs)],
+                    ["Current Version", esc(app.version || "Varies with device")], ["Requires Android", esc(app.android || "Varies with device")], ["Content Rating", esc(app.rated)]]
+                    .concat(p13late ? [["Permissions", '<a href="' + esc(installUrl(app.id)) + '">View details</a>'], ["Report", '<a href="' + esc(installUrl(app.id)) + '">Flag as inappropriate</a>'],
+                        ["Offered By", esc(app.dev)], ["Developer", links]] : [["Contact Developer", links]]).filter(function(x) {
+                        return x[1];
+                    }).map(function(x) {
+                        return '<div class="mi2"><div class="ml">' + x[0] + '</div><div class="mv">' + x[1] + "</div></div>";
+                    }).join("") + "</div>";
+            }
             const dev = [app.website ? '<a href="' + esc(app.website) + '" target="_blank" rel="noopener">Visit website</a>' : "",
                 app.email ? '<a href="mailto:' + esc(app.email) + '">Email ' + esc(app.email) + "</a>" : "",
                 app.privacy ? '<a href="' + esc(app.privacy) + '" target="_blank" rel="noopener">Privacy Policy</a>' : ""].filter(Boolean).join("<br>");
@@ -81099,15 +83327,29 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             }).join("") + "</div>";
         };
         const gpShots = function(app) {
-            return app.shots.length ? '<div class="gp-shots"><a href="#" class="arrow pv">' + icon("left", 36) + '</a><div class="strip">' + app.shots.slice(0, 12).map(function(s) {
+            // (9.1) the card store's strip began at the left edge, with only a thin chevron on the right (12 December 2014)
+            const thin = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 44" width="24" height="44"><path d="M3 2l18 20L3 42" fill="none" stroke="#333" stroke-width="2.5"/></svg>';
+            return app.shots.length ? '<div class="gp-shots">' + (era === "p13" ? "" : '<a href="#" class="arrow pv">' + icon("left", 36) + "</a>") + '<div class="strip">' + app.shots.slice(0, 12).map(function(s) {
                 return '<img src="' + esc(ugfPlayImg(s, "h310")) + '" alt="" loading="lazy">';
-            }).join("") + '</div><a href="#" class="arrow nx">' + icon("right", 36) + "</a></div>" : "";
+            }).join("") + '</div><a href="#" class="arrow nx">' + (era === "p13" ? thin : icon("right", 36)) + "</a></div>" : "";
+        };
+        // (9.1) the card store's Similar and "More from developer": an expandable row of 16, six in view, and on the right
+        // the thin chevron at half opacity (16 November 2013, 14 March 2014, 12 December 2014, 7 April 2015)
+        const gpRecRow = function(title, list, href) {
+            const thin = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 44" width="24" height="44"><path d="M3 2l18 20L3 42" fill="none" stroke="#333" stroke-width="2.5"/></svg>';
+            return list.length ? '<div class="gp-cluster gp-rec"><div class="gp-ch"><h2>' + esc(title) + '</h2></div><div class="gp-shots gp-recrow"><div class="strip">' +
+                list.slice(0, 16).map(gpCard).join("") + '</div><a href="' + esc(href || "#") + '" class="arrow nx">' + thin + "</a></div></div>" : "";
         };
         const gpButtons = function(app) {
-            return '<a class="gp-wish" href="' + esc(installUrl(app.id)) + '">' + icon("bookmark", 18) + " Add to Wishlist</a>" +
-                '<a class="gp-install" href="' + esc(installUrl(app.id)) + '">' + (app.price ? esc(app.price) + " Buy" : "Install") + "</a>";
+            const wish = '<a class="gp-wish" href="' + esc(installUrl(app.id)) + '">' + (era === "p13" ? '<span class="wi"></span>Add to Wishlist' : icon("bookmark", 18) + " Add to Wishlist") + "</a>";
+            const install = '<a class="gp-install" href="' + esc(installUrl(app.id)) + '">' + (app.price ? esc(app.price) + " Buy" : "Install") + "</a>";
+            // (9.1) the card store had Install first, then Add to Wishlist (16 November 2013, 12 December 2014, 7 April 2015)
+            return era === "p13" ? install + wish : wish + install;
         };
         const gpDetails = function(app) {
+            if (era === "p13") {
+                app = Object.assign({}, app, { updated: longDate(app.updated), category: oldCat(app.catId, app.category), rated: oldRated(app.rated) });
+            }
             const devLink = app.devHref ? '<a class="dev" href="' + esc(devUrl(app.devHref)) + '">' + esc(app.dev) + "</a>" : '<span class="dev">' + esc(app.dev) + "</span>";
             const catLink = app.catId ? '<a class="cat" href="' + esc(catUrl(app.catId)) + '">' + esc(app.category) + "</a>" : "";
             const desc = '<div class="gp-desc clip">' + ugfPlayLines(app.desc) + '</div><div class="gp-readmore"><a href="#">Read more</a></div>';
@@ -81120,9 +83362,10 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                     '<div class="gp-dinfo"><h1>' + esc(app.name) + '</h1><div class="gp-dsub">' + devLink + (app.updated ? " - " + esc(app.updated) : "") + "</div>" +
                     (catLink ? '<div class="gp-dcat">' + catLink + "</div>" : "") + '<div class="gp-dbtns">' + gpButtons(app) + "</div>" +
                     '<div class="gp-drule"></div><div class="gp-drate">' + stars(app.rating) + " (" + icon("person", 13) + " " + fmt(app.ratings) + ")</div></div></div>" +
-                    '<div class="gp-dbody">' + gpShots(app) + '<h3 class="gp-h">Description</h3>' + desc + '<h3 class="gp-h">Reviews</h3>' + gpReviews(app) +
+                    '<div class="gp-dbody">' + gpShots(app) + '<h3 class="gp-h">Description</h3>' + desc + '<h3 class="gp-h">Reviews<button type="button" class="gp-writerev"><span class="wr"></span>Write a Review</button></h3>' + gpReviews(app) +
                     (app.whatsNew ? '<h3 class="gp-h">What\'s New</h3><div class="gp-desc">' + ugfPlayLines(app.whatsNew) + "</div>" : "") +
-                    '<h3 class="gp-h">Additional information</h3>' + gpMeta(app) + more("Similar", app.similar) + more(app.moreTitle || "More from developer", app.moreBy, app.devHref) + "</div>";
+                    // (9.1) one row of six each, and always "More from developer" (2013-2015), with no See more
+                    '<h3 class="gp-h">Additional information</h3>' + gpMeta(app) + gpRecRow("Similar", app.similar, "") + gpRecRow("More from developer", app.moreBy, devUrl(app.devHref)) + "</div>";
             }
             // July 2015 on: the app as a card, Similar down the right
             const side = app.similar.length ? '<div class="gp-dside"><div class="gp-sh"><h2>Similar</h2></div>' + app.similar.slice(0, 6).map(gpCard).join("") + "</div>" : "";
@@ -81205,6 +83448,16 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             if (arrow) {
                 ev.preventDefault();
                 const strip = arrow.closest(".am-shots, .gp-shots").querySelector(".strip");
+                if (arrow.closest(".gp-recrow")) {
+                    // (9.1) a row of the card store: six cards on, and from the end back to the start; a row with no more than
+                    // it shows (Google's rows hold six today) goes to its list's page, where it has one (the developer's)
+                    if (strip.scrollWidth > strip.clientWidth + 4) {
+                        strip.scrollTo({ left: strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 4 ? 0 : strip.scrollLeft + strip.clientWidth, behavior: "smooth" });
+                    } else if (arrow.getAttribute("href") !== "#") {
+                        window.location.href = arrow.href;
+                    }
+                    return;
+                }
                 strip.scrollBy({ left: (arrow.classList.contains("pv") ? -1 : 1) * strip.clientWidth * 0.8, behavior: "smooth" });
                 return;
             }
@@ -81218,7 +83471,54 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             if (menu && !menu.hidden && !t.closest(".gp-catmenu")) {
                 menu.hidden = true;
             }
+            // (9.1) every other link of ours to this site loads its page: Google's own script, underneath, takes clicks on
+            // play.google.com links and only changes the address (pushState), which left the page Gplex drew on show. Taken
+            // here, on the shell as the click bubbles - not on window at capture, which would come before the account
+            // menu's own handler on the dark Google bar's name; other sites' links, new tabs and modified clicks are left alone
+            const a = t.closest("a[href]");
+            if (a && !ev.defaultPrevented && ev.button === 0 && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && !ev.altKey &&
+                    (a.getAttribute("href") || "").charAt(0) !== "#" && (!a.target || a.target === "_self") && a.origin === window.location.origin) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                window.location.assign(a.href);
+            }
         });
+        // (9.1) and should the address change anyway (Google's script, Back), that page is loaded: the drawn one is stale.
+        // Once per address in a few seconds, in case Google's page rewrites its own address as it loads
+        const where = function() {
+            const q = new URLSearchParams(window.location.search);
+            return (window.location.pathname || "/").replace(/\/+$/, "").replace(/^(\/store\/apps\/details)\/[^/]+$/, "$1").replace(/\/developer$/, "/dev") +
+                "|" + (q.get("id") || "") + "|" + (q.get("q") || "");
+        };
+        let drawnAt = "";
+        const watch = function() {
+            if (drawnAt) {
+                return;
+            }
+            drawnAt = where();
+            const check = function() {
+                if (!shell.isConnected) {
+                    clearInterval(timer);
+                    return;
+                }
+                if (where() === drawnAt) {
+                    return;
+                }
+                clearInterval(timer);
+                window.removeEventListener("popstate", check);
+                let again = true;
+                try {
+                    const last = JSON.parse(window.sessionStorage.getItem("ugf-play-reload") || "{}");
+                    again = !(last.at === window.location.href && Date.now() - last.t < 5000);
+                    window.sessionStorage.setItem("ugf-play-reload", JSON.stringify({ at: window.location.href, t: Date.now() }));
+                } catch (e) {}
+                if (again) {
+                    window.location.reload();
+                }
+            };
+            const timer = setInterval(check, 500);
+            window.addEventListener("popstate", check);
+        };
         // what Google draws after its page has loaded (the reviews) comes in once it's there
         const go = function() {
             try {
@@ -81229,6 +83529,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
                     return;
                 }
                 draw();
+                watch();
                 if (route.page === "details") {
                     let tries = 0;
                     const more = function() {
@@ -81447,6 +83748,53 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             P + ' .gp-meta .ml { font-weight: 500; color: #333; font-size: 14px; } ' + P + ' .gp-meta .mv { color: #777; font-size: 13px; margin-top: 2px; } ' + P + ' .gp-meta .mv a { color: ' + gd + '; }'
         );
         if (era === "p13") {
+            // (9.1) the card store's own style sheet (lowlife_css_ltr.css of 16 November 2013, 7 December 2014 and 7 April 2015,
+            // alike in all of this): Roboto 300 throughout, upright Thin headings, the line under the name in #8d8d8d, the
+            // 36px buttons, 160px cards with their price, 170px information cells, the rules, the strip and the footer
+            css.push(
+                P + ' { font-weight: 300; }',
+                P + ' .ugf-nt-gbar { font-weight: 400; }',
+                P + ' .gp-ch h2, ' + P + ' .gp-h { font: 100 28px Roboto, arial, sans-serif; font-style: normal; color: #333; }',
+                P + ' .gp-dinfo h1 { font: 300 28px/35px Roboto, arial, sans-serif; }',
+                P + ' .gp-dsub { color: #8d8d8d; font-size: 13px; font-weight: 300; } ' + P + ' .gp-dsub .dev, ' + P + ' .gp-dcat a { color: #8d8d8d; font-weight: 700; font-size: 13px; }',
+                P + ' .gp-install { height: 36px; padding: 0 20px; font: 500 14px Roboto, arial, sans-serif; box-shadow: 0 1px 0 rgba(0,0,0,.05); }',
+                P + ' .gp-wish { position: relative; width: 160px; height: 36px; padding: 0 0 0 44px; border: 1px solid rgba(0,0,0,.17); color: #737373 !important; font-size: 14px; font-weight: 400; }',
+                P + ' .gp-wish .wi { position: absolute; left: 12px; top: 1px; width: 32px; height: 32px; opacity: .65; background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAi0lEQVRIx+3WSw2AMBBF0ZGABDxcQ5WAFKQgoRKQgoNhMySwIMymQNLX5C36WZx2mqbm7vZlTAABBMguBBbAk1laAByY7KEBE+BNAJZs/QCOmvcHuLv9/QB0B/QOCPALADACc2R8BQAMQAHW6NeIx1iJNc0AW+Sy69NpHPNNABUoifoXoOpTKoAA2ewElNQgYQGcZgAAAABJRU5ErkJggg==) center / contain no-repeat; }',
+                P + ' .gp-wish:hover .wi { opacity: 1; }',
+                P + ' .gp-cards { grid-template-columns: repeat(auto-fill, 160px); gap: 10px; } ' + P + ' .gp-card .ci { padding: 16px; }',
+                P + ' .gp-card .ct { text-overflow: clip; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 45px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 45px), transparent); }',
+                P + ' .gp-card .cs { color: #aaa; }',
+                P + ' .gp-card .cr { display: flex; align-items: center; justify-content: space-between; } ' + P + ' .gp-card .cp { margin-left: auto; color: #b3c833; font-size: 13px; font-weight: 400; line-height: 17px; text-transform: uppercase; }',
+                P + ' .gp-dbody .gp-h, ' + P + ' .gp-dbody .gp-cluster { border-top: 1px solid #d6d6d6; padding-top: 24px; }',
+                P + ' .gp-meta { display: block; max-width: none; font-size: 0; }',
+                P + ' .gp-meta .mi2 { display: inline-block; vertical-align: top; width: 170px; padding: 10px 15px 10px 0; font-size: 14px; }',
+                P + ' .gp-meta .ml { color: #333; font-size: 14px; font-weight: 500; margin-bottom: 2px; } ' + P + ' .gp-meta .mv { color: #333; font-size: 14px; font-weight: 300; margin-top: 0; }',
+                P + ' .gp-meta .mv a { color: #15c; }',
+                P + ' .gp-shots .strip img { height: 285px; background: #fff; box-shadow: 0 0 4px rgba(0,0,0,.1); }',
+                P + ' .gp-shots .arrow { width: 38px; height: auto; align-self: stretch; background: none; box-shadow: none; opacity: .5; } ' + P + ' .gp-shots .arrow:hover { opacity: 1; }',
+                P + ' .gp-recrow { margin: 0; } ' + P + ' .gp-recrow .strip { flex: 0 1 1010px; min-width: 0; box-sizing: content-box; gap: 10px; padding: 8px; margin: -8px; scroll-snap-type: x mandatory; scroll-padding: 0 8px; }',
+                P + ' .gp-recrow .gp-card { flex: 0 0 160px; scroll-snap-align: start; } ' + P + ' .gp-recrow .strip .ci img { height: auto; background: none; box-shadow: none; }',
+                P + ' .gp-recrow .arrow { margin: 0 -15px 0 auto; } ',
+                // (9.1) Reviews (.details-section.reviews, .rating-box, .featured-review, .play-button of 2013-2015)
+                P + ' .gp-writerev { float: right; position: relative; margin: 7px 10px 0 0; height: 36px; min-height: 0; min-width: 0; text-transform: none; padding: 0 20px; box-sizing: border-box; border: 1px solid rgba(0,0,0,.17); border-radius: 2px; background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.05); color: #737373; font: 500 14px/34px Roboto, arial, sans-serif; white-space: nowrap; cursor: pointer; }',
+                P + ' .gp-writerev:hover { border-color: rgba(0,0,0,.27); box-shadow: 0 1px 0 0 rgba(0,0,0,.27); color: #333; }',
+                P + ' .gp-writerev .wr { display: inline-block; vertical-align: top; width: 16px; height: 16px; margin: 9px 4px 0 0; background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAcElEQVQY063OwQ3AIAhAUUbqSG7x13AERuwG9FITYlCx1oSb/4GYmZyM/AasHqCAASoiewBQ3riNpgGgApe7wABLAS66O2R9Qb/RIUXEdREQxG1q+zMEJrH6JSGQjUNgJx4B6TgLDOMMMI1D4OscAw/doO0neGauvwAAAABJRU5ErkJggg==) no-repeat; }',
+                P + ' .gp-revs { gap: 0; flex-wrap: nowrap; margin-top: 6px; }',
+                P + ' .gp-score { flex: none; width: 160px; height: 155px; box-sizing: border-box; padding: 20px 0; border-radius: 2px 0 0 2px; box-shadow: 0 2px 4px rgba(0,0,0,.1); } ' + P + ' .gp-score .tot { color: #8d8d8d; }',
+                P + ' .gp-score .big { font-weight: 100; }',
+                P + ' .gp-score .stars { font-size: 21px; letter-spacing: 6.7px; margin: ' + (ugf14() === "2014N" ? "2px 0 13px" : "6px 0 6px") + ' 7px; } ' + P + ' .gp-score .stars .s0 { color: #e3e3e3; } ' + P + ' .gp-score .stars .s1 { color: #737373; }',
+                P + ' .gp-hist { flex: none; width: 173px; height: 155px; box-sizing: border-box; padding: 20px 20px 20px 30px; margin-right: 11px; background: #fff; border-radius: 0 2px 2px 0; box-shadow: 0 2px 4px rgba(0,0,0,.1); clip-path: inset(-8px -8px -8px 0); }',
+                P + ' .gp-hist .hb { position: relative; height: 23px; gap: 0; font-size: 11px; color: #737373; font-weight: 400; } ' + P + ' .gp-hist .hn { position: absolute; left: -30px; width: 28px; letter-spacing: 1px; }',
+                P + ' .gp-hist .hbar { height: 100%; box-shadow: inset 0 0 0 99px rgba(255,255,255,.2); } ' + P + ' .gp-hist .hn .mi { margin-right: 4px; } ' + P + ' .gp-hist .hbar span { padding-left: 5px; font-size: 11px; }',
+                P + ' .gp-revlist { flex: 0 1 680px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 340px)); gap: 22px 0; align-content: start; }',
+                P + ' .gp-rev { min-width: 0; min-height: 85px; box-sizing: border-box; gap: 19px; margin: 0; padding: 0 5px 0 11px; }',
+                P + ' .gp-rev .rbody { min-width: 0; } ' + P + ' .gp-rev .rhead { white-space: nowrap; overflow: hidden; } ' + P + ' .gp-rev .rhead b { display: inline-block; vertical-align: middle; max-width: 162px; overflow: hidden; margin-right: 6px; color: #333; font-size: 13px; font-weight: 500; }',
+                P + ' .gp-rev .rtext { display: block; overflow: hidden; max-height: 66px; -webkit-mask: linear-gradient(#000, #000) 0 0 / 100% 44px no-repeat, linear-gradient(90deg, #000 calc(100% - 40px), transparent) 0 44px / 100% 22px no-repeat; mask: linear-gradient(#000, #000) 0 0 / 100% 44px no-repeat, linear-gradient(90deg, #000 calc(100% - 40px), transparent) 0 44px / 100% 22px no-repeat; margin-top: 4px; color: #8d8d8d; font: italic 300 16px/22px Roboto, Georgia, serif; }',
+                P + ' .gp-card .cs { text-overflow: clip; }',
+                P + ' .gp-revnx { flex: none; display: flex; align-items: center; justify-content: center; align-self: stretch; width: 38px; margin: 0 -15px 0 auto; opacity: .5; }',
+                P + ' .gp-foot { background: #e5e5e5; color: #555; font-weight: 400; padding-bottom: 30px; } ' + P + ' .gp-foot .fl { margin-left: 231px; padding: 28px 5px; }',
+                P + ' .gp-foot .copyright { margin-right: 10px; } ' + P + ' .gp-foot a { color: #8d8d8d; margin-left: 5px; } ' + P + ' .gp-foot a:hover { text-decoration: underline; }'
+            );
             return css;
         }
         // ---- July 2015 on: the app as one white card, Similar down the right; no italics
@@ -86357,6 +88705,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
             } else if (k === "escape") {
                 closeBubble();
                 closeMenu();
+                ugfGmailCloseMenus();   // (9.1) this handler stops the key before the menus' own Escape listeners
             } else {
                 return;
             }
@@ -86449,7 +88798,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
     // ---- how each period's Calendar looked -----------------------------------------
     function ugfCalCss(era) {
         const common = [
-            'html[gplex-cal] body > *:not(#ugf-cal):not(#ugf-cal-styles):not(#ugf-gmail-accmenu):not(#ugf-gmail-appsmenu):not(#ugf-gmail-accfence):not(script):not(style) { visibility: hidden !important; pointer-events: none !important; }',
+            'html[gplex-cal] body > *:not(#ugf-cal):not(#ugf-cal-styles):not(#ugf-gmail-accmenu):not(#ugf-gmail-appsmenu):not(#ugf-ma-appsfence):not(#ugf-gmail-accfence):not(#ugf-b13n):not(#ugf-b13n-fence):not(script):not(style) { visibility: hidden !important; pointer-events: none !important; }',
             'html[gplex-cal], html[gplex-cal] body { overflow: hidden !important; }',
             'html[gplex-cal] #ugf-gmail-accfence { z-index: 2147483600 !important; }',
             'html[gplex-cal] #ugf-gmail-accmenu, html[gplex-cal] #ugf-gmail-appsmenu { z-index: 2147483601 !important; text-align: left; }',
@@ -91525,7 +93874,7 @@ html[gplex-classroom] #ugf-gmail-accmenu a, html[gplex-classroom] #ugf-gmail-app
         };
         return [
             // Google's own app stays in place, hidden, so it can keep doing the searching
-            'html[gplex-maps] body > *:not(#ugf-maps):not(#ugf-maps-gbarwrap):not(#ugf-maps-styles):not(#ugf-gmail-accmenu):not(#ugf-gmail-appsmenu):not(#ugf-gmail-accfence):not(script):not(style) { visibility: hidden !important; pointer-events: none !important; }',
+            'html[gplex-maps] body > *:not(#ugf-maps):not(#ugf-maps-gbarwrap):not(#ugf-maps-styles):not(#ugf-gmail-accmenu):not(#ugf-gmail-appsmenu):not(#ugf-ma-appsfence):not(#ugf-gmail-accfence):not(#ugf-b13n):not(#ugf-b13n-fence):not(script):not(style) { visibility: hidden !important; pointer-events: none !important; }',
             // the account menu (shared with Gmail) opens above the Maps page
             'html[gplex-maps] #ugf-gmail-accfence { z-index: 2147483600 !important; }',
             'html[gplex-maps] #ugf-gmail-accmenu { z-index: 2147483601 !important; text-align: left; }',
